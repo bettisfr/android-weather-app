@@ -8,7 +8,7 @@ Local Weather is a native Android app for checking the weather where you are and
 - A scrollable 24-hour forecast and a 10-day forecast with a detail screen for each day.
 - Hourly charts for precipitation, wind, and humidity.
 - Sunrise, solar noon, sunset, civil twilight, and daylight duration, plus an expandable table of sunrise and sunset times for the next ten days.
-- Configurable units for temperature, wind speed, and pressure.
+- Configurable units for temperature, wind speed, and pressure. Defaults are °C, km/h, and hPa. Precipitation is shown in mm.
 
 ## Weather data
 
