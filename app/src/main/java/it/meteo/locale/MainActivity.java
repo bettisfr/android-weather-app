@@ -25,13 +25,17 @@ import android.widget.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
 
@@ -42,6 +46,7 @@ public final class MainActivity extends Activity {
     private static final String[] MOON_PHASE_NAMES = {"New moon", "Waxing crescent", "First quarter", "Waxing gibbous",
             "Full moon", "Waning gibbous", "Last quarter", "Waning crescent"};
     private static final String[] MOON_PHASE_ICONS = {"🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"};
+    private static final int ASTRONOMY_PAGE_SIZE = 4;
     private static final int FORECAST_DAYS = 10;
     private static final int LOCATION_PERMISSION = 1;
     private static final int DETAIL_CHART_HEIGHT_DP = 180;
@@ -365,9 +370,11 @@ public final class MainActivity extends Activity {
                     current.optDouble("relative_humidity_2m"), value(hourly, "dew_point_2m", todayHour),
                     value(hourly, "uv_index", todayHour),
                     current.optDouble("surface_pressure"));
+            details(hourly, daily, 0, todayHour, todayHour + 24, true);
+            title("Astronomy");
             sun(daily, 0);
             moon(daily, 0);
-            details(hourly, daily, 0, todayHour, todayHour + 24, true);
+            eclipsesAndTransits();
             page.addView(button("Weather data · Open-Meteo", () -> startActivity(new android.content.Intent(
                     android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://open-meteo.com/")))));
         } else {
@@ -790,6 +797,255 @@ public final class MainActivity extends Activity {
         tile.addView(phases);
         addUpcomingTimes(tile, daily, index, true);
         addSpaced(page, tile, 9);
+    }
+
+    private void eclipsesAndTransits() {
+        LinearLayout card = card();
+        LinearLayout content = column();
+        content.setVisibility(View.GONE);
+        TextView toggle = button("Eclipses & Transits  ▾", () -> {});
+        toggle.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        toggle.setPadding(dp(1), 0, dp(1), 0);
+        if (android.os.Build.VERSION.SDK_INT >= 30) toggle.setStateDescription("Collapsed");
+        double lat = latitude;
+        double lon = longitude;
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        toggle.setOnClickListener(v -> {
+            boolean open = content.getVisibility() != View.VISIBLE;
+            content.setVisibility(open ? View.VISIBLE : View.GONE);
+            toggle.setText(open ? "Eclipses & Transits  ▴" : "Eclipses & Transits  ▾");
+            if (android.os.Build.VERSION.SDK_INT >= 30) toggle.setStateDescription(open ? "Expanded" : "Collapsed");
+            if (!open || content.getChildCount() != 0) return;
+            for (boolean lunar : new boolean[]{false, true}) {
+                TextView heading = label(lunar ? "Lunar" : "Solar", 16, INK);
+                heading.setPadding(0, dp(10), 0, dp(4));
+                content.addView(heading);
+                LinearLayout events = column();
+                content.addView(events);
+                new EclipseList(events, lunar, lat, lon, zone).showNext();
+            }
+            TextView source = button("Eclipse data · IMCCE", () -> startActivity(new android.content.Intent(
+                    android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://opale.imcce.fr/"))));
+            source.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            source.setPadding(0, dp(8), 0, 0);
+            content.addView(source);
+            TextView heading = label("Planetary transits", 16, INK);
+            heading.setPadding(0, dp(14), 0, dp(6));
+            content.addView(heading);
+            List<TransitCatalog.Event> transits = TransitCatalog.upcoming(lat, lon, Instant.now());
+            if (transits.isEmpty()) content.addView(label("No visible upcoming transits in the catalog", 14, MUTED));
+            else {
+                LinearLayout list = column();
+                content.addView(list);
+                appendTransits(list, transits, zone, 0);
+            }
+            TextView transitSource = button("Transit Predictions by Fred Espenak, NASA/GSFC", () ->
+                    openAstronomyPage("https://eclipse.gsfc.nasa.gov/transit/transit.html"));
+            transitSource.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+            transitSource.setPadding(0, dp(4), 0, 0);
+            content.addView(transitSource);
+        });
+        card.addView(toggle);
+        card.addView(content);
+        page.addView(card);
+    }
+
+    private void appendTransits(LinearLayout list, List<TransitCatalog.Event> items, ZoneId zone, int start) {
+        int end = Math.min(items.size(), start + ASTRONOMY_PAGE_SIZE);
+        for (int i = start; i < end; i++) addTransit(list, items.get(i), zone);
+        if (end >= items.size()) return;
+        TextView more = button("More", () -> {});
+        more.setContentDescription("More planetary transits");
+        more.setOnClickListener(v -> {
+            list.removeView(more);
+            appendTransits(list, items, zone, end);
+        });
+        list.addView(more);
+    }
+
+    private final class EclipseList {
+        private final LinearLayout events;
+        private final LinearLayout footer;
+        private final List<EclipseCatalog.Event> items = new ArrayList<>();
+        private final boolean lunar;
+        private final double latitude;
+        private final double longitude;
+        private final ZoneId zone;
+        private int year;
+        private int shown;
+        private int goal;
+
+        EclipseList(LinearLayout parent, boolean lunar, double latitude, double longitude, ZoneId zone) {
+            this.lunar = lunar;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.zone = zone;
+            year = Instant.now().atZone(zone).getYear();
+            events = column();
+            footer = column();
+            parent.addView(events);
+            parent.addView(footer);
+        }
+
+        void showNext() {
+            goal = shown + ASTRONOMY_PAGE_SIZE;
+            fill(2);
+        }
+
+        private void fill(int requestsLeft) {
+            footer.removeAllViews();
+            int available = Math.min(goal, items.size());
+            while (shown < available) addEclipse(events, items.get(shown++), zone);
+            if (shown < goal && requestsLeft > 0) {
+                fetch(requestsLeft);
+                return;
+            }
+            if (shown == 0) footer.addView(label("No visible events through " + (year - 1), 14, MUTED));
+            TextView more = button("More", this::showNext);
+            more.setContentDescription(lunar ? "More lunar eclipses" : "More solar eclipses");
+            footer.addView(more);
+        }
+
+        private void fetch(int requestsLeft) {
+            footer.addView(loadingStatus("Loading eclipses…"));
+            int startYear = year;
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    return EclipseCatalog.upcoming(lunar, startYear, latitude, longitude, Instant.now());
+                } catch (Exception error) {
+                    android.util.Log.w("SkyHere", "Eclipse catalog unavailable: " + error, error);
+                    return null;
+                }
+            }).thenAccept(results -> runOnUiThread(() -> {
+                if (isDestroyed() || !footer.isAttachedToWindow()) return;
+                if (results == null) {
+                    footer.removeAllViews();
+                    footer.addView(label("Eclipse data unavailable", 14, MUTED));
+                    footer.addView(button("Retry", () -> fill(requestsLeft)));
+                    return;
+                }
+                year += EclipseCatalog.yearsPerRequest(lunar);
+                items.addAll(results);
+                fill(requestsLeft - 1);
+            }));
+        }
+    }
+
+    private void addEclipse(LinearLayout parent, EclipseCatalog.Event event, ZoneId zone) {
+        LinearLayout entry = column();
+        entry.setPadding(dp(11), dp(10), dp(11), dp(10));
+        entry.setBackground(background(0xfff1f3f8, 12));
+        linkAstronomyCard(entry, event.detailsUrl());
+        LinearLayout heading = row();
+        EclipseIcon icon = new EclipseIcon(this, event);
+        LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(36), dp(36));
+        iconSize.rightMargin = dp(9);
+        heading.addView(icon, iconSize);
+        LinearLayout title = column();
+        title.addView(label(event.type, 15, INK));
+        heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        heading.addView(astronomyLinkIcon());
+        entry.addView(heading);
+        ZonedDateTime start = event.start.atZone(zone);
+        ZonedDateTime end = event.end.atZone(zone);
+        DateTimeFormatter date = DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US);
+        TextView when = label(start.format(date), 13, MUTED);
+        when.setPadding(0, dp(3), 0, 0);
+        title.addView(when);
+        String range = start.format(clockFormat()) + " – " + end.format(clockFormat());
+        if (!start.toLocalDate().equals(end.toLocalDate())) range += " (next day)";
+        TextView visible = label("Visible " + range, 14, INK);
+        visible.setPadding(0, dp(7), 0, 0);
+        entry.addView(visible);
+        Duration duration = Duration.between(event.start, event.end);
+        long minutes = Math.max(1, Math.round(duration.getSeconds() / 60.0));
+        String durationText = minutes >= 60 ? String.format(Locale.US, "%dh %02dm", minutes / 60, minutes % 60) : minutes + " min";
+        String durationLabel = (event.horizonLimited ? "Approx. duration " : "Duration ") + durationText;
+        durationLabel += (event.estimatedPeak ? " · Best visible " : " · Peak ")
+                + event.maximum.atZone(zone).format(clockFormat());
+        TextView details = label(durationLabel, 13, MUTED);
+        details.setPadding(0, dp(3), 0, 0);
+        entry.addView(details);
+        if (Double.isFinite(event.obscuration)) {
+            String disk = event.lunar ? event.penumbral ? " of the Moon in penumbra" : " of the Moon in Earth's shadow"
+                    : " of the Sun covered";
+            TextView coverage = label((event.estimatedPeak ? "Approx. " : "") + percent(event.obscuration) + disk, 13, ACCENT);
+            coverage.setPadding(0, dp(3), 0, 0);
+            entry.addView(coverage);
+        }
+        addSpaced(parent, entry, 7);
+    }
+
+    private void addTransit(LinearLayout parent, TransitCatalog.Event event, ZoneId zone) {
+        LinearLayout entry = column();
+        entry.setPadding(dp(11), dp(10), dp(11), dp(10));
+        entry.setBackground(background(0xfff1f3f8, 12));
+        linkAstronomyCard(entry, event.detailsUrl());
+
+        LinearLayout header = row();
+        View icon = new View(this) {
+            private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(android.graphics.Canvas canvas) {
+                float x = getWidth() / 2f;
+                float y = getHeight() / 2f;
+                float radius = Math.min(x, y) * .73f;
+                paint.setColor(0xffffeaca);
+                canvas.drawCircle(x, y, radius * 1.25f, paint);
+                paint.setColor(0xffe9a946);
+                canvas.drawCircle(x, y, radius, paint);
+                paint.setColor(0xff293a58);
+                canvas.drawCircle(x + radius * .12f, y + radius * .20f,
+                        radius * (event.transit.planet.equals("Mercury") ? .10f : .18f), paint);
+            }
+        };
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(36), dp(36));
+        iconSize.rightMargin = dp(9);
+        header.addView(icon, iconSize);
+        LinearLayout title = column();
+        title.addView(label("Transit of " + event.transit.planet, 15, INK));
+        ZonedDateTime date = event.visibleStart.atZone(zone);
+        TextView when = label(date.format(DateTimeFormatter.ofPattern("EEE, MMM d, yyyy", Locale.US)), 13, MUTED);
+        when.setPadding(0, dp(3), 0, 0);
+        title.addView(when);
+        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
+        header.addView(astronomyLinkIcon());
+        entry.addView(header);
+
+        ZonedDateTime start = event.visibleStart.atZone(zone);
+        ZonedDateTime end = event.visibleEnd.atZone(zone);
+        String range = start.format(clockFormat()) + " – " + end.format(clockFormat());
+        if (!start.toLocalDate().equals(end.toLocalDate())) range += " (next day)";
+        TextView visible = label("Approx. visible " + range, 14, INK);
+        visible.setPadding(0, dp(7), 0, 0);
+        entry.addView(visible);
+        long minutes = Math.max(1, Math.round(Duration.between(event.visibleStart, event.visibleEnd).getSeconds() / 60.0));
+        String duration = minutes >= 60 ? String.format(Locale.US, "%dh %02dm", minutes / 60, minutes % 60) : minutes + " min";
+        TextView details = label("Approx. duration " + duration, 13, MUTED);
+        details.setPadding(0, dp(3), 0, 0);
+        entry.addView(details);
+        addSpaced(parent, entry, 7);
+    }
+
+    private TextView astronomyLinkIcon() {
+        TextView link = label("↗", 19, ACCENT);
+        link.setContentDescription("Opens details in a browser");
+        link.setPadding(dp(8), 0, dp(3), 0);
+        return link;
+    }
+
+    private void linkAstronomyCard(View card, String url) {
+        card.setForeground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x22435e94), null, background(Color.WHITE, 12)));
+        card.setOnClickListener(v -> openAstronomyPage(url));
+    }
+
+    private void openAstronomyPage(String url) {
+        try {
+            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)));
+        } catch (android.content.ActivityNotFoundException error) {
+            Toast.makeText(this, "No browser available", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private static int moonPhaseIndex(double phase) {
