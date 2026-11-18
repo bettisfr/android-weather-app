@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 
 final class OpenMeteo {
     private static final String CURRENT = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,is_day";
-    private static final String HOURLY = "temperature_2m,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_direction_10m,relative_humidity_2m,dew_point_2m,uv_index,is_day";
+    private static final String HOURLY = "temperature_2m,apparent_temperature,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,dew_point_2m,uv_index,is_day";
     private static final String DAILY = "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,relative_humidity_2m_mean";
 
     static JSONObject forecast(double latitude, double longitude) throws Exception {

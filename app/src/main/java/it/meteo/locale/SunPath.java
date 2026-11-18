@@ -12,20 +12,19 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
 final class SunPath extends View {
+    private static final float MINUTES_PER_DAY = 24 * 60;
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final int nowMinute;
     private final int riseMinute;
     private final int setMinute;
-    private final int twilightMinutes;
 
-    SunPath(Context context, String sunrise, String sunset, String time, int twilightMinutes) {
+    SunPath(Context context, String sunrise, String sunset, String time) {
         super(context);
         nowMinute = minutes(time);
         riseMinute = minutes(sunrise);
         setMinute = minutes(sunset);
-        this.twilightMinutes = twilightMinutes;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
 
@@ -35,23 +34,23 @@ final class SunPath extends View {
         float left = 5 * density;
         float width = getWidth() - 10 * density;
         if (riseMinute < 0 || setMinute <= riseMinute || width <= 0) return;
-        float horizon = getHeight() * .62f;
-        float amplitude = Math.min(horizon, getHeight() - horizon) * .69f;
-        float progress = (float) (nowMinute - riseMinute) / (setMinute - riseMinute);
-        float phase = .25f + .5f * progress;
-        if (twilightMinutes > 0) {
-            if (nowMinute < riseMinute) phase = .25f + .25f * (nowMinute - riseMinute) / twilightMinutes;
-            if (nowMinute > setMinute) phase = .75f + .25f * (nowMinute - setMinute) / twilightMinutes;
-        }
+        float center = getHeight() * .5f;
+        float amplitude = getHeight() * .35f;
+        float daylightFraction = (setMinute - riseMinute) / MINUTES_PER_DAY;
+        float sunrisePhase = .5f - daylightFraction / 2;
+        float sunsetPhase = .5f + daylightFraction / 2;
+        float horizon = curveY(center, amplitude, sunrisePhase);
+        float midpoint = (riseMinute + setMinute) / 2f;
+        float phase = .5f + (nowMinute - midpoint) / MINUTES_PER_DAY;
         float elapsed = Math.max(0, Math.min(1, phase));
 
-        fill(canvas, left, width, horizon, amplitude, .25f, .75f, 0xfff8efdc);
+        fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, sunsetPhase, 0xfff8efdc);
         if (nowMinute >= 0) {
-            fill(canvas, left, width, horizon, amplitude, 0, Math.min(.25f, elapsed), 0xff344a65);
-            fill(canvas, left, width, horizon, amplitude, .25f, Math.min(.75f, elapsed), 0xffedc779);
-            fill(canvas, left, width, horizon, amplitude, .75f, elapsed, 0xff344a65);
+            fill(canvas, left, width, center, amplitude, horizon, 0, Math.min(sunrisePhase, elapsed), 0xff344a65);
+            fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, Math.min(sunsetPhase, elapsed), 0xffedc779);
+            fill(canvas, left, width, center, amplitude, horizon, sunsetPhase, elapsed, 0xff344a65);
         }
-        curve(left, width, horizon, amplitude, 0, 1);
+        curve(left, width, center, amplitude, 0, 1);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(density);
         paint.setColor(0xff8a96a5);
@@ -59,14 +58,14 @@ final class SunPath extends View {
         canvas.drawLine(left, horizon, left + width, horizon, paint);
         if (nowMinute >= 0 && phase >= 0 && phase <= 1) {
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(progress >= 0 && progress <= 1 ? 0xffbe7d1e : 0xff344a65);
-            canvas.drawCircle(left + width * phase, curveY(horizon, amplitude, phase), 4.5f * density, paint);
+            paint.setColor(nowMinute >= riseMinute && nowMinute <= setMinute ? 0xffbe7d1e : 0xff344a65);
+            canvas.drawCircle(left + width * phase, curveY(center, amplitude, phase), 4.5f * density, paint);
         }
     }
 
-    private void fill(Canvas canvas, float left, float width, float horizon, float amplitude, float start, float end, int color) {
+    private void fill(Canvas canvas, float left, float width, float center, float amplitude, float horizon, float start, float end, int color) {
         if (end <= start) return;
-        curve(left, width, horizon, amplitude, start, end);
+        curve(left, width, center, amplitude, start, end);
         path.lineTo(left + width * end, horizon);
         path.lineTo(left + width * start, horizon);
         path.close();
@@ -75,18 +74,18 @@ final class SunPath extends View {
         canvas.drawPath(path, paint);
     }
 
-    private void curve(float left, float width, float horizon, float amplitude, float start, float end) {
+    private void curve(float left, float width, float center, float amplitude, float start, float end) {
         path.reset();
-        path.moveTo(left + width * start, curveY(horizon, amplitude, start));
+        path.moveTo(left + width * start, curveY(center, amplitude, start));
         for (int i = 1; i <= 64; i++) {
             float phase = start + (end - start) * i / 64f;
-            path.lineTo(left + width * phase, curveY(horizon, amplitude, phase));
+            path.lineTo(left + width * phase, curveY(center, amplitude, phase));
         }
     }
 
-    private static float curveY(float horizon, float amplitude, float phase) {
+    private static float curveY(float center, float amplitude, float phase) {
         double elevation = -Math.cos(phase * 2 * Math.PI);
-        return horizon - amplitude * (float) elevation;
+        return center - amplitude * (float) elevation;
     }
 
     static int civilTwilightMinutes(LocalDate date, double latitude) {

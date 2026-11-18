@@ -10,11 +10,12 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.os.Handler;
 import android.os.Looper;
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.StateListDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -39,7 +40,7 @@ public final class MainActivity extends Activity {
     private static final DateTimeFormatter DETAIL_CLOCK = DateTimeFormatter.ofPattern("h a", Locale.US);
     private static final int FORECAST_DAYS = 10;
     private static final int LOCATION_PERMISSION = 1;
-    private static final int DETAIL_CHART_HEIGHT_DP = 116;
+    private static final int DETAIL_CHART_HEIGHT_DP = 156;
     private static final int INK = 0xff242d40;
     private static final int MUTED = 0xff546074;
     private static final int ACCENT = 0xff435e94;
@@ -432,7 +433,7 @@ public final class MainActivity extends Activity {
         box.addView(tabs);
         LinearLayout body = column();
         box.addView(body);
-        String[] titles = {"Precipitation", "Wind", "Humidity"};
+        String[] titles = {"Precipitation", "Wind", "Humidity", "Temperature"};
         TextView[] buttons = new TextView[titles.length];
         java.util.function.IntConsumer select = tab -> {
             for (int i = 0; i < buttons.length; i++) buttons[i].setBackground(background(i == tab ? 0xffd9e3f8 : 0xfff1f3f8, 8));
@@ -446,37 +447,24 @@ public final class MainActivity extends Activity {
             } else if (tab == 1) {
                 detailSummary(summary, "Daily high", windSpeed(value(daily, "wind_speed_10m_max", index), true));
                 detailSummary(summary, "Daily average", windSpeed(hourlyDaySummary(hourly, "wind_speed_10m", date, false), true));
-            } else {
+            } else if (tab == 2) {
                 detailSummary(summary, "Daily high", percent(hourlyDaySummary(hourly, "relative_humidity_2m", date, true)));
                 detailSummary(summary, "Daily average", percent(value(daily, "relative_humidity_2m_mean", index)));
+            } else {
+                detailSummary(summary, "Daily high", temp(value(daily, "temperature_2m_max", index)));
+                detailSummary(summary, "Daily low", temp(value(daily, "temperature_2m_min", index)));
             }
-            LinearLayout series = carousel(body);
-            series.setGravity(Gravity.BOTTOM);
-            View viewport = (View) series.getParent();
-            viewport.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(DETAIL_CHART_HEIGHT_DP)));
-            for (int i = start; i < Math.min(end, length(hourly)); i++) {
-                String hour = i == start && now ? "Now" : clock(at(hourly, "time", i), DETAIL_CLOCK);
-                if (tab == 0) {
-                    double mm = value(hourly, "precipitation", i);
-                    graphColumn(series, number(mm, "%.1f"), Math.min(1, mm / 6), 0xff479bb5,
-                            number(value(hourly, "precipitation_probability", i), "%.0f") + "%", hour);
-                } else if (tab == 1) {
-                    windColumn(series, value(hourly, "wind_direction_10m", i),
-                            windSpeed(value(hourly, "wind_speed_10m", i), false), hour);
-                } else {
-                    double humidity = value(hourly, "relative_humidity_2m", i);
-                    graphColumn(series, percent(humidity), humidity / 100, humidityColor(humidity), null, hour);
-                }
-            }
+            hourlyPlot(body, hourly, start, Math.min(end, length(hourly)), now, tab);
         };
         for (int i = 0; i < titles.length; i++) {
             final int tab = i;
             buttons[i] = button(titles[i], () -> select.accept(tab));
-            buttons[i].setTextSize(12.5f);
+            buttons[i].setTextSize(12);
+            buttons[i].setGravity(Gravity.CENTER);
             buttons[i].setMinHeight(dp(36));
             buttons[i].setPadding(dp(4), dp(5), dp(4), dp(5));
-            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -2, i == 0 ? 1.35f : 1f);
-            if (i > 0) size.leftMargin = dp(6);
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, dp(36), i == 0 || i == 3 ? 1.25f : 1f);
+            if (i > 0) size.leftMargin = dp(4);
             tabs.addView(buttons[i], size);
         }
         select.accept(0);
@@ -506,40 +494,89 @@ public final class MainActivity extends Activity {
         return high ? maximum : total / count;
     }
 
-    private void graphColumn(LinearLayout parent, String title, double fraction, int color, String extra, String hour) {
-        LinearLayout cell = column();
-        cell.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
-        boolean humidity = extra == null;
-        parent.addView(cell, new LinearLayout.LayoutParams(detailHourWidth(), dp(DETAIL_CHART_HEIGHT_DP)));
-        cell.addView(label(title, 12, humidity ? INK : MUTED), new LinearLayout.LayoutParams(-2, -2));
-        View bar = new View(this);
-        bar.setBackground(background(color, humidity ? 13 : 8));
-        int height = Double.isFinite(fraction) ? Math.max(3, (int) ((humidity ? 72 : 51) * Math.min(1, fraction))) : 0;
-        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(dp(humidity ? 28 : 29), dp(height));
-        size.setMargins(0, dp(humidity ? 4 : 7), 0, dp(humidity ? 5 : 8));
-        cell.addView(bar, size);
-        if (extra != null) {
-            LinearLayout.LayoutParams probability = new LinearLayout.LayoutParams(-2, -2);
-            probability.bottomMargin = dp(7);
-            cell.addView(label(extra, 12, INK), probability);
+    private void hourlyPlot(LinearLayout body, JSONObject hourly, int start, int end, boolean now, int tab) {
+        boolean precipitation = tab == 0;
+        boolean wind = tab == 1;
+        boolean humidity = tab == 2;
+        LinearLayout chart = column();
+        int topGap = dp(8);
+        int legendHeight = dp(19);
+        int legendGap = dp(5);
+        int timeHeight = dp(20);
+        int directionHeight = wind ? dp(25) : 0;
+        chart.setPadding(0, topGap, 0, 0);
+        body.addView(chart, new LinearLayout.LayoutParams(-1, dp(DETAIL_CHART_HEIGHT_DP)));
+        String firstName = new String[]{"Amount", "Wind speed", "Humidity", "Temperature"}[tab];
+        String secondName = new String[]{"Rain chance", "Gusts", "", "Feels like"}[tab];
+        LinearLayout legend = row();
+        legend.addView(label((precipitation ? "■ " : "● ") + firstName, 11, HourlyLineChart.PRIMARY));
+        if (!humidity) {
+            TextView secondKey = label("┄ " + secondName, 11, HourlyLineChart.SECONDARY);
+            secondKey.setPadding(dp(12), 0, 0, 0);
+            legend.addView(secondKey);
         }
-        cell.addView(label(hour, 10, MUTED), new LinearLayout.LayoutParams(-2, -2));
-    }
+        String unit = new String[]{"mm", WIND_UNITS[windUnit], "%", fahrenheit ? "°F" : "°C"}[tab];
+        TextView units = label(precipitation ? "mm / %" : unit, 11, MUTED);
+        units.setGravity(Gravity.END);
+        legend.addView(units, new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout.LayoutParams legendSize = new LinearLayout.LayoutParams(-1, legendHeight);
+        legendSize.bottomMargin = legendGap;
+        chart.addView(legend, legendSize);
 
-    private int detailHourWidth() {
+        String firstKey = new String[]{"precipitation", "wind_speed_10m", "relative_humidity_2m", "temperature_2m"}[tab];
+        String secondField = new String[]{"precipitation_probability", "wind_gusts_10m", "", "apparent_temperature"}[tab];
+        int count = Math.max(0, end - start);
+        double[] first = new double[count];
+        double[] second = new double[humidity ? 0 : count];
+        for (int i = 0; i < count; i++) {
+            double a = value(hourly, firstKey, start + i);
+            first[i] = wind ? a * WIND_FACTORS[windUnit] : tab == 3 ? displayTemperature(a) : a;
+            if (!humidity) {
+                double b = value(hourly, secondField, start + i);
+                second[i] = wind ? b * WIND_FACTORS[windUnit] : tab == 3 ? displayTemperature(b) : b;
+            }
+        }
+
+        int scaleWidth = dp(24);
         int screenWidth = dp(getResources().getConfiguration().screenWidthDp);
-        return Math.max(dp(36), (screenWidth - 2 * (dp(16) + dp(13))) / 8);
+        int hourWidth = Math.max(dp(32), (screenWidth - 2 * (dp(16) + dp(13)) - scaleWidth * (precipitation ? 2 : 1)) / 8);
+        int plotHeight = dp(DETAIL_CHART_HEIGHT_DP) - topGap - legendHeight - legendGap - timeHeight - directionHeight;
+        HourlyLineChart plot = new HourlyLineChart(this, first, second, hourWidth, precipitation, humidity,
+                precipitation || (wind && windUnit == 2) ? 1 : 0);
+        LinearLayout plotRow = row();
+        plotRow.setGravity(Gravity.TOP);
+        chart.addView(plotRow, new LinearLayout.LayoutParams(-1, 0, 1));
+        plotRow.addView(plot.scale(false), new LinearLayout.LayoutParams(scaleWidth, plotHeight));
+        HorizontalScrollView viewport = new HorizontalScrollView(this);
+        viewport.setHorizontalScrollBarEnabled(false);
+        plotRow.addView(viewport, new LinearLayout.LayoutParams(0, -1, 1));
+        if (precipitation) plotRow.addView(plot.scale(true), new LinearLayout.LayoutParams(scaleWidth, plotHeight));
+        LinearLayout series = column();
+        viewport.addView(series);
+        series.addView(plot, new LinearLayout.LayoutParams(hourWidth * count, plotHeight));
+        LinearLayout hours = row();
+        series.addView(hours);
+        for (int i = 0; i < count; i++) {
+            int index = start + i;
+            String hour = index == start && now ? "Now" : clock(at(hourly, "time", index), DETAIL_CLOCK);
+            LinearLayout cell = column();
+            cell.setGravity(Gravity.CENTER_HORIZONTAL);
+            if (wind) {
+                cell.addView(new WindIndicator(this, value(hourly, "wind_direction_10m", index)),
+                        new LinearLayout.LayoutParams(dp(22), directionHeight));
+            }
+            TextView time = label(hour, 10, MUTED);
+            time.setGravity(Gravity.CENTER);
+            String description = hour + ", " + lineReading(firstName, first[i], unit);
+            if (!humidity) description += ", " + lineReading(secondName, second[i], precipitation ? "%" : unit);
+            time.setContentDescription(description);
+            cell.addView(time, new LinearLayout.LayoutParams(-1, timeHeight));
+            hours.addView(cell, new LinearLayout.LayoutParams(hourWidth, -2));
+        }
     }
 
-    private void windColumn(LinearLayout parent, double direction, String speed, String time) {
-        LinearLayout cell = column();
-        cell.setGravity(Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
-        parent.addView(cell, new LinearLayout.LayoutParams(detailHourWidth(), dp(DETAIL_CHART_HEIGHT_DP)));
-        cell.addView(new WindIndicator(this, direction), new LinearLayout.LayoutParams(dp(32), dp(32)));
-        TextView reading = label(speed, 10, INK);
-        reading.setPadding(0, dp(8), 0, dp(4));
-        cell.addView(reading, new LinearLayout.LayoutParams(-2, -2));
-        cell.addView(label(time, 10, MUTED), new LinearLayout.LayoutParams(-2, -2));
+    private String lineReading(String name, double value, String unit) {
+        return Double.isFinite(value) ? name + " " + number(value, "%.1f") + " " + unit : name + " unavailable";
     }
 
     private void metrics(String wind, double direction, double humidity, double dewPoint, double uv, double pressure) {
@@ -606,12 +643,6 @@ public final class MainActivity extends Activity {
         return Double.isFinite(value) ? number(value, "%.0f") + "%" : "—";
     }
 
-    private static int humidityColor(double humidity) {
-        if (humidity >= 80) return 0xffc0772a;
-        if (humidity >= 60) return 0xffd88e37;
-        return 0xffe7ae66;
-    }
-
     private LinearLayout metric(String title, String value) {
         LinearLayout tile = card();
         tile.addView(label(title, 14, MUTED));
@@ -674,7 +705,7 @@ public final class MainActivity extends Activity {
         LinearLayout chart = column();
         content.addView(chart, new LinearLayout.LayoutParams(0, -2, 1));
         chart.addView(new SunPath(this, sunrise, sunset,
-                clock(data.optJSONObject("current").optString("time")), twilight),
+                clock(data.optJSONObject("current").optString("time"))),
                 new LinearLayout.LayoutParams(-1, dp(90)));
         LinearLayout legend = row();
         legend.setPadding(dp(5), 0, dp(5), 0);
@@ -752,36 +783,84 @@ public final class MainActivity extends Activity {
     }
 
     private void units() {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         LinearLayout options = column();
-        options.setPadding(dp(20), dp(8), dp(20), dp(8));
-        Spinner temperatures = unitOption(options, "Temperature", new String[]{"Celsius (°C)", "Fahrenheit (°F)"}, fahrenheit ? 1 : 0);
-        Spinner winds = unitOption(options, "Wind speed", WIND_UNITS, windUnit);
-        Spinner pressures = unitOption(options, "Pressure", PRESSURE_UNITS, pressureUnit);
-        new AlertDialog.Builder(this).setTitle("Units").setView(options)
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Save", (dialog, which) -> {
-                    fahrenheit = temperatures.getSelectedItemPosition() == 1;
-                    windUnit = winds.getSelectedItemPosition();
-                    pressureUnit = pressures.getSelectedItemPosition();
-                    getPreferences(MODE_PRIVATE).edit().putBoolean("fahrenheit", fahrenheit)
-                            .putInt("windUnit", windUnit).putInt("pressureUnit", pressureUnit).apply();
-                    if (data != null) render();
-                }).show();
+        options.setPadding(dp(20), dp(22), dp(20), dp(18));
+        ScrollView sheet = new ScrollView(this);
+        sheet.setBackground(background(Color.WHITE, 24));
+        sheet.addView(options);
+        dialog.setContentView(sheet);
+
+        TextView heading = label("Units", 26, INK);
+        heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        options.addView(heading);
+        RadioGroup temperatures = unitOption(options, "Temperature",
+                new String[]{"Celsius (°C)", "Fahrenheit (°F)"}, fahrenheit ? 1 : 0);
+        RadioGroup winds = unitOption(options, "Wind speed", WIND_UNITS, windUnit);
+        RadioGroup pressures = unitOption(options, "Pressure", PRESSURE_UNITS, pressureUnit);
+
+        LinearLayout actions = row();
+        actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        actions.setPadding(0, dp(22), 0, 0);
+        actions.addView(button("Cancel", dialog::dismiss));
+        TextView apply = button("Apply", () -> {
+            fahrenheit = selectedUnit(temperatures) == 1;
+            windUnit = selectedUnit(winds);
+            pressureUnit = selectedUnit(pressures);
+            getPreferences(MODE_PRIVATE).edit().putBoolean("fahrenheit", fahrenheit)
+                    .putInt("windUnit", windUnit).putInt("pressureUnit", pressureUnit).apply();
+            dialog.dismiss();
+            if (data != null) render();
+        });
+        apply.setBackground(background(ACCENT, 14));
+        apply.setTextColor(Color.WHITE);
+        apply.setPadding(dp(24), dp(8), dp(24), dp(8));
+        LinearLayout.LayoutParams applySize = new LinearLayout.LayoutParams(-2, -2);
+        applySize.leftMargin = dp(10);
+        actions.addView(apply, applySize);
+        options.addView(actions);
+
+        android.view.Window window = dialog.getWindow();
+        window.setBackgroundDrawableResource(android.R.color.transparent);
+        window.setGravity(Gravity.BOTTOM);
+        dialog.show();
+        window.setLayout(-1, -2);
     }
 
-    private Spinner unitOption(LinearLayout parent, String name, String[] values, int selected) {
-        TextView title = label(name, 14, MUTED);
-        title.setPadding(0, dp(10), 0, 0);
+    private RadioGroup unitOption(LinearLayout parent, String name, String[] values, int selected) {
+        TextView title = label(name, 15, INK);
+        title.setPadding(0, dp(17), 0, dp(8));
         parent.addView(title);
-        Spinner spinner = new Spinner(this);
-        spinner.setId(View.generateViewId());
-        title.setLabelFor(spinner.getId());
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, values);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinner.setAdapter(adapter);
-        spinner.setSelection(selected);
-        parent.addView(spinner, new LinearLayout.LayoutParams(-1, dp(44)));
-        return spinner;
+        RadioGroup choices = new RadioGroup(this);
+        choices.setOrientation(LinearLayout.HORIZONTAL);
+        choices.setId(View.generateViewId());
+        title.setLabelFor(choices.getId());
+        for (int i = 0; i < values.length; i++) {
+            RadioButton option = new RadioButton(this);
+            option.setId(View.generateViewId());
+            option.setText(values[i]);
+            option.setTextColor(INK);
+            option.setTextSize(14);
+            option.setGravity(Gravity.CENTER);
+            option.setButtonDrawable((android.graphics.drawable.Drawable) null);
+            option.setPadding(dp(4), dp(8), dp(4), dp(8));
+            StateListDrawable surface = new StateListDrawable();
+            surface.addState(new int[]{android.R.attr.state_checked}, background(0xffd9e3f8, 12));
+            surface.addState(new int[]{}, background(0xfff1f3f8, 12));
+            option.setBackground(surface);
+            RadioGroup.LayoutParams size = new RadioGroup.LayoutParams(0, -2, 1);
+            if (i > 0) size.leftMargin = dp(6);
+            option.setMinHeight(dp(46));
+            choices.addView(option, size);
+        }
+        choices.check(choices.getChildAt(selected).getId());
+        parent.addView(choices);
+        return choices;
+    }
+
+    private static int selectedUnit(RadioGroup choices) {
+        return choices.indexOfChild(choices.findViewById(choices.getCheckedRadioButtonId()));
     }
 
     private void locations() {
@@ -1014,7 +1093,11 @@ public final class MainActivity extends Activity {
     }
 
     private String temp(double celsius) {
-        return number(fahrenheit ? celsius * 1.8 + 32 : celsius, "%.0f") + "°";
+        return number(displayTemperature(celsius), "%.0f") + "°";
+    }
+
+    private double displayTemperature(double celsius) {
+        return fahrenheit ? celsius * 1.8 + 32 : celsius;
     }
 
     private static String number(double value, String format) {

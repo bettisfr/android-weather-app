@@ -29,20 +29,10 @@ final class WindIndicator extends View {
         canvas.save();
         canvas.translate(getWidth() / 2f, getHeight() / 2f);
         canvas.scale(radius, radius);
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(0xffe5f2ed);
-        canvas.drawCircle(0, 0, 0.89f, paint);
-        paint.setColor(0xffa2b8ae);
-        paint.setStrokeWidth(0.04f);
-        for (int i = 0; i < 4; i++) {
-            canvas.drawLine(0, -0.82f, 0, -0.70f, paint);
-            canvas.rotate(90);
-        }
-        paint.setColor(0xff304f46);
-        canvas.drawCircle(0, -0.93f, 0.07f, paint);
         if (Double.isFinite(degrees)) {
             canvas.rotate((float) (degrees + 180));
-            paint.setColor(0xff007768);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(0xff435e94);
             canvas.drawPath(pointer, paint);
         }
         canvas.restore();
