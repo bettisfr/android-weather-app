@@ -1,18 +1,19 @@
 # SkyHere
 
-SkyHere is a native Android app for checking the weather where you are and in places you save. The interface is in US English.
+SkyHere is a native Android app for checking the weather where you are and in places you save. The interface follows Android’s language settings and is available in English and Italian.
 
 ## Features
 
 - Current conditions for the phone's location, with manual search and saved locations.
 - A scrollable 24-hour forecast and a 10-day forecast with a detail screen for each day.
-- Hourly charts for precipitation, wind, and humidity.
+- Hourly charts for precipitation, wind and gusts, humidity, and temperature with its feels-like value.
 - Sunrise, solar noon, sunset, civil twilight, and daylight duration, plus an expandable table of sunrise and sunset times for the next ten days.
-- Configurable units for temperature, wind speed, and pressure. Defaults are °C, km/h, and hPa. Precipitation is shown in mm.
+- Lunar phases and rise/set times, plus location-aware solar and lunar eclipses and planetary transits.
+- Configurable units and time format. Defaults are °C, km/h, hPa, and a 24-hour clock. Precipitation is shown in mm.
 
 ## Weather data
 
-[Open-Meteo](https://open-meteo.com/) supplies the forecasts and location search. Where available, the app uses [ItaliaMeteo/ARPAE ICON-2I](https://open-meteo.com/en/docs/italia-meteo-arpae-api) for the first three days and ECMWF IFS for the extended forecast. Open-Meteo's Best Match fills in missing forecast fields. Solar noon and civil twilight are calculated in the app using [NOAA solar equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF).
+[Open-Meteo](https://open-meteo.com/) supplies the forecasts and location search. Where available, the app uses [ItaliaMeteo/ARPAE ICON-2I](https://open-meteo.com/en/docs/italia-meteo-arpae-api) for the first three days and ECMWF IFS for the extended forecast. Open-Meteo's Best Match fills in missing forecast fields. Solar noon and civil twilight are calculated in the app using [NOAA solar equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF). Eclipses use [IMCCE OPALE](https://opale.imcce.fr/). [Transit Predictions by Fred Espenak, NASA/GSFC](https://eclipse.gsfc.nasa.gov/transit/catalog/Visible.html) supply the transit catalog.
 
 The app asks for location access while in use. Android resolves the name of the detected location, and city search remains available if location access is denied or unavailable.
 

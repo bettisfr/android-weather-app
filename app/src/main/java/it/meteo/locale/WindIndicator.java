@@ -19,7 +19,8 @@ final class WindIndicator extends View {
         pointer.lineTo(0, 0.22f);
         pointer.lineTo(-0.40f, 0.40f);
         pointer.close();
-        setContentDescription(Double.isFinite(degrees) ? "Wind from " + Math.round(degrees) + " degrees" : "Wind direction unavailable");
+        setContentDescription(Double.isFinite(degrees) ? context.getString(R.string.wind_from_degrees, Math.round(degrees))
+                : context.getString(R.string.wind_direction_unavailable));
     }
 
     @Override protected void onDraw(Canvas canvas) {

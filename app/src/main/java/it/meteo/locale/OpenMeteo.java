@@ -86,8 +86,8 @@ final class OpenMeteo {
         }
     }
 
-    static JSONObject search(String query) throws Exception {
-        return read("https://geocoding-api.open-meteo.com/v1/search?count=12&language=en&name="
+    static JSONObject search(String query, String language) throws Exception {
+        return read("https://geocoding-api.open-meteo.com/v1/search?count=12&language=" + language + "&name="
                 + URLEncoder.encode(query, "UTF-8"));
     }
 

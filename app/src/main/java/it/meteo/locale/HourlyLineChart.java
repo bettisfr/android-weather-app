@@ -5,6 +5,7 @@ import android.graphics.Canvas;
 import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.util.TypedValue;
 import android.view.View;
 import java.util.Locale;
 
@@ -16,6 +17,8 @@ final class HourlyLineChart extends View {
     private final Path path = new Path();
     private final DashPathEffect dashed;
     private final float density;
+    private final float readingTextSize;
+    private final float scaleTextSize;
     private final double[] first;
     private final double[] second;
     private final int hourWidth;
@@ -23,6 +26,7 @@ final class HourlyLineChart extends View {
     private final double high;
     private final boolean hasReadings;
     private final boolean precipitation;
+    private final Locale locale;
     private final int decimals;
 
     HourlyLineChart(Context context, double[] first, double[] second, int hourWidth, boolean precipitation, boolean humidity, int decimals) {
@@ -31,8 +35,12 @@ final class HourlyLineChart extends View {
         this.second = second;
         this.hourWidth = hourWidth;
         this.precipitation = precipitation;
+        locale = Locale.forLanguageTag(context.getString(R.string.app_language_tag));
         this.decimals = decimals;
-        density = getResources().getDisplayMetrics().density;
+        android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+        density = metrics.density;
+        readingTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 9, metrics);
+        scaleTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 9.5f, metrics);
         dashed = new DashPathEffect(new float[]{4 * density, 3 * density}, 0);
         double minimum = Double.POSITIVE_INFINITY;
         double maximum = Double.NEGATIVE_INFINITY;
@@ -80,13 +88,13 @@ final class HourlyLineChart extends View {
             @Override protected void onDraw(Canvas canvas) {
                 if (!hasReadings) return;
                 labels.setColor(0xff546074);
-                labels.setTextSize(9.5f * density);
+                labels.setTextSize(scaleTextSize);
                 labels.setTextAlign(right ? Paint.Align.LEFT : Paint.Align.RIGHT);
                 for (int i = 0; i <= 2; i++) {
                     double value = right ? 100 - 50 * i : high - (high - low) * i / 2;
                     String format = precipitation && !right ? "%.1f" : "%.0f";
-                    canvas.drawText(String.format(Locale.US, format, value), right ? 4 * density : getWidth() - 4 * density,
-                            gridY(getHeight(), i) + 3 * density, labels);
+                    canvas.drawText(String.format(locale, format, value), right ? 4 * density : getWidth() - 4 * density,
+                            gridY(getHeight(), i) - (labels.ascent() + labels.descent()) / 2, labels);
                 }
             }
         };
@@ -95,7 +103,7 @@ final class HourlyLineChart extends View {
     }
 
     private float gridY(int height, int tick) {
-        float padding = 13 * density;
+        float padding = Math.max(13 * density, readingTextSize + 5 * density);
         return padding + (height - 2 * padding) * tick / 2;
     }
 
@@ -141,7 +149,7 @@ final class HourlyLineChart extends View {
     private void drawReadings(Canvas canvas) {
         paint.setStyle(Paint.Style.FILL);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTextSize(9 * density);
+        paint.setTextSize(readingTextSize);
         for (int i = 0; i < first.length; i++) {
             float x = (i + .5f) * hourWidth;
             double a = first[i];
@@ -159,8 +167,8 @@ final class HourlyLineChart extends View {
         if (!Double.isFinite(value)) return;
         paint.setColor(color);
         String format = precision == 0 ? "%.0f" : "%.1f";
-        canvas.drawText(String.format(Locale.US, format, value), x,
-                y + (above ? -4 : 11) * density, paint);
+        canvas.drawText(String.format(locale, format, value), x,
+                y + (above ? -4 * density : -paint.ascent() + 4 * density), paint);
     }
 
     private float pointY(double value, double minimum, double maximum) {
