@@ -878,7 +878,10 @@ public final class MainActivity extends Activity {
             illuminated.setContentDescription(getString(R.string.moon_illuminated, illuminated.getText()));
             illumination.addView(illuminated);
             phaseDetails.addView(illumination);
-            phaseDetails.addView(label(getString(MOON_PHASE_NAMES[position]), 13, MUTED));
+            TextView phaseName = label(getString(MOON_PHASE_NAMES[position]), 13, MUTED);
+            LinearLayout.LayoutParams phaseNameSize = new LinearLayout.LayoutParams(-1, -2);
+            phaseNameSize.topMargin = dp(6);
+            phaseDetails.addView(phaseName, phaseNameSize);
         } else {
             phaseDetails.addView(label(getString(R.string.phase_unavailable), 13, MUTED));
         }

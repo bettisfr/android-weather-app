@@ -5,15 +5,20 @@ SkyHere is a native Android app for checking the weather where you are and in pl
 ## Features
 
 - Current conditions for the phone's location, with manual search and saved locations.
+- Forecast refresh when returning to the app after five minutes or when the local hour changes.
 - A scrollable 24-hour forecast and a 10-day forecast with a detail screen for each day.
-- Hourly charts for precipitation, wind and gusts, humidity, and temperature with its feels-like value.
+- Hourly charts for precipitation amount and probability, wind and gusts, humidity, and actual and feels-like temperatures.
+- Rain icons that distinguish light, moderate, and heavy rain, plus layouts that adapt to larger Android text sizes.
 - Sunrise, solar noon, sunset, civil twilight, and daylight duration, plus an expandable table of sunrise and sunset times for the next ten days.
-- Lunar phases and rise/set times, plus location-aware solar and lunar eclipses and planetary transits.
-- Configurable units and time format. Defaults are °C, km/h, hPa, and a 24-hour clock. Precipitation is shown in mm.
+- Moon phase and illuminated percentage for today and the next ten days, with moonrise, moonset, and the dates of the next full and new moons.
+- Solar and lunar eclipses and planetary transits visible from the selected location, with local times, visible duration, and links to event details.
+- A Settings panel with configurable units and time format. Defaults are °C, km/h, hPa, and a 24-hour clock. Precipitation is shown in mm.
 
-## Weather data
+## Data sources
 
-[Open-Meteo](https://open-meteo.com/) supplies the forecasts and location search. Where available, the app uses [ItaliaMeteo/ARPAE ICON-2I](https://open-meteo.com/en/docs/italia-meteo-arpae-api) for the first three days and ECMWF IFS for the extended forecast. Open-Meteo's Best Match fills in missing forecast fields. Solar noon and civil twilight are calculated in the app using [NOAA solar equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF). Eclipses use [IMCCE OPALE](https://opale.imcce.fr/). [Transit Predictions by Fred Espenak, NASA/GSFC](https://eclipse.gsfc.nasa.gov/transit/catalog/Visible.html) supply the transit catalog.
+- Forecasts and location search come from Open-Meteo. Where available, the app uses ItaliaMeteo/ARPAE ICON-2I for the first three days and ECMWF IFS for the extended forecast. Best Match fills in missing forecast fields. [Open-Meteo](https://open-meteo.com/) · [ICON-2I](https://open-meteo.com/en/docs/italia-meteo-arpae-api)
+- Open-Meteo supplies moonrise, moonset, and daily phase values. SkyHere estimates illumination from the phase and calculates the primary lunar phase dates, solar noon, and civil twilight on the device. [Open-Meteo forecast API](https://open-meteo.com/en/docs) · [NOAA solar equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF)
+- Eclipse data comes from IMCCE OPALE. Transit visibility windows are estimated using the selected location and the NASA catalog. [IMCCE OPALE](https://opale.imcce.fr/) · [Transit Predictions by Fred Espenak, NASA/GSFC](https://eclipse.gsfc.nasa.gov/transit/catalog/Visible.html)
 
 The app asks for location access while in use. Android resolves the name of the detected location, and city search remains available if location access is denied or unavailable.
 
@@ -31,4 +36,4 @@ To install the debug build on a connected device or running emulator:
 ./gradlew :app:installDebug
 ```
 
-The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+The installable debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`. You can copy it to an Android device to install it for testing.
