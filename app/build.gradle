@@ -1,0 +1,12 @@
+plugins { id 'com.android.application' version '8.5.2' }
+android {
+    namespace 'it.meteo.locale'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'it.meteo.locale'
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName '0.1'
+    }
+}
