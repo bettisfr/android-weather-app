@@ -1,6 +1,6 @@
-# Local Weather
+# SkyHere
 
-Local Weather is a native Android app for checking the weather where you are and in places you save. The interface is in US English.
+SkyHere is a native Android app for checking the weather where you are and in places you save. The interface is in US English.
 
 ## Features
 
