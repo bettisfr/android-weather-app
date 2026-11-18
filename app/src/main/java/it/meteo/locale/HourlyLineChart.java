@@ -148,7 +148,7 @@ final class HourlyLineChart extends View {
             double b = i < second.length ? second[i] : Double.NaN;
             float aY = pointY(a, low, high);
             float bY = pointY(b, precipitation ? 0 : low, precipitation ? 100 : high);
-            boolean firstAbove = !Double.isFinite(b) || aY <= bY;
+            boolean firstAbove = !precipitation && (!Double.isFinite(b) || aY <= bY);
             drawReading(canvas, a, x, aY, firstAbove, PRIMARY, decimals);
             drawReading(canvas, b, x, bY, !Double.isFinite(a) || !firstAbove,
                     SECONDARY, precipitation ? 0 : decimals);

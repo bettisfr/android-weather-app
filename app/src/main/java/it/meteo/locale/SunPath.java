@@ -8,19 +8,16 @@ import android.view.View;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Locale;
 
 final class SunPath extends View {
     private static final float MINUTES_PER_DAY = 24 * 60;
-    private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final int nowMinute;
     private final int riseMinute;
     private final int setMinute;
 
-    SunPath(Context context, String sunrise, String sunset, String time) {
+    SunPath(Context context, LocalTime sunrise, LocalTime sunset, LocalTime time) {
         super(context);
         nowMinute = minutes(time);
         riseMinute = minutes(sunrise);
@@ -103,31 +100,21 @@ final class SunPath extends View {
         return Double.isFinite(duration) ? (int) Math.round(duration) : -1;
     }
 
-    static String solarNoon(LocalDate date, double longitude, ZoneId zone) {
+    static LocalTime solarNoon(LocalDate date, double longitude, ZoneId zone) {
         double angle = yearAngle(date);
         double equationOfTime = 229.18 * (0.000075 + 0.001868 * Math.cos(angle)
                 - 0.032077 * Math.sin(angle) - 0.014615 * Math.cos(2 * angle)
                 - 0.040849 * Math.sin(2 * angle));
         double localOffset = date.atTime(LocalTime.NOON).atZone(zone).getOffset().getTotalSeconds() / 60.0;
         long localMinutes = Math.round(720 - 4 * longitude - equationOfTime + localOffset);
-        return LocalTime.MIDNIGHT.plusMinutes(localMinutes).format(CLOCK);
+        return LocalTime.MIDNIGHT.plusMinutes(localMinutes);
     }
 
     private static double yearAngle(LocalDate date) {
         return 2 * Math.PI * (date.getDayOfYear() - 1) / date.lengthOfYear();
     }
 
-    static String offsetTime(String time, int offsetMinutes) {
-        int minute = minutes(time);
-        if (minute < 0) return "—";
-        return LocalTime.MIDNIGHT.plusMinutes(minute + offsetMinutes).format(CLOCK);
-    }
-
-    private static int minutes(String time) {
-        try {
-            return LocalTime.parse(time, CLOCK).toSecondOfDay() / 60;
-        } catch (java.time.DateTimeException ignored) {
-            return -1;
-        }
+    private static int minutes(LocalTime time) {
+        return time == null ? -1 : time.toSecondOfDay() / 60;
     }
 }

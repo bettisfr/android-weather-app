@@ -1,0 +1,58 @@
+package it.meteo.locale;
+
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+
+final class LunarPhases {
+    private static final double NEW_MOON_EPOCH = 2451550.09766;
+    private static final double SYNODIC_MONTH = 29.530588861;
+    private static final double UNIX_JULIAN_DATE = 2440587.5;
+    private static final double SECONDS_PER_DAY = 86400;
+    private static final int TT_TO_UTC_SECONDS = 69;
+
+    private LunarPhases() {}
+
+    static LocalDate nextDate(LocalDate from, ZoneId zone, boolean fullMoon) {
+        double start = UNIX_JULIAN_DATE + from.atStartOfDay(zone).toEpochSecond() / SECONDS_PER_DAY;
+        double phase = fullMoon ? .5 : 0;
+        double cycle = Math.floor((start - NEW_MOON_EPOCH) / SYNODIC_MONTH - phase) + phase;
+        LocalDate date = dateAtPhase(cycle, zone, fullMoon);
+        while (date.isBefore(from)) {
+            date = dateAtPhase(++cycle, zone, fullMoon);
+        }
+        return date;
+    }
+
+    // Meeus, Astronomical Algorithms, chapter 49. The leading periodic terms
+    // are sufficient for the approximate local calendar date shown in the app.
+    private static LocalDate dateAtPhase(double cycle, ZoneId zone, boolean fullMoon) {
+        double centuries = cycle / 1236.85;
+        double t2 = centuries * centuries;
+        double jd = NEW_MOON_EPOCH + SYNODIC_MONTH * cycle + .00015437 * t2;
+        double eccentricity = 1 - .002516 * centuries - .0000074 * t2;
+        double sun = Math.toRadians(2.5534 + 29.10535670 * cycle - .0000014 * t2);
+        double moon = Math.toRadians(201.5643 + 385.81693528 * cycle + .0107582 * t2);
+        double latitude = Math.toRadians(160.7108 + 390.67050284 * cycle - .0016118 * t2);
+        double node = Math.toRadians(124.7746 - 1.56375588 * cycle + .0020672 * t2);
+
+        jd += (fullMoon ? -.40614 : -.40720) * Math.sin(moon)
+                + (fullMoon ? .17302 : .17241) * eccentricity * Math.sin(sun)
+                + (fullMoon ? .01614 : .01608) * Math.sin(2 * moon)
+                + (fullMoon ? .01043 : .01039) * Math.sin(2 * latitude)
+                + (fullMoon ? .00734 : .00739) * eccentricity * Math.sin(moon - sun)
+                - (fullMoon ? .00515 : .00514) * eccentricity * Math.sin(moon + sun)
+                + (fullMoon ? .00209 : .00208) * eccentricity * eccentricity * Math.sin(2 * sun)
+                - .00111 * Math.sin(moon - 2 * latitude)
+                - .00057 * Math.sin(moon + 2 * latitude)
+                + .00056 * eccentricity * Math.sin(2 * moon + sun)
+                - .00042 * Math.sin(3 * moon)
+                + .00042 * eccentricity * Math.sin(sun + 2 * latitude)
+                + .00038 * eccentricity * Math.sin(sun - 2 * latitude)
+                - .00024 * eccentricity * Math.sin(2 * moon - sun)
+                - .00017 * Math.sin(node);
+
+        long utcSecond = Math.round((jd - UNIX_JULIAN_DATE) * SECONDS_PER_DAY) - TT_TO_UTC_SECONDS;
+        return Instant.ofEpochSecond(utcSecond).atZone(zone).toLocalDate();
+    }
+}
