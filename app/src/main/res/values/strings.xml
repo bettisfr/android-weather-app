@@ -183,7 +183,7 @@
     <string name="moonrise_column">Rise</string>
     <string name="moonset_column">Set</string>
     <string name="max_elevation">Max elev.</string>
-    <string name="sky_coordinates">Azimuth %1$d° · Elevation %2$d°</string>
+    <string name="sky_coordinates">Azimuth %1$d° %2$s · Elevation %3$d°</string>
     <string name="sky_coordinates_below_horizon">Azimuth - · Elevation -</string>
     <string name="chart_reading">%1$s %2$s %3$s</string>
     <string name="chart_reading_missing">%1$s unavailable</string>
@@ -212,4 +212,5 @@
     <string name="phone_direction_unavailable">Orientation sensor unavailable</string>
     <string name="phone_direction_reading">Azimuth %1$s · Elevation %2$d°</string>
     <string name="phone_direction_magnetic">Magnetic azimuth %1$s · Elevation %2$d°</string>
+    <string name="regional_warning_validity">%1$s · %2$s – %3$s · MeteoAlarm</string>
 </resources>

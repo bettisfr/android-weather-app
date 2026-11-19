@@ -182,7 +182,7 @@
     <string name="moonrise_column">Levata</string>
     <string name="moonset_column">Tramonto</string>
     <string name="max_elevation">Elev. max</string>
-    <string name="sky_coordinates">Azimut %1$d° · Elevazione %2$d°</string>
+    <string name="sky_coordinates">Azimut %1$d° %2$s · Elevazione %3$d°</string>
     <string name="sky_coordinates_below_horizon">Azimut - · Elevazione -</string>
     <string name="chart_reading">%1$s %2$s %3$s</string>
     <string name="chart_reading_missing">%1$s: dato non disponibile</string>
@@ -211,4 +211,5 @@
     <string name="phone_direction_unavailable">Sensore di orientamento non disponibile</string>
     <string name="phone_direction_reading">Azimut %1$s · Elevazione %2$d°</string>
     <string name="phone_direction_magnetic">Azimut magnetico %1$s · Elevazione %2$d°</string>
+    <string name="regional_warning_validity">%1$s · %2$s – %3$s · MeteoAlarm</string>
 </resources>

@@ -82,6 +82,12 @@ public final class MainActivity extends Activity {
     private JSONObject data;
     private String place;
     private String selectedCountry = "";
+    private String selectedRegion = "";
+    private LinearLayout regionalWarnings;
+    private List<MeteoAlarm.Warning> warnings = List.of();
+    private long warningsAttempt;
+    private boolean warningsLoading;
+    private Instant renderedWarningUntil;
     private double latitude;
     private double longitude;
     private boolean fahrenheit;
@@ -118,7 +124,7 @@ public final class MainActivity extends Activity {
             boolean trueNorth = Double.isFinite(magneticDeclination);
             if (trueNorth) heading += magneticDeclination;
             long azimuth = Math.floorMod(Math.round(heading), 360);
-            String direction = Math.abs(elevation) == 90 ? "—" : azimuth + "° " + planetDirection(azimuth);
+            String direction = Math.abs(elevation) == 90 ? "—" : azimuth + "° " + compassDirection(azimuth);
             String reading = getString(trueNorth ? R.string.phone_direction_reading : R.string.phone_direction_magnetic,
                     direction, elevation);
             if (!reading.contentEquals(phoneDirection.getText())) phoneDirection.setText(reading);
@@ -133,6 +139,8 @@ public final class MainActivity extends Activity {
             if (sunCoordinates != null) setSkyCoordinates(sunCoordinates, now, false);
             if (moonCoordinates != null) setSkyCoordinates(moonCoordinates, now, true);
             if (!planetRows.isEmpty()) updatePlanets(now);
+            if (renderedWarningUntil != null && !now.isBefore(renderedWarningUntil)) renderWarnings(now);
+            refreshWarnings();
             main.postDelayed(this, 60000 - Math.floorMod(now.toEpochMilli(), 60000));
         }
     };
@@ -225,6 +233,7 @@ public final class MainActivity extends Activity {
                 latitude = location.getLatitude();
                 longitude = location.getLongitude();
                 selectedCountry = "";
+                selectedRegion = "";
                 place = getString(R.string.current_location);
                 devicePlace = null;
                 deviceWeather = null;
@@ -268,10 +277,14 @@ public final class MainActivity extends Activity {
             String locality = address.getLocality();
             String name = locality == null ? address.getSubAdminArea() : locality;
             String country = address.getCountryCode();
+            String region = address.getAdminArea();
             runOnUiThread(() -> {
                 if (isDestroyed() || gps != usingCurrentLocation || lat != latitude || lon != longitude) return;
                 if (country != null) {
                     selectedCountry = country;
+                    if (region != null) selectedRegion = region;
+                    refreshWarnings();
+                    renderWarnings(Instant.now());
                     if (radarButton != null) radarButton.setVisibility(inItaly() ? View.VISIBLE : View.GONE);
                     if (!gps) getPreferences(MODE_PRIVATE).edit().putString("countryCode", country).apply();
                 }
@@ -335,6 +348,7 @@ public final class MainActivity extends Activity {
         latitude = Double.parseDouble(prefs.getString("latitude", "43.066"));
         longitude = Double.parseDouble(prefs.getString("longitude", "12.548"));
         selectedCountry = prefs.getString("countryCode", prefs.contains("place") ? "" : "IT");
+        selectedRegion = "";
         locationNotice = reason;
         load();
     }
@@ -353,12 +367,14 @@ public final class MainActivity extends Activity {
         page.addView(placeTitle());
         page.addView(loadingStatus(getString(R.string.loading_forecast)));
         requestForecast(false);
-        if ((usingCurrentLocation && devicePlace == null) || selectedCountry.isEmpty()) resolveLocation(latitude, longitude);
+        if ((usingCurrentLocation && devicePlace == null) || selectedCountry.isEmpty()
+                || (inItaly() && selectedRegion.isEmpty())) resolveLocation(latitude, longitude);
     }
 
     @Override protected void onResume() {
         super.onResume();
         resumed = true;
+        refreshWarnings();
         startPhoneOrientation();
         updateSkyCoordinates.run();
         if (data == null || choosingLocation || locationListener != null || forecastLoading) return;
@@ -381,6 +397,7 @@ public final class MainActivity extends Activity {
 
     private void requestForecast(boolean refreshing, boolean manual) {
         manualRefresh = manual;
+        if (manual) warningsAttempt = 0;
         if (refreshIndicator != null) {
             refreshIndicator.setAlpha(1f);
             refreshIndicator.setVisibility(manual ? View.VISIBLE : View.GONE);
@@ -492,6 +509,7 @@ public final class MainActivity extends Activity {
 
     private void layout() {
         placeHeader = null;
+        regionalWarnings = null;
         radarButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
@@ -604,6 +622,10 @@ public final class MainActivity extends Activity {
             TextView extremes = label(getString(R.string.high_low, temp(value(daily, "temperature_2m_max", 0)),
                     temp(value(daily, "temperature_2m_min", 0))), 15, muted);
             addSpaced(page, extremes, 10);
+            regionalWarnings = column();
+            page.addView(regionalWarnings);
+            renderWarnings(Instant.now());
+            refreshWarnings();
             forecast(hourly, todayHour, todayHour + 24, true);
             title(getString(R.string.forecast_10_days));
             for (int index = 0; index < forecastDays; index++) {
@@ -627,7 +649,10 @@ public final class MainActivity extends Activity {
                 double probability = index == 0 ? rainRemaining : value(daily, "precipitation_probability_max", index);
                 TextView chance = label(probability > 0 ? percent(probability) : "", 14, accent);
                 chance.setGravity(roomy ? Gravity.START : Gravity.END);
-                values.addView(chance, new LinearLayout.LayoutParams(roomy ? 0 : dp(40), -2, roomy ? 1 : 0));
+                chance.setSingleLine(true);
+                int chanceWidth = Math.max(dp(40), Math.max(textWidth(chance, percent(100)),
+                        textWidth(chance, chance.getText().toString())) + dp(4));
+                values.addView(chance, new LinearLayout.LayoutParams(chanceWidth, -2, roomy ? 1 : 0));
                 TextView dayIcon = label(symbol(weather, dayWeather.night), 23, ink);
                 dayIcon.setContentDescription(description(weather));
                 dayIcon.setGravity(Gravity.CENTER);
@@ -758,6 +783,85 @@ public final class MainActivity extends Activity {
         startActivity(new android.content.Intent(this, RadarActivity.class)
                 .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
                 .putExtra("timeZone", data.optString("timezone", "UTC")).putExtra("clock24", clock24));
+    }
+
+    private void refreshWarnings() {
+        long elapsed = SystemClock.elapsedRealtime();
+        if (!inItaly() || selectedRegion.isEmpty() || warningsLoading
+                || (warningsAttempt != 0 && elapsed - warningsAttempt < 15 * 60 * 1000L)) return;
+        warningsAttempt = elapsed;
+        warningsLoading = true;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return MeteoAlarm.warnings();
+            } catch (Exception error) {
+                android.util.Log.w("MeteoAlarm", "Warning feed unavailable", error);
+                return null;
+            }
+        }).thenAccept(result -> main.post(() -> {
+            if (isDestroyed()) return;
+            warningsLoading = false;
+            warnings = result == null ? List.of() : result;
+            renderWarnings(Instant.now());
+        }));
+    }
+
+    private void renderWarnings(Instant now) {
+        renderedWarningUntil = null;
+        if (regionalWarnings == null) return;
+        regionalWarnings.removeAllViews();
+        if (!inItaly() || selectedRegion.isEmpty()) return;
+        String region = MeteoAlarm.regionKey(selectedRegion);
+        DateTimeFormatter validity = DateTimeFormatter.ofPattern("EEE d MMM, " + (clock24 ? "HH:mm" : "h:mm a"), appLocale())
+                .withZone(ZoneId.of("Europe/Rome"));
+        for (MeteoAlarm.Warning warning : warnings) {
+            if (!MeteoAlarm.regionKey(warning.area).equals(region) || !now.isBefore(warning.expires)) continue;
+            if (renderedWarningUntil == null || warning.expires.isBefore(renderedWarningUntil)) {
+                renderedWarningUntil = warning.expires;
+            }
+            LinearLayout banner = card();
+            String event = warning.event.toLowerCase(Locale.ROOT);
+            int color = event.startsWith("red ") ? getColor(R.color.alert_red)
+                    : event.startsWith("orange ") ? getColor(R.color.alert_orange) : getColor(R.color.alert_yellow);
+            banner.setBackground(background(color, 12));
+            TextView heading = label(warningTitle(warning.event), 16, 0xff322414);
+            heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+            banner.addView(heading);
+            TextView details = label(getString(R.string.regional_warning_validity, warning.area,
+                    validity.format(warning.start), validity.format(warning.expires)), 13, 0xff322414);
+            details.setPadding(0, dp(4), 0, 0);
+            banner.addView(details);
+            banner.setOnClickListener(v -> startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse(warning.url()))));
+            addSpaced(regionalWarnings, banner, 8);
+        }
+    }
+
+    private String warningTitle(String event) {
+        if (!italian()) return event;
+        String[] parts = event.toLowerCase(Locale.ROOT).split(" ", 2);
+        if (parts.length != 2) return event;
+        String level;
+        switch (parts[0]) {
+            case "yellow": level = "gialla"; break;
+            case "orange": level = "arancione"; break;
+            case "red": level = "rossa"; break;
+            default: return event;
+        }
+        String hazard;
+        switch (parts[1]) {
+            case "wind warning": hazard = "vento"; break;
+            case "rain warning": hazard = "pioggia"; break;
+            case "thunderstorm warning": hazard = "temporali"; break;
+            case "snow-ice warning": case "snow/ice warning": hazard = "neve e ghiaccio"; break;
+            case "fog warning": hazard = "nebbia"; break;
+            case "high temperature warning": hazard = "temperature elevate"; break;
+            case "low temperature warning": hazard = "temperature basse"; break;
+            case "coastal event warning": hazard = "fenomeni costieri"; break;
+            case "flooding warning": hazard = "alluvioni"; break;
+            default: return event;
+        }
+        return "Allerta " + level + " per " + hazard;
     }
 
     private boolean inItaly() {
@@ -1070,7 +1174,7 @@ public final class MainActivity extends Activity {
         SkyPosition position = SkyPosition.at(now, latitude, longitude, moon);
         if (position.zenith >= 0 && position.zenith <= 90) {
             reading.setText(getString(R.string.sky_coordinates, Math.round(position.azimuth) % 360,
-                    Math.round(90 - position.zenith)));
+                    compassDirection(position.azimuth), Math.round(90 - position.zenith)));
         } else {
             reading.setText(R.string.sky_coordinates_below_horizon);
         }
@@ -1157,12 +1261,16 @@ public final class MainActivity extends Activity {
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = card();
         tile.addView(label(getString(R.string.moon), 16, ink));
+        TextView eventLabel = label("", 13, muted);
+        int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
+                textWidth(eventLabel, getString(R.string.moonrise)),
+                textWidth(eventLabel, getString(R.string.moonset))) + dp(4));
         boolean roomy = largeText();
         LinearLayout content = roomy ? column() : row();
         LinearLayout readings = roomy ? row() : column();
         readings.setGravity(Gravity.TOP);
         readings.setPadding(0, dp(9), 0, 0);
-        content.addView(readings, new LinearLayout.LayoutParams(roomy ? -1 : dp(SKY_PATH_TIMES_WIDTH_DP), -2));
+        content.addView(readings, new LinearLayout.LayoutParams(roomy ? -1 : readingWidth, -2));
         ZonedDateTime startOfDay = date.atStartOfDay(zone);
         long riseMinute = -1;
         long setMinute = -1;
@@ -1292,7 +1400,7 @@ public final class MainActivity extends Activity {
         direction.setBackground(background(getColor(R.color.sky_subtle), 12));
         direction.setPadding(dp(11), dp(9), dp(11), dp(9));
         direction.addView(label(getString(R.string.phone_direction), 14, ink));
-        phoneDirection = label(getString(R.string.phone_direction_waiting), 20, ink);
+        phoneDirection = label(getString(R.string.phone_direction_waiting), 17, ink);
         phoneDirection.setPadding(0, dp(8), 0, 0);
         direction.addView(phoneDirection);
         TextView directionHint = label(getString(R.string.phone_direction_hint), 11, muted);
@@ -1327,7 +1435,7 @@ public final class MainActivity extends Activity {
             row.position.setVisibility(above ? View.VISIBLE : View.GONE);
             if (above) {
                 row.position.setText(getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
-                        planetDirection(reading.azimuth), Math.round(reading.elevation), number(reading.magnitude, "%.1f")));
+                        compassDirection(reading.azimuth), Math.round(reading.elevation), number(reading.magnitude, "%.1f")));
             }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
@@ -1347,7 +1455,7 @@ public final class MainActivity extends Activity {
         planetWindowDate = today;
     }
 
-    private String planetDirection(double azimuth) {
+    private String compassDirection(double azimuth) {
         String[] directions = italian()
                 ? new String[]{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"}
                 : new String[]{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"};
@@ -1647,14 +1755,7 @@ public final class MainActivity extends Activity {
         if (end <= index + 1) return;
         String title = getString(R.string.next_days, end - index - 1);
         LinearLayout table = column();
-        View tableView = table;
-        if (!moon) {
-            HorizontalScrollView viewport = new HorizontalScrollView(this);
-            viewport.setFillViewport(true);
-            viewport.addView(table);
-            tableView = viewport;
-        }
-        View collapsible = tableView;
+        View collapsible = table;
         collapsible.setVisibility(View.GONE);
         Button toggle = accordionButton(title);
         toggle.setOnClickListener(v -> {
@@ -1716,21 +1817,57 @@ public final class MainActivity extends Activity {
             }
             addEventTableRow(table, date, phaseIcon, ink, eventClock(at(daily, rise, i)), eventClock(at(daily, set, i)));
         }
-        if (!moon) sizeSolarColumns(table);
+        if (!moon) sizeSolarColumns(table, tile);
     }
 
-    private void sizeSolarColumns(LinearLayout table) {
-        int[] widths = new int[((LinearLayout) table.getChildAt(0)).getChildCount()];
-        for (int row = 0; row < table.getChildCount(); row++) {
+    private void sizeSolarColumns(LinearLayout table, LinearLayout tile) {
+        LinearLayout heading = (LinearLayout) table.getChildAt(0);
+        int[] widths = new int[heading.getChildCount()];
+        int available = dp(getResources().getConfiguration().screenWidthDp)
+                - page.getPaddingLeft() - page.getPaddingRight() - tile.getPaddingLeft() - tile.getPaddingRight();
+        int minimumDateWidth = 0;
+        for (int row = 1; row < table.getChildCount(); row++) {
             LinearLayout line = (LinearLayout) table.getChildAt(row);
             for (int col = 0; col < widths.length; col++) {
                 TextView cell = (TextView) line.getChildAt(col);
-                widths[col] = Math.max(widths[col], textWidth(cell, cell.getText().toString()) + cell.getPaddingLeft());
+                String value = cell.getText().toString();
+                widths[col] = Math.max(widths[col], textWidth(cell, value) + cell.getPaddingLeft() + dp(1));
+                if (col == 0) {
+                    for (String word : value.split(" ")) {
+                        minimumDateWidth = Math.max(minimumDateWidth, textWidth(cell, word) + dp(1));
+                    }
+                }
             }
         }
-        int minimumWidth = 0;
-        for (int width : widths) minimumWidth += width;
-        table.setMinimumWidth(minimumWidth);
+        for (int col = 0; col < widths.length; col++) {
+            TextView cell = (TextView) heading.getChildAt(col);
+            for (String word : cell.getText().toString().split(" ")) {
+                widths[col] = Math.max(widths[col], textWidth(cell, word) + cell.getPaddingLeft() + dp(1));
+            }
+        }
+        int total = 0;
+        for (int width : widths) total += width;
+        widths[0] -= Math.max(0, total - available);
+        if (widths[0] < minimumDateWidth) {
+            table.removeViewAt(0);
+            for (int row = 0; row < table.getChildCount(); row++) {
+                LinearLayout line = (LinearLayout) table.getChildAt(row);
+                line.setOrientation(LinearLayout.VERTICAL);
+                line.setGravity(Gravity.START);
+                TextView date = (TextView) line.getChildAt(0);
+                date.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+                date.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+                for (int col = 1; col < widths.length; col++) {
+                    TextView value = (TextView) line.getChildAt(col);
+                    TextView key = (TextView) heading.getChildAt(col);
+                    value.setText(key.getText() + "  " + value.getText());
+                    value.setGravity(Gravity.START);
+                    value.setPadding(0, dp(3), 0, 0);
+                    value.setLayoutParams(new LinearLayout.LayoutParams(-1, -2));
+                }
+            }
+            return;
+        }
         for (int row = 0; row < table.getChildCount(); row++) {
             LinearLayout line = (LinearLayout) table.getChildAt(row);
             for (int col = 0; col < widths.length; col++) {
@@ -2036,6 +2173,7 @@ public final class MainActivity extends Activity {
             latitude = item.optDouble("latitude");
             longitude = item.optDouble("longitude");
             selectedCountry = countryCode;
+            selectedRegion = item.optString("admin1");
             getPreferences(MODE_PRIVATE).edit().putString("place", place)
                     .putString("latitude", Double.toString(latitude)).putString("longitude", Double.toString(longitude))
                     .putString("countryCode", selectedCountry).apply();
