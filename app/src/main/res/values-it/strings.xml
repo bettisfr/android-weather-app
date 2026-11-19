@@ -212,4 +212,24 @@
     <string name="phone_direction_reading">Azimut %1$s · Elevazione %2$d°</string>
     <string name="phone_direction_magnetic">Azimut magnetico %1$s · Elevazione %2$d°</string>
     <string name="regional_warning_validity">%1$s · %2$s – %3$s · MeteoAlarm</string>
+    <string name="aurora">Aurora</string>
+    <string name="aurora_map">Mappa aurora</string>
+    <string name="aurora_loading">Caricamento previsione aurora…</string>
+    <string name="aurora_unavailable">Previsione aurora recente non disponibile</string>
+    <string name="aurora_unlikely">Aurora improbabile in questa zona</string>
+    <string name="aurora_too_light">Cielo troppo luminoso all’ora prevista</string>
+    <string name="aurora_cloudy">Attività aurorale vicina · Le nuvole possono coprire la visuale</string>
+    <string name="aurora_possible">Aurora possibile in zona con cielo sereno</string>
+    <string name="aurora_direction">Aurora possibile verso %1$s con cielo sereno</string>
+    <string name="aurora_times">NOAA · Aggiornata %1$s · Previsione %2$s</string>
+    <string name="aurora_kp_forecast">Previsione Kp</string>
+    <string name="aurora_kp_hint">NOAA · Kp misura l’attività geomagnetica globale su una scala da 0 a 9. Orari locali.</string>
+    <string name="aurora_kp_current">Kp attuale stimato %1$s/9 · %2$s</string>
+    <string name="aurora_kp_current_unavailable">Kp attuale non disponibile</string>
+    <string name="aurora_map_title">Aurora · %1$s</string>
+    <string name="aurora_map_forecast">Previsione</string>
+    <string name="aurora_map_intensity">Attività aurorale</string>
+    <string name="aurora_map_low">Debole</string>
+    <string name="aurora_map_high">Forte</string>
+    <string name="aurora_map_short">Mappa</string>
 </resources>

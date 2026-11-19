@@ -31,6 +31,7 @@ public final class RadarActivity extends Activity {
     private static final String USER_AGENT_PROJECT = " (+https://github.com/bettisfr/android-weather-app)";
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WebView web;
+    private boolean aurora;
 
     @Override protected void attachBaseContext(android.content.Context base) {
         super.attachBaseContext(SkyTheme.withPreference(base));
@@ -38,6 +39,8 @@ public final class RadarActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        aurora = getIntent().getBooleanExtra("aurora", false);
+        String page = aurora ? ASSET_ORIGIN + "/radar/aurora.html" : PAGE;
         int surface = getColor(R.color.sky_background);
         int ink = getColor(R.color.sky_text);
         SkyTheme.applySystemBars(this);
@@ -56,7 +59,7 @@ public final class RadarActivity extends Activity {
         back.setOnClickListener(view -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
         TextView title = new TextView(this);
-        title.setText(getString(R.string.radar_title, getIntent().getStringExtra("place")));
+        title.setText(getString(aurora ? R.string.aurora_map_title : R.string.radar_title, getIntent().getStringExtra("place")));
         title.setTextColor(ink);
         title.setTextSize(19);
         title.setPadding(0, dp(7), dp(12), dp(7));
@@ -75,9 +78,9 @@ public final class RadarActivity extends Activity {
                 if (!"https".equals(url.getScheme()) || !"appassets.androidplatform.net".equals(url.getHost())) return null;
                 String path = url.getPath();
                 String type;
-                if ("/radar/index.html".equals(path)) type = "text/html";
+                if ("/radar/index.html".equals(path) || "/radar/aurora.html".equals(path)) type = "text/html";
                 else if ("/radar/leaflet.css".equals(path)) type = "text/css";
-                else if ("/radar/leaflet.js".equals(path) || "/radar/radar.js".equals(path)) type = "application/javascript";
+                else if ("/radar/leaflet.js".equals(path) || "/radar/radar.js".equals(path) || "/radar/aurora.js".equals(path)) type = "application/javascript";
                 else return null;
                 try {
                     return new WebResourceResponse(type, "UTF-8", getAssets().open(path.substring(1)));
@@ -88,7 +91,7 @@ public final class RadarActivity extends Activity {
 
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
-                if (PAGE.equals(uri.toString())) return false;
+                if (page.equals(uri.toString())) return false;
                 if (request.isForMainFrame() && "https".equals(uri.getScheme())) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -98,14 +101,14 @@ public final class RadarActivity extends Activity {
             }
 
             @Override public void onPageFinished(WebView view, String url) {
-                if (!PAGE.equals(url) || isFinishing()) return;
+                if (!page.equals(url) || isFinishing()) return;
                 view.evaluateJavascript("initialize(" + parameters() + ")", null);
-                network.execute(RadarActivity.this::loadLatest);
+                network.execute(aurora ? RadarActivity.this::loadAurora : RadarActivity.this::loadLatest);
             }
         });
         screen.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(screen);
-        web.loadUrl(PAGE);
+        web.loadUrl(page);
     }
 
     private JSONObject parameters() {
@@ -118,6 +121,16 @@ public final class RadarActivity extends Activity {
             result.put("clock24", options.getBooleanExtra("clock24", true));
             result.put("dark", SkyTheme.isDark(this));
             result.put("language", getString(R.string.app_language_tag));
+            if (aurora) {
+                result.put("source", AuroraForecast.MAP);
+                result.put("mapLabel", getString(R.string.aurora_map));
+                result.put("forecast", getString(R.string.aurora_map_forecast));
+                result.put("intensity", getString(R.string.aurora_map_intensity));
+                result.put("low", getString(R.string.aurora_map_low));
+                result.put("high", getString(R.string.aurora_map_high));
+                result.put("loading", getString(R.string.aurora_loading));
+                return result;
+            }
             result.put("observed", getString(R.string.radar_observed));
             result.put("latest", getString(R.string.radar_latest));
             result.put("loading", getString(R.string.radar_loading));
@@ -130,6 +143,22 @@ public final class RadarActivity extends Activity {
             throw new IllegalStateException(error);
         }
         return result;
+    }
+
+    private void loadAurora() {
+        try {
+            AuroraForecast forecast = AuroraForecast.load();
+            if (java.time.Instant.now().isAfter(forecast.forecastTime.plusSeconds(1800))) {
+                runOnUiThread(() -> evaluate("status(" + JSONObject.quote(getString(R.string.aurora_unavailable)) + ")"));
+                return;
+            }
+            String grid = forecast.mapGrid();
+            runOnUiThread(() -> evaluate("setAurora(" + JSONObject.quote(grid) + ","
+                    + forecast.forecastTime.toEpochMilli() + ")"));
+        } catch (Exception error) {
+            android.util.Log.w("SkyHere", "NOAA aurora map unavailable", error);
+            runOnUiThread(() -> evaluate("status(" + JSONObject.quote(getString(R.string.aurora_unavailable)) + ")"));
+        }
     }
 
     private void loadLatest() {

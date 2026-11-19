@@ -88,6 +88,17 @@ public final class MainActivity extends Activity {
     private long warningsAttempt;
     private boolean warningsLoading;
     private Instant renderedWarningUntil;
+    private AuroraForecast auroraForecast;
+    private long auroraAttempt;
+    private boolean auroraLoading;
+    private TextView auroraStatus;
+    private TextView auroraTimes;
+    private TextView currentKpView;
+    private AuroraForecast.KpReading currentKp;
+    private LinearLayout kpTable;
+    private List<AuroraForecast.KpPeriod> kpPeriods = List.of();
+    private long kpAttempt;
+    private boolean kpLoading;
     private double latitude;
     private double longitude;
     private boolean fahrenheit;
@@ -141,6 +152,9 @@ public final class MainActivity extends Activity {
             if (!planetRows.isEmpty()) updatePlanets(now);
             if (renderedWarningUntil != null && !now.isBefore(renderedWarningUntil)) renderWarnings(now);
             refreshWarnings();
+            refreshAurora();
+            if (kpTable != null && kpTable.isShown()) refreshKp();
+            updateAurora(now);
             main.postDelayed(this, 60000 - Math.floorMod(now.toEpochMilli(), 60000));
         }
     };
@@ -510,6 +524,10 @@ public final class MainActivity extends Activity {
     private void layout() {
         placeHeader = null;
         regionalWarnings = null;
+        auroraStatus = null;
+        auroraTimes = null;
+        currentKpView = null;
+        kpTable = null;
         radarButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
@@ -679,6 +697,7 @@ public final class MainActivity extends Activity {
             sun(daily, 0);
             moon(daily, 0);
             planets();
+            aurora();
             eclipsesAndTransits();
             page.addView(button(getString(R.string.weather_data), () -> startActivity(new android.content.Intent(
                     android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://open-meteo.com/")))));
@@ -742,10 +761,7 @@ public final class MainActivity extends Activity {
             TextView caption = label(getString(R.string.hourly_forecast), 19, ink);
             caption.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             heading.addView(caption, new LinearLayout.LayoutParams(0, -2, 1));
-            radarButton = actionButton(getString(R.string.radar), getColor(R.color.sky_action), 24);
-            radarButton.setCompoundDrawablePadding(dp(7));
-            radarButton.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_radar, 0, 0, 0);
-            radarButton.setOnClickListener(view -> openRadar());
+            radarButton = mapButton(R.string.radar, this::openRadar);
             radarButton.setVisibility(inItaly() ? View.VISIBLE : View.GONE);
             heading.addView(radarButton);
             page.addView(heading);
@@ -778,10 +794,23 @@ public final class MainActivity extends Activity {
         page.addView(box);
     }
 
+    private Button mapButton(int title, Runnable open) {
+        Button button = actionButton(getString(title), getColor(R.color.sky_action), 24);
+        button.setCompoundDrawablePadding(dp(7));
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_radar, 0, 0, 0);
+        button.setOnClickListener(view -> open.run());
+        return button;
+    }
+
     private void openRadar() {
         if (!inItaly() || data == null) return;
+        openMap(false);
+    }
+
+    private void openMap(boolean aurora) {
+        if (data == null) return;
         startActivity(new android.content.Intent(this, RadarActivity.class)
-                .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
+                .putExtra("aurora", aurora).putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
                 .putExtra("timeZone", data.optString("timezone", "UTC")).putExtra("clock24", clock24));
     }
 
@@ -1460,6 +1489,182 @@ public final class MainActivity extends Activity {
                 ? new String[]{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"}
                 : new String[]{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"};
         return directions[(int) Math.round(azimuth / 22.5) % directions.length];
+    }
+
+    private void aurora() {
+        LinearLayout tile = card();
+        LinearLayout heading = row();
+        heading.setGravity(Gravity.TOP);
+        heading.setBaselineAligned(false);
+        heading.addView(label(getString(R.string.aurora), 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        Button map = mapButton(R.string.aurora_map_short, () -> openMap(true));
+        map.setContentDescription(getString(R.string.aurora_map));
+        heading.addView(map);
+        tile.addView(heading);
+        auroraStatus = label("", 15, ink);
+        auroraStatus.setPadding(0, dp(8), 0, 0);
+        tile.addView(auroraStatus);
+        auroraTimes = label("", 12, muted);
+        auroraTimes.setPadding(0, dp(4), 0, 0);
+        tile.addView(auroraTimes);
+        currentKpView = label("", 14, accent);
+        currentKpView.setPadding(0, dp(8), 0, 0);
+        tile.addView(currentKpView);
+        LinearLayout table = column();
+        kpTable = table;
+        table.setVisibility(View.GONE);
+        Button toggle = accordionButton(getString(R.string.aurora_kp_forecast));
+        toggle.setOnClickListener(v -> {
+            boolean open = table.getVisibility() != View.VISIBLE;
+            table.setVisibility(open ? View.VISIBLE : View.GONE);
+            updateAccordion(toggle, open);
+            if (open) {
+                refreshKp();
+                renderKp();
+            }
+        });
+        LinearLayout.LayoutParams toggleSize = new LinearLayout.LayoutParams(-1, -2);
+        toggleSize.topMargin = dp(12);
+        toggleSize.bottomMargin = dp(8);
+        tile.addView(toggle, toggleSize);
+        tile.addView(table);
+        addSpaced(page, tile, 9);
+        refreshAurora();
+        updateAurora(Instant.now());
+    }
+
+    private void refreshKp() {
+        long elapsed = SystemClock.elapsedRealtime();
+        if (kpLoading || (kpAttempt != 0 && elapsed - kpAttempt < 15 * 60 * 1000L)) return;
+        kpAttempt = elapsed;
+        kpLoading = true;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return AuroraForecast.loadKp();
+            } catch (Exception error) {
+                android.util.Log.w("AuroraForecast", "NOAA Kp forecast unavailable", error);
+                return null;
+            }
+        }).thenAccept(result -> main.post(() -> {
+            if (isDestroyed()) return;
+            kpLoading = false;
+            if (result != null) kpPeriods = result;
+            renderKp();
+        }));
+    }
+
+    private void renderKp() {
+        if (kpTable == null || kpTable.getVisibility() != View.VISIBLE) return;
+        kpTable.removeAllViews();
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        DateTimeFormatter hours = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h:mm a", appLocale()).withZone(zone);
+        DateTimeFormatter dates = shortDate(false).withZone(zone);
+        Instant now = Instant.now();
+        LocalDate currentDate = null;
+        for (AuroraForecast.KpPeriod period : kpPeriods) {
+            if (!period.end().isAfter(now)) continue;
+            LocalDate date = period.start.atZone(zone).toLocalDate();
+            if (!date.equals(currentDate)) {
+                TextView dayLabel = label(dates.format(period.start), 13, muted);
+                dayLabel.setPadding(0, dp(currentDate == null ? 0 : 12), 0, 0);
+                kpTable.addView(dayLabel);
+                currentDate = date;
+            }
+            LinearLayout line = row();
+            line.setPadding(0, dp(4), 0, dp(4));
+            line.addView(label(hours.format(period.start) + "–" + hours.format(period.end()), 14, ink),
+                    new LinearLayout.LayoutParams(0, -2, 1));
+            TextView activity = label("Kp " + number(period.kp, "%.2f") + "/9", 14, accent);
+            line.addView(activity);
+            kpTable.addView(line);
+        }
+        int text = currentDate != null ? R.string.aurora_kp_hint
+                : kpLoading ? R.string.aurora_loading : R.string.aurora_unavailable;
+        addSpaced(kpTable, label(getString(text), 12, muted), 8);
+    }
+
+    private void refreshAurora() {
+        long elapsed = SystemClock.elapsedRealtime();
+        if (auroraStatus == null || auroraLoading
+                || (auroraAttempt != 0 && elapsed - auroraAttempt < 5 * 60 * 1000L)) return;
+        auroraAttempt = elapsed;
+        auroraLoading = true;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return AuroraForecast.loadCurrentKp();
+            } catch (Exception error) {
+                android.util.Log.w("AuroraForecast", "NOAA current Kp unavailable", error);
+                return null;
+            }
+        }).thenAccept(result -> main.post(() -> {
+            if (isDestroyed()) return;
+            if (result != null) currentKp = result;
+            updateCurrentKp(Instant.now());
+        }));
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return AuroraForecast.load();
+            } catch (Exception error) {
+                android.util.Log.w("AuroraForecast", "NOAA forecast unavailable", error);
+                return null;
+            }
+        }).thenAccept(result -> main.post(() -> {
+            if (isDestroyed()) return;
+            auroraLoading = false;
+            if (result != null) auroraForecast = result;
+            updateAurora(Instant.now());
+        }));
+    }
+
+    private void updateCurrentKp(Instant now) {
+        if (currentKpView == null) return;
+        if (currentKp == null || now.isAfter(currentKp.time.plusSeconds(1800))) {
+            currentKpView.setText(R.string.aurora_kp_current_unavailable);
+            return;
+        }
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        currentKpView.setText(getString(R.string.aurora_kp_current, number(currentKp.kp, "%.2f"),
+                formatTime(currentKp.time.atZone(zone).toLocalTime(), clockFormat())));
+    }
+
+    private void updateAurora(Instant now) {
+        if (auroraStatus == null) return;
+        updateCurrentKp(now);
+        if (auroraForecast == null || now.isAfter(auroraForecast.forecastTime.plusSeconds(1800))
+                || now.isAfter(auroraForecast.observationTime.plusSeconds(7200))) {
+            auroraStatus.setText(auroraLoading ? R.string.aurora_loading : R.string.aurora_unavailable);
+            auroraTimes.setVisibility(View.GONE);
+            return;
+        }
+        Instant forecastTime = auroraForecast.forecastTime;
+        Instant viewingTime = forecastTime.isBefore(now) ? now : forecastTime;
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("EEE d MMM, " + (clock24 ? "HH:mm" : "h:mm a"), appLocale())
+                .withZone(zone);
+        auroraTimes.setVisibility(View.VISIBLE);
+        auroraTimes.setText(getString(R.string.aurora_times, format.format(auroraForecast.observationTime),
+                format.format(forecastTime)));
+        double direction = auroraForecast.estimatedDirection(latitude, longitude);
+        if (!Double.isFinite(direction)) {
+            auroraStatus.setText(R.string.aurora_unlikely);
+        } else if (SkyPosition.at(viewingTime, latitude, longitude, false).zenith < 96) {
+            auroraStatus.setText(R.string.aurora_too_light);
+        } else if (auroraCloudCover(viewingTime, zone) >= 80) {
+            auroraStatus.setText(R.string.aurora_cloudy);
+        } else if (direction < 0) {
+            auroraStatus.setText(R.string.aurora_possible);
+        } else {
+            auroraStatus.setText(getString(R.string.aurora_direction, compassDirection(direction)));
+        }
+    }
+
+    private double auroraCloudCover(Instant time, ZoneId zone) {
+        JSONObject hourly = data.optJSONObject("hourly");
+        String hour = time.atZone(zone).format(DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH", Locale.ROOT));
+        for (int i = 0; i < length(hourly); i++) {
+            if (at(hourly, "time", i).startsWith(hour)) return value(hourly, "cloud_cover", i);
+        }
+        return Double.NaN;
     }
 
     private void eclipsesAndTransits() {
