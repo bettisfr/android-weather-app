@@ -2,6 +2,14 @@
 
 SkyHere is a native Android app for checking the weather where you are and in places you save. The interface follows Android’s language settings and is available in English and Italian.
 
+## Screenshots
+
+<p>
+  <img src="docs/screenshots/forecast.png" width="240" alt="Current weather, hourly forecast, and the 10-day forecast" />
+  <img src="docs/screenshots/hourly-details.png" width="240" alt="Hourly wind speed and gust chart" />
+  <img src="docs/screenshots/astronomy.png" width="240" alt="Sun and Moon paths, rise and set times, and lunar phase" />
+</p>
+
 ## Features
 
 - Current conditions for the phone's location, with manual search and saved locations.
