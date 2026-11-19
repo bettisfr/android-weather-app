@@ -35,22 +35,22 @@ final class PressureGauge extends View {
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(4 * density);
         paint.setStrokeCap(Paint.Cap.ROUND);
-        paint.setColor(0xffdce9ef);
+        paint.setColor(getContext().getColor(R.color.sky_pressure_track));
         canvas.drawArc(arc, START_ANGLE, SWEEP_ANGLE, false, paint);
         if (Double.isFinite(pressure)) {
             double fraction = (pressure - MIN_HPA) / (MAX_HPA - MIN_HPA);
             float sweep = SWEEP_ANGLE * (float) Math.max(0, Math.min(1, fraction));
-            paint.setColor(0xff367f9a);
+            paint.setColor(getContext().getColor(R.color.sky_pressure_value));
             canvas.drawArc(arc, START_ANGLE, sweep, false, paint);
             double angle = Math.toRadians(START_ANGLE + sweep);
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(0xff205264);
+            paint.setColor(getContext().getColor(R.color.sky_pressure_marker));
             canvas.drawCircle(centerX + radius * (float) Math.cos(angle),
                     centerY + radius * (float) Math.sin(angle), 2.6f * density, paint);
         }
         paint.setStyle(Paint.Style.FILL);
         paint.setTextSize(10.5f * density);
-        paint.setColor(0xff526a63);
+        paint.setColor(getContext().getColor(R.color.sky_gauge_label));
         paint.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(minimumLabel, 0, getHeight() - 2 * density, paint);
         paint.setTextAlign(Paint.Align.RIGHT);

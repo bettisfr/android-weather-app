@@ -32,10 +32,10 @@ final class UvGauge extends View {
         }
         if (Double.isFinite(index)) {
             float y = bottom - (float) Math.min(12, Math.max(0, index)) * unit;
-            paint.setColor(0xff163e38);
+            paint.setColor(getContext().getColor(R.color.sky_uv_marker));
             canvas.drawCircle(center - 11 * density, y, 2.2f * density, paint);
         }
-        paint.setColor(0xff526a63);
+        paint.setColor(getContext().getColor(R.color.sky_gauge_label));
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTextSize(11.5f * density);
         canvas.drawText("11+", center, 12 * density, paint);

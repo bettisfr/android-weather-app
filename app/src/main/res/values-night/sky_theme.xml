@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="SkyHereTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/sky_background</item>
+        <item name="android:colorAccent">@color/sky_accent</item>
+    </style>
+    <color name="sky_background">#111d30</color>
+    <color name="sky_card">#1c2a40</color>
+    <color name="sky_text">#edf3ff</color>
+    <color name="sky_muted">#b0bed4</color>
+    <color name="sky_accent">#adc8ff</color>
+    <color name="sky_on_accent">#13243d</color>
+    <color name="sky_selected">#3b5278</color>
+    <color name="sky_subtle">#25354d</color>
+    <color name="sky_header">#253a58</color>
+    <color name="sky_action">#2b4367</color>
+    <color name="sky_ripple">#38adc8ff</color>
+    <color name="sky_chart_secondary">#ffc185</color>
+    <color name="sky_grid">#435470</color>
+    <color name="sky_gauge_label">#b0bed4</color>
+    <color name="sky_humidity_track">#4a3d39</color>
+    <color name="sky_humidity_marker">#ffd19c</color>
+    <color name="sky_pressure_track">#374c64</color>
+    <color name="sky_pressure_value">#66bddb</color>
+    <color name="sky_pressure_marker">#b4eeff</color>
+    <color name="sky_uv_marker">#b6e8d3</color>
+    <color name="sky_path_outline">#98abc7</color>
+    <color name="sky_path_below">#334e71</color>
+    <color name="sky_path_sun_future">#524335</color>
+    <color name="sky_path_sun_elapsed">#c79544</color>
+    <color name="sky_path_sun_dot">#ffd387</color>
+    <color name="sky_path_moon_future">#293e5d</color>
+    <color name="sky_path_moon_elapsed">#6987be</color>
+</resources>

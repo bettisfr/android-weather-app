@@ -1,5 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="appearance_theme">Theme</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="radar">Radar</string>
+    <string name="radar_title">Radar · %1$s</string>
+    <string name="radar_back">Back to the forecast</string>
+    <string name="radar_observed">Observed precipitation</string>
+    <string name="radar_latest">Latest</string>
+    <string name="radar_loading">Loading radar…</string>
+    <string name="radar_unavailable">Radar is temporarily unavailable</string>
+    <string name="radar_no_tiles">No Radar-DPC data here for this time</string>
+    <string name="radar_map">Precipitation radar map</string>
+    <string name="radar_timeline">Radar time</string>
+    <string name="radar_play">Play radar animation</string>
+    <string name="radar_pause">Pause radar animation</string>
     <string name="app_language_tag">en-US</string>
     <string name="location_permission_off">Location permission is off</string>
     <string name="current_location">Current location</string>
@@ -132,6 +148,19 @@
     <string name="transit_of">Transit of %1$s</string>
     <string name="mercury">Mercury</string>
     <string name="venus">Venus</string>
+    <string name="sun">Sun</string>
+    <string name="planets">Planets</string>
+    <string name="mars">Mars</string>
+    <string name="jupiter">Jupiter</string>
+    <string name="saturn">Saturn</string>
+    <string name="planet_now_status">Now · %1$s</string>
+    <string name="planet_visible_now">Visible in clear skies</string>
+    <string name="planet_difficult">Difficult to see</string>
+    <string name="planet_below_horizon">Below the horizon</string>
+    <string name="planet_today_windows">Observable today · %1$s</string>
+    <string name="planet_no_window">No favorable viewing window today</string>
+    <string name="planet_position">Azimuth %1$d° %2$s · Elevation %3$d° · Magnitude %4$s</string>
+    <string name="planets_clear_sky">Viewing times are estimates for clear skies and an unobstructed horizon.</string>
     <string name="visible_range">Visible %1$s</string>
     <string name="estimated_visible_range">Approx. visible %1$s</string>
     <string name="next_day_suffix">" (next day)"</string>

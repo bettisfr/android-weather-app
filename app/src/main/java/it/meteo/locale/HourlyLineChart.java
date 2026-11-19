@@ -10,9 +10,10 @@ import android.view.View;
 import java.util.Locale;
 
 final class HourlyLineChart extends View {
-    static final int PRIMARY = 0xff435e94;
-    static final int SECONDARY = 0xffa55d23;
-    private static final int GRID = 0xffdce3ed;
+    private final int primary;
+    private final int secondary;
+    private final int grid;
+    private final int muted;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final DashPathEffect dashed;
@@ -30,6 +31,10 @@ final class HourlyLineChart extends View {
 
     HourlyLineChart(Context context, double[] first, double[] second, int hourWidth, boolean precipitation, boolean humidity, int decimals) {
         super(context);
+        primary = context.getColor(R.color.sky_accent);
+        secondary = context.getColor(R.color.sky_chart_secondary);
+        grid = context.getColor(R.color.sky_grid);
+        muted = context.getColor(R.color.sky_muted);
         this.first = first;
         this.second = second;
         this.hourWidth = hourWidth;
@@ -68,15 +73,15 @@ final class HourlyLineChart extends View {
         super.onDraw(canvas);
         paint.setStyle(Paint.Style.FILL);
         paint.setStrokeWidth(density);
-        paint.setColor(GRID);
+        paint.setColor(grid);
         for (int i = 0; i <= 2; i++) {
             float y = gridY(getHeight(), i);
             canvas.drawLine(0, y, getWidth(), y, paint);
         }
         if (!hasReadings) return;
         if (precipitation) drawBars(canvas);
-        else drawLine(canvas, first, PRIMARY, null, low, high);
-        drawLine(canvas, second, SECONDARY, dashed, precipitation ? 0 : low, precipitation ? 100 : high);
+        else drawLine(canvas, first, primary, null, low, high);
+        drawLine(canvas, second, secondary, dashed, precipitation ? 0 : low, precipitation ? 100 : high);
         drawReadings(canvas);
     }
 
@@ -85,7 +90,7 @@ final class HourlyLineChart extends View {
             private final Paint labels = new Paint(Paint.ANTI_ALIAS_FLAG);
             @Override protected void onDraw(Canvas canvas) {
                 if (!hasReadings) return;
-                labels.setColor(0xff546074);
+                labels.setColor(muted);
                 labels.setTextSize(readingTextSize);
                 labels.setTextAlign(right ? Paint.Align.LEFT : Paint.Align.RIGHT);
                 for (int i = 0; i <= 2; i++) {
@@ -106,7 +111,7 @@ final class HourlyLineChart extends View {
     }
 
     private void drawBars(Canvas canvas) {
-        paint.setColor(PRIMARY);
+        paint.setColor(primary);
         paint.setStyle(Paint.Style.FILL);
         for (int i = 0; i < first.length; i++) {
             if (!Double.isFinite(first[i]) || first[i] <= 0) continue;
@@ -155,9 +160,9 @@ final class HourlyLineChart extends View {
             float aY = pointY(a, low, high);
             float bY = pointY(b, precipitation ? 0 : low, precipitation ? 100 : high);
             boolean firstAbove = !precipitation && (!Double.isFinite(b) || aY <= bY);
-            drawReading(canvas, a, x, aY, firstAbove, PRIMARY, decimals);
+            drawReading(canvas, a, x, aY, firstAbove, primary, decimals);
             drawReading(canvas, b, x, bY, !Double.isFinite(a) || !firstAbove,
-                    SECONDARY, precipitation ? 0 : decimals);
+                    secondary, precipitation ? 0 : decimals);
         }
     }
 

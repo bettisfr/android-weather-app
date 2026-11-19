@@ -17,7 +17,7 @@ final class SkyPosition {
     // Low-precision orbital elements and lunar perturbations from Paul Schlyter.
     // https://www.stjarnhimlen.se/comp/ppcomp.html
     static SkyPosition at(Instant now, double latitude, double longitude, boolean moon) {
-        double days = (now.getEpochSecond() - EPOCH_SECONDS) / 86400;
+        double days = daysSinceEpoch(now);
         double sunAnomaly = Math.toRadians(normalize(356.0470 + 0.9856002585 * days));
         double sunPerihelion = Math.toRadians(282.9404 + 4.70935e-5 * days);
         double sunMeanLongitude = sunAnomaly + sunPerihelion;
@@ -53,10 +53,19 @@ final class SkyPosition {
                     Math.cos(eccentric) - eccentricity) + sunPerihelion;
         }
 
-        double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
         double x = Math.cos(eclipticLongitude) * Math.cos(eclipticLatitude);
         double y = Math.sin(eclipticLongitude) * Math.cos(eclipticLatitude);
         double z = Math.sin(eclipticLatitude);
+        return fromEcliptic(x, y, z, days, sunMeanLongitude, latitude, longitude, moon ? 1 / distance : 0);
+    }
+
+    static double daysSinceEpoch(Instant time) {
+        return (time.getEpochSecond() - EPOCH_SECONDS) / 86400;
+    }
+
+    static SkyPosition fromEcliptic(double x, double y, double z, double days, double sunMeanLongitude,
+            double latitude, double longitude, double observerRadius) {
+        double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
         double equatorialY = y * Math.cos(obliquity) - z * Math.sin(obliquity);
         double equatorialZ = y * Math.sin(obliquity) + z * Math.cos(obliquity);
         double sidereal = sunMeanLongitude + Math.toRadians(180 + 360 * (days - Math.floor(days)) + longitude);
@@ -65,12 +74,12 @@ final class SkyPosition {
         double east = -x * Math.sin(sidereal) + equatorialY * Math.cos(sidereal);
         double north = equatorialZ * Math.cos(lat) - meridian * Math.sin(lat);
         double up = meridian * Math.cos(lat) + equatorialZ * Math.sin(lat);
-        if (moon) up -= 1 / distance; // Observer is one Earth radius above the geocenter.
+        up -= observerRadius;
         return new SkyPosition(normalize(Math.toDegrees(Math.atan2(east, north))),
                 Math.toDegrees(Math.atan2(Math.hypot(east, north), up)));
     }
 
-    private static double eccentricAnomaly(double mean, double eccentricity) {
+    static double eccentricAnomaly(double mean, double eccentricity) {
         double eccentric = mean;
         for (int i = 0; i < 3; i++) {
             eccentric -= (eccentric - eccentricity * Math.sin(eccentric) - mean)

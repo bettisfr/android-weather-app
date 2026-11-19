@@ -1,6 +1,6 @@
 # SkyHere
 
-SkyHere is a native Android app for checking the weather where you are and in places you save. The interface follows Android’s language settings and is available in English and Italian.
+SkyHere is an Android app for local weather, precipitation radar, and skywatching. Use your current location or choose a saved city. The interface follows Android’s language settings and is available in English and Italian.
 
 ## Screenshots
 
@@ -16,17 +16,21 @@ SkyHere is a native Android app for checking the weather where you are and in pl
 - Pull down from the top of the forecast to refresh it manually. The app also refreshes when you return after five minutes or when the local hour changes.
 - A scrollable 24-hour forecast and a 10-day forecast with a detail screen for each day.
 - Hourly charts for precipitation amount and probability, wind and gusts, humidity, and actual and feels-like temperatures.
-- Rain icons that distinguish light, moderate, and heavy rain, plus layouts that adapt to larger Android text sizes.
+- Interactive precipitation radar for Italian locations. Pan and zoom the map, scrub through the previous hour, or play the observed five-minute frames with a short crossfade.
+- Illustrated weather conditions, including separate symbols for rain, showers, snow, and hail. [Weather icon catalog](docs/weather-icons.html)
 - Matching Sun and Moon path charts with a marker for the current position. Azimuth and elevation update every minute while the app is open and are shown when the body is at or above the horizon.
-- Sunrise, solar noon, sunset, civil twilight, and daylight duration, plus an expandable 15-day table with maximum solar elevation and second-resolution sunrise, sunset, and daylight duration.
+- Sunrise, solar noon, sunset, civil twilight, polar night, and midnight sun. The expandable 15-day table shows maximum solar elevation and second-resolution sunrise, sunset, and daylight duration.
 - Current Moon phase and illuminated percentage, dates of the next full and new moons, and an expandable 15-day table with phases, illumination, and second-resolution moonrise and moonset.
+- Today’s estimated clear-sky viewing windows for Mercury, Venus, Mars, Jupiter, and Saturn, with live compass direction, azimuth, elevation, and apparent magnitude when above the horizon.
 - Solar and lunar eclipses and planetary transits visible from the selected location, with local times, visible duration, and links to event details.
-- A Settings panel with configurable units and time format. Defaults are °C, km/h, hPa, and a 24-hour clock. Precipitation is shown in mm.
+- Light, Dark, and System themes, layouts that adapt to larger Android text sizes, and an adaptive crescent-and-horizon launcher icon.
+- Configurable units and time format. Defaults are °C, km/h, hPa, and a 24-hour clock. Precipitation is shown in mm.
 
 ## Data sources
 
 - Forecasts and location search come from Open-Meteo. Where available, the app uses ItaliaMeteo/ARPAE ICON-2I for the first three days and ECMWF IFS for the extended forecast. Best Match fills in missing forecast fields. [Open-Meteo](https://open-meteo.com/) · [ICON-2I](https://open-meteo.com/en/docs/italia-meteo-arpae-api)
-- Open-Meteo supplies rise and set times for the Sun and Moon and daily lunar phase values. SkyHere calculates daylight duration, lunar illumination, primary lunar phase dates, solar noon, civil twilight, and approximate horizontal coordinates on the device. [Open-Meteo forecast API](https://open-meteo.com/en/docs) · [NOAA solar equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF) · [Paul Schlyter's orbital calculations](https://www.stjarnhimlen.se/comp/ppcomp.html)
+- Open-Meteo supplies rise and set times for the Sun and Moon and daily lunar phase values. SkyHere calculates daylight duration, lunar illumination, primary lunar phase dates, solar noon, civil twilight, and approximate planetary positions and magnitudes on the device. [Open-Meteo forecast API](https://open-meteo.com/en/docs) · [NOAA solar equations](https://gml.noaa.gov/grad/solcalc/solareqns.PDF) · [Paul Schlyter's orbital calculations](https://www.stjarnhimlen.se/comp/ppcomp.html)
+- The radar overlays estimated surface rainfall intensity from Radar-DPC on an OpenStreetMap basemap. The radar data and colorized overlay are attributed to Radar-DPC under CC BY-SA 4.0. The map uses Leaflet. [Radar-DPC](https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/) · [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) · [OpenStreetMap attribution](https://www.openstreetmap.org/copyright) · [Leaflet licence](app/src/main/assets/radar/LEAFLET-LICENSE)
 - Eclipse data comes from IMCCE OPALE. Transit visibility windows are estimated using the selected location and the NASA catalog. [IMCCE OPALE](https://opale.imcce.fr/) · [Transit Predictions by Fred Espenak, NASA/GSFC](https://eclipse.gsfc.nasa.gov/transit/catalog/Visible.html)
 
 The app asks for location access while in use. Android resolves the name of the detected location, and city search remains available if location access is denied or unavailable.

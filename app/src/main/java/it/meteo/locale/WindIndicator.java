@@ -33,7 +33,7 @@ final class WindIndicator extends View {
         if (Double.isFinite(degrees)) {
             canvas.rotate((float) (degrees + 180));
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(0xff435e94);
+            paint.setColor(getContext().getColor(R.color.sky_accent));
             canvas.drawPath(pointer, paint);
         }
         canvas.restore();

@@ -25,7 +25,7 @@ final class HumidityGauge extends View {
         float center = getWidth() / 2f;
         float radius = 9 * density;
         track.set(center - radius, 15 * density, center + radius, getHeight() - 15 * density);
-        paint.setColor(0xfff7ecd9);
+        paint.setColor(getContext().getColor(R.color.sky_humidity_track));
         canvas.drawRoundRect(track, radius, radius, paint);
         if (Double.isFinite(humidity)) {
             float level = track.bottom - track.height() * (float) Math.max(0, Math.min(100, humidity)) / 100;
@@ -36,10 +36,10 @@ final class HumidityGauge extends View {
             paint.setColor(0xffcf8129);
             canvas.drawRect(track.left, level, track.right, track.bottom, paint);
             canvas.restore();
-            paint.setColor(0xff774e24);
+            paint.setColor(getContext().getColor(R.color.sky_humidity_marker));
             canvas.drawLine(track.left - 5 * density, level, track.left + 3 * density, level, paint);
         }
-        paint.setColor(0xff526a63);
+        paint.setColor(getContext().getColor(R.color.sky_gauge_label));
         paint.setTextAlign(Paint.Align.CENTER);
         paint.setTextSize(11.5f * density);
         canvas.drawText("100", center, 12 * density, paint);

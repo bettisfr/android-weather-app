@@ -57,23 +57,23 @@ final class SkyPath extends View {
         if (lunar) phase -= (float) Math.floor(phase);
         float elapsed = Math.max(0, Math.min(1, phase));
 
-        fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, sunsetPhase, lunar ? 0xffe9eef8 : 0xfff8efdc);
+        fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, sunsetPhase, lunar ? getContext().getColor(R.color.sky_path_moon_future) : getContext().getColor(R.color.sky_path_sun_future));
         if (Float.isFinite(nowMinute)) {
-            fill(canvas, left, width, center, amplitude, horizon, 0, Math.min(sunrisePhase, elapsed), 0xff344a65);
+            fill(canvas, left, width, center, amplitude, horizon, 0, Math.min(sunrisePhase, elapsed), getContext().getColor(R.color.sky_path_below));
             fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, Math.min(sunsetPhase, elapsed),
-                    lunar ? 0xffafbfdf : 0xffedc779);
-            fill(canvas, left, width, center, amplitude, horizon, sunsetPhase, elapsed, 0xff344a65);
+                    lunar ? getContext().getColor(R.color.sky_path_moon_elapsed) : getContext().getColor(R.color.sky_path_sun_elapsed));
+            fill(canvas, left, width, center, amplitude, horizon, sunsetPhase, elapsed, getContext().getColor(R.color.sky_path_below));
         }
         curve(left, width, center, amplitude, 0, 1);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(density);
-        paint.setColor(0xff8a96a5);
+        paint.setColor(getContext().getColor(R.color.sky_path_outline));
         canvas.drawPath(path, paint);
         canvas.drawLine(left, horizon, left + width, horizon, paint);
         if (Float.isFinite(nowMinute) && phase >= 0 && phase <= 1) {
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(phase >= sunrisePhase && phase <= sunsetPhase
-                    ? (lunar ? 0xff435e94 : 0xffbe7d1e) : 0xff344a65);
+                    ? (lunar ? getContext().getColor(R.color.sky_accent) : getContext().getColor(R.color.sky_path_sun_dot)) : getContext().getColor(R.color.sky_path_below));
             canvas.drawCircle(left + width * phase, curveY(center, amplitude, phase), 4.5f * density, paint);
         }
     }
