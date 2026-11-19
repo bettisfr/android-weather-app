@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_version">Versione %1$s · %2$s</string>
     <string name="appearance_theme">Tema</string>
     <string name="theme_system">Sistema</string>
     <string name="theme_light">Chiaro</string>

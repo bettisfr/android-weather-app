@@ -36,6 +36,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -1712,6 +1713,11 @@ public final class MainActivity extends Activity {
         RadioGroup pressures = unitOption(options, getString(R.string.pressure), PRESSURE_UNITS, pressureUnit);
         RadioGroup clockFormats = unitOption(options, getString(R.string.time_format),
                 new String[]{getString(R.string.clock_12), getString(R.string.clock_24)}, clock24 ? 1 : 0);
+        String versionDate = LocalDate.parse(getString(R.string.sky_version_date))
+                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(appLocale()));
+        TextView version = label(getString(R.string.app_version, getString(R.string.sky_version_name), versionDate), 12, muted);
+        version.setPadding(0, dp(18), 0, 0);
+        options.addView(version);
 
         LinearLayout actions = row();
         actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);

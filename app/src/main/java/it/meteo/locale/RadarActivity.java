@@ -28,7 +28,7 @@ public final class RadarActivity extends Activity {
     private static final String ASSET_ORIGIN = "https://appassets.androidplatform.net";
     private static final String PAGE = ASSET_ORIGIN + "/radar/index.html";
     private static final String METADATA = "https://radar-api.protezionecivile.it/findLastProductByType?type=SRI";
-    private static final String USER_AGENT = "SkyHere/0.1 (+https://github.com/bettisfr/android-weather-app)";
+    private static final String USER_AGENT_PROJECT = " (+https://github.com/bettisfr/android-weather-app)";
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WebView web;
 
@@ -68,7 +68,7 @@ public final class RadarActivity extends Activity {
         web.getSettings().setJavaScriptEnabled(true);
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
-        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " " + USER_AGENT);
+        web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " " + userAgent());
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
@@ -138,7 +138,7 @@ public final class RadarActivity extends Activity {
             connection.setConnectTimeout(8000);
             connection.setReadTimeout(8000);
             connection.setRequestProperty("Origin", "https://radar.protezionecivile.it");
-            connection.setRequestProperty("User-Agent", USER_AGENT);
+            connection.setRequestProperty("User-Agent", userAgent());
             JSONObject product;
             try (InputStream stream = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
                 byte[] buffer = new byte[2048];
@@ -160,6 +160,10 @@ public final class RadarActivity extends Activity {
 
     private void evaluate(String code) {
         if (!isFinishing() && !isDestroyed() && web != null) web.evaluateJavascript(code, null);
+    }
+
+    private String userAgent() {
+        return "SkyHere/" + getString(R.string.sky_version_name) + USER_AGENT_PROJECT;
     }
 
     @Override protected void onPause() {
