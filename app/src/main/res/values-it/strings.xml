@@ -133,7 +133,13 @@
     <string name="moon_penumbra">%1$s della Luna in penombra</string>
     <string name="moon_shadow">%1$s della Luna in ombra terrestre</string>
     <string name="approximate_value">Circa %1$s</string>
-    <string name="daylight_duration">Luce diurna %1$s</string>
+    <string name="daylight_duration">Luce %1$s</string>
+    <string name="daylight_column">Luce</string>
+    <string name="moonrise_column">Levata</string>
+    <string name="moonset_column">Tramonto</string>
+    <string name="max_elevation">Elev. max</string>
+    <string name="sky_coordinates">Azimut %1$d° · Elevazione %2$d°</string>
+    <string name="sky_coordinates_below_horizon">Azimut - · Elevazione -</string>
     <string name="chart_reading">%1$s %2$s %3$s</string>
     <string name="chart_reading_missing">%1$s: dato non disponibile</string>
     <string name="wind_from_degrees">Vento da %1$d gradi</string>

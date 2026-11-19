@@ -9,19 +9,33 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
-final class SunPath extends View {
+final class SkyPath extends View {
     private static final float MINUTES_PER_DAY = 24 * 60;
+    // Mean interval between successive lunar transits.
+    private static final float LUNAR_CYCLE_MINUTES = 24 * 60 + 50;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
-    private final int nowMinute;
-    private final int riseMinute;
-    private final int setMinute;
+    private final float nowMinute;
+    private final float riseMinute;
+    private final float setMinute;
+    private final float cycleMinutes;
 
-    SunPath(Context context, LocalTime sunrise, LocalTime sunset, LocalTime time) {
+    SkyPath(Context context, LocalTime sunrise, LocalTime sunset, LocalTime time) {
+        this(context, minutes(sunrise), minutes(sunset), time == null ? Float.NaN : minutes(time), MINUTES_PER_DAY);
+    }
+
+    static SkyPath moon(Context context, long rise, long set, long now) {
+        float nextSet = set > rise ? set : set + LUNAR_CYCLE_MINUTES;
+        if (nextSet <= rise || nextSet - rise >= LUNAR_CYCLE_MINUTES) return null;
+        return new SkyPath(context, rise, nextSet, now, LUNAR_CYCLE_MINUTES);
+    }
+
+    private SkyPath(Context context, float rise, float set, float now, float cycleMinutes) {
         super(context);
-        nowMinute = minutes(time);
-        riseMinute = minutes(sunrise);
-        setMinute = minutes(sunset);
+        riseMinute = rise;
+        setMinute = set;
+        nowMinute = now;
+        this.cycleMinutes = cycleMinutes;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
 
@@ -30,21 +44,24 @@ final class SunPath extends View {
         float density = getResources().getDisplayMetrics().density;
         float left = 5 * density;
         float width = getWidth() - 10 * density;
-        if (riseMinute < 0 || setMinute <= riseMinute || width <= 0) return;
+        if (riseMinute < 0 || setMinute <= riseMinute || setMinute - riseMinute >= cycleMinutes || width <= 0) return;
+        boolean lunar = cycleMinutes == LUNAR_CYCLE_MINUTES;
         float center = getHeight() * .5f;
         float amplitude = getHeight() * .35f;
-        float daylightFraction = (setMinute - riseMinute) / MINUTES_PER_DAY;
+        float daylightFraction = (setMinute - riseMinute) / cycleMinutes;
         float sunrisePhase = .5f - daylightFraction / 2;
         float sunsetPhase = .5f + daylightFraction / 2;
         float horizon = curveY(center, amplitude, sunrisePhase);
         float midpoint = (riseMinute + setMinute) / 2f;
-        float phase = .5f + (nowMinute - midpoint) / MINUTES_PER_DAY;
+        float phase = .5f + (nowMinute - midpoint) / cycleMinutes;
+        if (lunar) phase -= (float) Math.floor(phase);
         float elapsed = Math.max(0, Math.min(1, phase));
 
-        fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, sunsetPhase, 0xfff8efdc);
-        if (nowMinute >= 0) {
+        fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, sunsetPhase, lunar ? 0xffe9eef8 : 0xfff8efdc);
+        if (Float.isFinite(nowMinute)) {
             fill(canvas, left, width, center, amplitude, horizon, 0, Math.min(sunrisePhase, elapsed), 0xff344a65);
-            fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, Math.min(sunsetPhase, elapsed), 0xffedc779);
+            fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, Math.min(sunsetPhase, elapsed),
+                    lunar ? 0xffafbfdf : 0xffedc779);
             fill(canvas, left, width, center, amplitude, horizon, sunsetPhase, elapsed, 0xff344a65);
         }
         curve(left, width, center, amplitude, 0, 1);
@@ -53,9 +70,10 @@ final class SunPath extends View {
         paint.setColor(0xff8a96a5);
         canvas.drawPath(path, paint);
         canvas.drawLine(left, horizon, left + width, horizon, paint);
-        if (nowMinute >= 0 && phase >= 0 && phase <= 1) {
+        if (Float.isFinite(nowMinute) && phase >= 0 && phase <= 1) {
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(nowMinute >= riseMinute && nowMinute <= setMinute ? 0xffbe7d1e : 0xff344a65);
+            paint.setColor(phase >= sunrisePhase && phase <= sunsetPhase
+                    ? (lunar ? 0xff435e94 : 0xffbe7d1e) : 0xff344a65);
             canvas.drawCircle(left + width * phase, curveY(center, amplitude, phase), 4.5f * density, paint);
         }
     }

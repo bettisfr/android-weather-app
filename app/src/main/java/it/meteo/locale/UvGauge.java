@@ -37,8 +37,8 @@ final class UvGauge extends View {
         }
         paint.setColor(0xff526a63);
         paint.setTextAlign(Paint.Align.CENTER);
-        paint.setTextSize(10 * density);
-        canvas.drawText("11+", center, 11 * density, paint);
+        paint.setTextSize(11.5f * density);
+        canvas.drawText("11+", center, 12 * density, paint);
         canvas.drawText("0", center, getHeight() - 2 * density, paint);
     }
 }

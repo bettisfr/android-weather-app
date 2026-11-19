@@ -18,7 +18,6 @@ final class HourlyLineChart extends View {
     private final DashPathEffect dashed;
     private final float density;
     private final float readingTextSize;
-    private final float scaleTextSize;
     private final double[] first;
     private final double[] second;
     private final int hourWidth;
@@ -39,8 +38,7 @@ final class HourlyLineChart extends View {
         this.decimals = decimals;
         android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
         density = metrics.density;
-        readingTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 9, metrics);
-        scaleTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 9.5f, metrics);
+        readingTextSize = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 10.5f, metrics);
         dashed = new DashPathEffect(new float[]{4 * density, 3 * density}, 0);
         double minimum = Double.POSITIVE_INFINITY;
         double maximum = Double.NEGATIVE_INFINITY;
@@ -88,7 +86,7 @@ final class HourlyLineChart extends View {
             @Override protected void onDraw(Canvas canvas) {
                 if (!hasReadings) return;
                 labels.setColor(0xff546074);
-                labels.setTextSize(scaleTextSize);
+                labels.setTextSize(readingTextSize);
                 labels.setTextAlign(right ? Paint.Align.LEFT : Paint.Align.RIGHT);
                 for (int i = 0; i <= 2; i++) {
                     double value = right ? 100 - 50 * i : high - (high - low) * i / 2;

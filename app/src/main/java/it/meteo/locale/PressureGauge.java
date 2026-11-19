@@ -49,7 +49,7 @@ final class PressureGauge extends View {
                     centerY + radius * (float) Math.sin(angle), 2.6f * density, paint);
         }
         paint.setStyle(Paint.Style.FILL);
-        paint.setTextSize(9 * density);
+        paint.setTextSize(10.5f * density);
         paint.setColor(0xff526a63);
         paint.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(minimumLabel, 0, getHeight() - 2 * density, paint);

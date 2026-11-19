@@ -134,6 +134,13 @@
     <string name="moon_shadow">%1$s of the Moon in Earth’s shadow</string>
     <string name="approximate_value">Approx. %1$s</string>
     <string name="daylight_duration">Daylight %1$s</string>
+    <string name="daylight_hours_minutes">%1$dh %2$02dm</string>
+    <string name="daylight_column">Daylight</string>
+    <string name="moonrise_column">Rise</string>
+    <string name="moonset_column">Set</string>
+    <string name="max_elevation">Max elev.</string>
+    <string name="sky_coordinates">Azimuth %1$d° · Elevation %2$d°</string>
+    <string name="sky_coordinates_below_horizon">Azimuth - · Elevation -</string>
     <string name="chart_reading">%1$s %2$s %3$s</string>
     <string name="chart_reading_missing">%1$s unavailable</string>
     <string name="wind_from_degrees">Wind from %1$d degrees</string>
