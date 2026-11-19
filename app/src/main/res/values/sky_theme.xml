@@ -13,7 +13,8 @@
     <color name="sky_selected">#d9e3f8</color>
     <color name="sky_subtle">#f1f3f8</color>
     <color name="sky_header">#dfe5f0</color>
-    <color name="sky_action">#dfe7f8</color>
+    <color name="sky_action">#bfd3fa</color>
+    <color name="sky_on_action">#243f73</color>
     <color name="sky_ripple">#25435e94</color>
     <color name="sky_chart_secondary">#a55d23</color>
     <color name="sky_grid">#dce3ed</color>

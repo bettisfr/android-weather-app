@@ -94,6 +94,7 @@ public final class MainActivity extends Activity {
     private TextView auroraStatus;
     private TextView auroraTimes;
     private TextView currentKpView;
+    private View currentKpBar;
     private AuroraForecast.KpReading currentKp;
     private LinearLayout kpTable;
     private List<AuroraForecast.KpPeriod> kpPeriods = List.of();
@@ -527,6 +528,7 @@ public final class MainActivity extends Activity {
         auroraStatus = null;
         auroraTimes = null;
         currentKpView = null;
+        currentKpBar = null;
         kpTable = null;
         radarButton = null;
         sunCoordinates = null;
@@ -796,6 +798,9 @@ public final class MainActivity extends Activity {
 
     private Button mapButton(int title, Runnable open) {
         Button button = actionButton(getString(title), getColor(R.color.sky_action), 24);
+        int foreground = getColor(R.color.sky_on_action);
+        button.setTextColor(foreground);
+        button.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(foreground));
         button.setCompoundDrawablePadding(dp(7));
         button.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_radar, 0, 0, 0);
         button.setOnClickListener(view -> open.run());
@@ -1422,9 +1427,6 @@ public final class MainActivity extends Activity {
             planetRows.add(new PlanetRow(body, now, position, windows));
             addSpaced(tile, entry, 7);
         }
-        TextView note = label(getString(R.string.planets_clear_sky), 11, muted);
-        note.setPadding(0, dp(8), 0, 0);
-        tile.addView(note);
         LinearLayout direction = column();
         direction.setBackground(background(getColor(R.color.sky_subtle), 12));
         direction.setPadding(dp(11), dp(9), dp(11), dp(9));
@@ -1435,7 +1437,10 @@ public final class MainActivity extends Activity {
         TextView directionHint = label(getString(R.string.phone_direction_hint), 11, muted);
         directionHint.setPadding(0, dp(8), 0, 0);
         direction.addView(directionHint);
-        addSpaced(tile, direction, 8);
+        tile.addView(direction);
+        TextView note = label(getString(R.string.planets_clear_sky), 11, muted);
+        note.setPadding(0, dp(8), 0, 0);
+        tile.addView(note);
         startPhoneOrientation();
         updatePlanets(Instant.now());
         addSpaced(page, tile, 9);
@@ -1496,20 +1501,27 @@ public final class MainActivity extends Activity {
         LinearLayout heading = row();
         heading.setGravity(Gravity.TOP);
         heading.setBaselineAligned(false);
-        heading.addView(label(getString(R.string.aurora), 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        LinearLayout summary = column();
+        summary.setPaddingRelative(0, 0, dp(8), 0);
+        summary.addView(label(getString(R.string.aurora), 16, ink));
+        auroraStatus = label("", 15, ink);
+        auroraStatus.setPadding(0, dp(10), 0, 0);
+        summary.addView(auroraStatus);
+        heading.addView(summary, new LinearLayout.LayoutParams(0, -2, 1));
         Button map = mapButton(R.string.aurora_map_short, () -> openMap(true));
         map.setContentDescription(getString(R.string.aurora_map));
         heading.addView(map);
         tile.addView(heading);
-        auroraStatus = label("", 15, ink);
-        auroraStatus.setPadding(0, dp(8), 0, 0);
-        tile.addView(auroraStatus);
         auroraTimes = label("", 12, muted);
         auroraTimes.setPadding(0, dp(4), 0, 0);
         tile.addView(auroraTimes);
         currentKpView = label("", 14, accent);
         currentKpView.setPadding(0, dp(8), 0, 0);
         tile.addView(currentKpView);
+        currentKpBar = kpBar();
+        LinearLayout.LayoutParams currentBarSize = new LinearLayout.LayoutParams(-1, dp(6));
+        currentBarSize.topMargin = dp(5);
+        tile.addView(currentKpBar, currentBarSize);
         LinearLayout table = column();
         kpTable = table;
         table.setVisibility(View.GONE);
@@ -1572,8 +1584,13 @@ public final class MainActivity extends Activity {
             }
             LinearLayout line = row();
             line.setPadding(0, dp(4), 0, dp(4));
-            line.addView(label(hours.format(period.start) + "–" + hours.format(period.end()), 14, ink),
-                    new LinearLayout.LayoutParams(0, -2, 1));
+            line.addView(label(hours.format(period.start) + "–" + hours.format(period.end()), 14, ink));
+            View bar = kpBar();
+            bar.getBackground().setLevel((int) Math.round(period.kp * 10000 / 9));
+            LinearLayout.LayoutParams barSize = new LinearLayout.LayoutParams(0, dp(6), 1);
+            barSize.setMarginStart(dp(10));
+            barSize.setMarginEnd(dp(10));
+            line.addView(bar, barSize);
             TextView activity = label("Kp " + number(period.kp, "%.2f") + "/9", 14, accent);
             line.addView(activity);
             kpTable.addView(line);
@@ -1581,6 +1598,18 @@ public final class MainActivity extends Activity {
         int text = currentDate != null ? R.string.aurora_kp_hint
                 : kpLoading ? R.string.aurora_loading : R.string.aurora_unavailable;
         addSpaced(kpTable, label(getString(text), 12, muted), 8);
+    }
+
+    private View kpBar() {
+        View bar = new View(this);
+        android.graphics.drawable.ClipDrawable fill = new android.graphics.drawable.ClipDrawable(
+                new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                        new int[]{0xff41a872, 0xffe6b83b, 0xffdf5745}),
+                Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
+        bar.setBackground(new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{
+                background(getColor(R.color.sky_selected), 3), fill}));
+        bar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return bar;
     }
 
     private void refreshAurora() {
@@ -1619,9 +1648,12 @@ public final class MainActivity extends Activity {
     private void updateCurrentKp(Instant now) {
         if (currentKpView == null) return;
         if (currentKp == null || now.isAfter(currentKp.time.plusSeconds(1800))) {
+            currentKpBar.setVisibility(View.GONE);
             currentKpView.setText(R.string.aurora_kp_current_unavailable);
             return;
         }
+        currentKpBar.setVisibility(View.VISIBLE);
+        currentKpBar.getBackground().setLevel((int) Math.round(currentKp.kp * 10000 / 9));
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         currentKpView.setText(getString(R.string.aurora_kp_current, number(currentKp.kp, "%.2f"),
                 formatTime(currentKp.time.atZone(zone).toLocalTime(), clockFormat())));

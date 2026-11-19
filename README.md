@@ -5,9 +5,14 @@ SkyHere is an Android app for local weather, precipitation radar, and skywatchin
 ## Screenshots
 
 <p>
-  <img src="docs/screenshots/forecast.png" width="240" alt="Current weather, hourly forecast, and the 10-day forecast" />
-  <img src="docs/screenshots/hourly-details.png" width="240" alt="Hourly wind speed and gust chart" />
+  <img src="docs/screenshots/forecast.png" width="240" alt="Current weather in Bastia Umbra, regional wind warnings, and the 10-day forecast" />
+  <img src="docs/screenshots/hourly-details.png" width="240" alt="Current conditions and the hourly precipitation chart" />
   <img src="docs/screenshots/astronomy.png" width="240" alt="Sun and Moon paths, rise and set times, and lunar phase" />
+</p>
+
+<p>
+  <img src="docs/screenshots/aurora.png" width="240" alt="Aurora visibility in Abisko, current Kp, and forecast bars" />
+  <img src="docs/screenshots/aurora-map.png" width="240" alt="Interactive NOAA aurora map centered on Abisko" />
 </p>
 
 ## Features
