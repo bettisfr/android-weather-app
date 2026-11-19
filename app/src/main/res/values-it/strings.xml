@@ -204,4 +204,11 @@
     <string name="eclipse_total_lunar">Eclissi lunare totale</string>
     <string name="eclipse_penumbral_lunar">Eclissi lunare di penombra</string>
     <string name="moon_illuminated">Illuminata al %1$s</string>
+    <string name="forecast_weather_event">%1$s verso le %2$s</string>
+    <string name="phone_direction">Direzione del telefono</string>
+    <string name="phone_direction_hint">Punta la fotocamera posteriore verso il cielo.</string>
+    <string name="phone_direction_waiting">Lettura dei sensori…</string>
+    <string name="phone_direction_unavailable">Sensore di orientamento non disponibile</string>
+    <string name="phone_direction_reading">Azimut %1$s · Elevazione %2$d°</string>
+    <string name="phone_direction_magnetic">Azimut magnetico %1$s · Elevazione %2$d°</string>
 </resources>

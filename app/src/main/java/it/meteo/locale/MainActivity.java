@@ -3,6 +3,11 @@ package it.meteo.locale;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.hardware.GeomagneticField;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.Location;
@@ -96,6 +101,32 @@ public final class MainActivity extends Activity {
     private TextView moonCoordinates;
     private final List<PlanetRow> planetRows = new ArrayList<>();
     private LocalDate planetWindowDate;
+    private double magneticDeclination = Double.NaN;
+    private boolean resumed;
+    private TextView phoneDirection;
+    private final float[] phoneRotation = new float[9];
+    private final SensorEventListener phoneOrientation = new SensorEventListener() {
+        @Override public void onSensorChanged(SensorEvent event) {
+            if (phoneDirection == null) return;
+            SensorManager.getRotationMatrixFromVector(phoneRotation, event.values);
+            // The rear camera points along the negative device Z axis.
+            double east = -phoneRotation[2];
+            double north = -phoneRotation[5];
+            double horizontal = Math.hypot(east, north);
+            long elevation = Math.round(Math.toDegrees(Math.atan2(-phoneRotation[8], horizontal)));
+            double heading = Math.toDegrees(Math.atan2(east, north));
+            boolean trueNorth = Double.isFinite(magneticDeclination);
+            if (trueNorth) heading += magneticDeclination;
+            long azimuth = Math.floorMod(Math.round(heading), 360);
+            String direction = Math.abs(elevation) == 90 ? "—" : azimuth + "° " + planetDirection(azimuth);
+            String reading = getString(trueNorth ? R.string.phone_direction_reading : R.string.phone_direction_magnetic,
+                    direction, elevation);
+            if (!reading.contentEquals(phoneDirection.getText())) phoneDirection.setText(reading);
+        }
+
+        @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+    };
+
     private final Runnable updateSkyCoordinates = new Runnable() {
         @Override public void run() {
             Instant now = Instant.now();
@@ -189,6 +220,8 @@ public final class MainActivity extends Activity {
             @Override public void onLocationChanged(Location location) {
                 if (locationListener != this) return;
                 stopLocating();
+                magneticDeclination = new GeomagneticField((float) location.getLatitude(),
+                        (float) location.getLongitude(), (float) location.getAltitude(), location.getTime()).getDeclination();
                 latitude = location.getLatitude();
                 longitude = location.getLongitude();
                 selectedCountry = "";
@@ -325,6 +358,8 @@ public final class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        resumed = true;
+        startPhoneOrientation();
         updateSkyCoordinates.run();
         if (data == null || choosingLocation || locationListener != null || forecastLoading) return;
         ZonedDateTime localHour = Instant.now().atZone(ZoneId.of(data.optString("timezone", "UTC")))
@@ -334,6 +369,8 @@ public final class MainActivity extends Activity {
     }
 
     @Override protected void onPause() {
+        resumed = false;
+        getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
         main.removeCallbacks(updateSkyCoordinates);
         super.onPause();
     }
@@ -458,6 +495,10 @@ public final class MainActivity extends Activity {
         radarButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
+        if (phoneDirection != null) {
+            getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
+            phoneDirection = null;
+        }
         planetRows.clear();
         planetWindowDate = null;
         currentLocationTitle = null;
@@ -511,8 +552,14 @@ public final class MainActivity extends Activity {
         int todayHour = currentHour(current, hourly);
         String today = at(daily, "time", 0);
         double rainRemaining = remainingMaximum(hourly, "precipitation_probability", todayHour, today);
-        double remainingWeather = remainingMaximum(hourly, "weather_code", todayHour, today);
-        int todayWeather = Double.isFinite(remainingWeather) ? (int) remainingWeather : current.optInt("weather_code");
+        int forecastDays = Math.min(FORECAST_DAYS, length(daily));
+        DayWeather[] summaries = new DayWeather[forecastDays];
+        for (int index = 0; index < forecastDays; index++) {
+            String date = at(daily, "time", index);
+            double dailyCode = value(daily, "weather_code", index);
+            int fallback = index == 0 ? current.optInt("weather_code") : (int) dailyCode;
+            summaries[index] = summarizeWeather(hourly, index == 0 ? todayHour : 0, date, fallback);
+        }
         if (day < 0) {
             LinearLayout top = row();
             top.addView(placeTitle(), new LinearLayout.LayoutParams(0, -2, 1));
@@ -559,9 +606,10 @@ public final class MainActivity extends Activity {
             addSpaced(page, extremes, 10);
             forecast(hourly, todayHour, todayHour + 24, true);
             title(getString(R.string.forecast_10_days));
-            for (int index = 0; index < Math.min(FORECAST_DAYS, length(daily)); index++) {
+            for (int index = 0; index < forecastDays; index++) {
                 final int selected = index;
-                int weather = index == 0 ? todayWeather : (int) value(daily, "weather_code", index);
+                DayWeather dayWeather = summaries[index];
+                int weather = dayWeather.code;
                 boolean roomy = largeText();
                 LinearLayout tile = roomy ? column() : row();
                 tile.setBackground(background(getColor(R.color.sky_card), 12));
@@ -580,7 +628,7 @@ public final class MainActivity extends Activity {
                 TextView chance = label(probability > 0 ? percent(probability) : "", 14, accent);
                 chance.setGravity(roomy ? Gravity.START : Gravity.END);
                 values.addView(chance, new LinearLayout.LayoutParams(roomy ? 0 : dp(40), -2, roomy ? 1 : 0));
-                TextView dayIcon = label(symbol(weather, false), 23, ink);
+                TextView dayIcon = label(symbol(weather, dayWeather.night), 23, ink);
                 dayIcon.setContentDescription(description(weather));
                 dayIcon.setGravity(Gravity.CENTER);
                 int iconWidth = Math.max(dp(38), dayIcon.getLineHeight() + dp(6));
@@ -612,12 +660,13 @@ public final class MainActivity extends Activity {
         } else {
             LinearLayout dates = carousel(page);
             View selectedChip = null;
-            for (int index = 0; index < Math.min(FORECAST_DAYS, length(daily)); index++) {
+            for (int index = 0; index < forecastDays; index++) {
                 final int selected = index;
                 String key = index == 0 ? getString(R.string.today) : LocalDate.parse(at(daily, "time", index)).format(DateTimeFormatter.ofPattern("EEE", appLocale()));
-                int chipWeather = index == 0 ? todayWeather : (int) value(daily, "weather_code", index);
+                DayWeather summary = summaries[index];
+                int chipWeather = summary.code;
                 String chipRange = range(daily, index);
-                TextView chip = button(key + "\n" + symbol(chipWeather, false) + "\n" + chipRange, () -> {
+                TextView chip = button(key + "\n" + symbol(chipWeather, summary.night) + "\n" + chipRange, () -> {
                     day = selected;
                     render();
                 });
@@ -635,13 +684,15 @@ public final class MainActivity extends Activity {
             View active = selectedChip;
             HorizontalScrollView strip = (HorizontalScrollView) dates.getParent();
             if (active != null) strip.post(() -> strip.scrollTo(active.getLeft() - (strip.getWidth() - active.getWidth()) / 2, 0));
-            int weather = day == 0 ? todayWeather : (int) value(daily, "weather_code", day);
+            DayWeather summary = summaries[day];
+            int weather = summary.code;
             title(date(daily, day));
             String temperatureRange = range(daily, day);
-            TextView dailyTemperature = label(temperatureRange + "  " + symbol(weather, false), 49, ink);
+            TextView dailyTemperature = label(temperatureRange + "  " + symbol(weather, summary.night), 49, ink);
             dailyTemperature.setContentDescription(temperatureRange);
             page.addView(dailyTemperature);
             page.addView(label(description(weather), 17, muted));
+            if (summary.eventTime != null) page.addView(label(weatherNote(summary), 14, muted));
             String date = at(daily, "time", day);
             int start = 0;
             while (start < length(hourly) && !at(hourly, "time", start).startsWith(date)) start++;
@@ -1029,16 +1080,7 @@ public final class MainActivity extends Activity {
         LinearLayout tile = card();
         tile.addView(label(getString(R.string.sun), 16, ink));
         long seconds = daylightSeconds(daily, index);
-        if (isPolarDaylight(seconds)) {
-            TextView status = label(getString(polarDaylightLabel(seconds)), 19, ink);
-            status.setPadding(0, dp(8), 0, 0);
-            tile.addView(status);
-            TextView daylight = label(daylightSummary(seconds), 13, muted);
-            daylight.setPadding(0, dp(4), 0, 0);
-            tile.addView(daylight);
-        } else {
-            addSunPathDetails(tile, daily, index, seconds);
-        }
+        addSunPathDetails(tile, daily, index, seconds);
         sunCoordinates = skyCoordinates(false);
         tile.addView(sunCoordinates);
         addUpcomingTimes(tile, daily, index, false);
@@ -1052,41 +1094,58 @@ public final class MainActivity extends Activity {
         LinearLayout content = roomy ? column() : row();
         LinearLayout timeRow = roomy ? row() : column();
         content.addView(timeRow, new LinearLayout.LayoutParams(roomy ? -1 : dp(SKY_PATH_TIMES_WIDTH_DP), -2));
+        boolean polar = isPolarDaylight(seconds);
         LinearLayout evening = roomy ? column() : timeRow;
-        if (roomy) {
-            timeRow.setGravity(Gravity.TOP);
-            timeRow.setPadding(0, dp(9), 0, 0);
-            LinearLayout morning = column();
-            timeRow.addView(morning, new LinearLayout.LayoutParams(0, -2, 1));
-            timeRow.addView(evening, new LinearLayout.LayoutParams(0, -2, 1));
-            addSunTime(morning, getString(R.string.sunrise), formatTime(sunrise, clockFormat()));
+        if (polar) {
+            TextView status = label(getString(polarDaylightLabel(seconds)), 14, ink);
+            status.setPadding(0, dp(9), 0, 0);
+            timeRow.addView(status);
         } else {
-            addSunTime(timeRow, getString(R.string.sunrise), formatTime(sunrise, clockFormat()));
+            if (roomy) {
+                timeRow.setGravity(Gravity.TOP);
+                timeRow.setPadding(0, dp(9), 0, 0);
+                LinearLayout morning = column();
+                timeRow.addView(morning, new LinearLayout.LayoutParams(0, -2, 1));
+                timeRow.addView(evening, new LinearLayout.LayoutParams(0, -2, 1));
+                addSunTime(morning, getString(R.string.sunrise), formatTime(sunrise, clockFormat()));
+            } else {
+                addSunTime(timeRow, getString(R.string.sunrise), formatTime(sunrise, clockFormat()));
+            }
+            addSunTime(evening, getString(R.string.sunset), formatTime(sunset, clockFormat()));
         }
-        addSunTime(evening, getString(R.string.sunset), formatTime(sunset, clockFormat()));
         TextView daylight = label(daylightSummary(seconds), 11, muted);
         daylight.setPadding(0, dp(5), 0, 0);
         daylight.setSingleLine(true);
         boolean daylightFits = !roomy && textWidth(daylight, daylight.getText().toString()) <= dp(SKY_PATH_TIMES_WIDTH_DP);
-        if (daylightFits) evening.addView(daylight);
+        if (daylightFits) (polar ? timeRow : evening).addView(daylight);
         int twilight = SkyPath.civilTwilightMinutes(LocalDate.parse(at(daily, "time", index)), latitude);
         LinearLayout chart = column();
         content.addView(chart, new LinearLayout.LayoutParams(roomy ? -1 : 0, -2, roomy ? 0 : 1));
-        chart.addView(new SkyPath(this, sunrise, sunset,
-                localTime(data.optJSONObject("current").optString("time"))),
-                new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+        SkyPath path;
+        if (polar) {
+            LocalDate date = LocalDate.parse(at(daily, "time", index));
+            ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+            LocalTime noon = SkyPath.solarNoon(date, longitude, zone);
+            Instant transit = date.atTime(noon).atZone(zone).toInstant();
+            double noonElevation = 90 - SkyPosition.at(transit, latitude, longitude, false).zenith;
+            double midnightElevation = 90 - SkyPosition.at(transit.minusSeconds(43200), latitude, longitude, false).zenith;
+            path = SkyPath.polarSun(this, noon, LocalTime.now(zone), seconds == 86400, noonElevation, midnightElevation);
+        } else {
+            path = new SkyPath(this, sunrise, sunset, localTime(data.optJSONObject("current").optString("time")));
+        }
+        chart.addView(path, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout legend = row();
         legend.setGravity(Gravity.TOP);
         legend.setPadding(dp(5), 0, dp(5), 0);
         String dawn = twilight > 0 && sunrise != null ? formatTime(sunrise.minusMinutes(twilight), clockFormat()) : "—";
         String dusk = twilight > 0 && sunset != null ? formatTime(sunset.plusMinutes(twilight), clockFormat()) : "—";
-        legend.addView(label(getString(R.string.dawn) + "\n" + dawn, 12, muted), new LinearLayout.LayoutParams(0, -2, 1));
+        if (!polar) legend.addView(label(getString(R.string.dawn) + "\n" + dawn, 12, muted), new LinearLayout.LayoutParams(0, -2, 1));
         TextView noonLabel = label(getString(R.string.solar_noon) + "\n" + solarNoon(daily, index), 12, muted);
         noonLabel.setGravity(Gravity.CENTER_HORIZONTAL);
         legend.addView(noonLabel, new LinearLayout.LayoutParams(0, -2, 1));
         TextView duskLabel = label(getString(R.string.dusk) + "\n" + dusk, 12, muted);
         duskLabel.setGravity(Gravity.END);
-        legend.addView(duskLabel, new LinearLayout.LayoutParams(0, -2, 1));
+        if (!polar) legend.addView(duskLabel, new LinearLayout.LayoutParams(0, -2, 1));
         chart.addView(legend);
         tile.addView(content);
         if (!daylightFits) tile.addView(daylight);
@@ -1186,6 +1245,7 @@ public final class MainActivity extends Activity {
     private static final class PlanetRow {
         final Planets.Body body;
         final TextView now, position, windows;
+        List<Planets.Window> observingWindows = List.of();
 
         PlanetRow(Planets.Body body, TextView now, TextView position, TextView windows) {
             this.body = body;
@@ -1228,8 +1288,30 @@ public final class MainActivity extends Activity {
         TextView note = label(getString(R.string.planets_clear_sky), 11, muted);
         note.setPadding(0, dp(8), 0, 0);
         tile.addView(note);
+        LinearLayout direction = column();
+        direction.setBackground(background(getColor(R.color.sky_subtle), 12));
+        direction.setPadding(dp(11), dp(9), dp(11), dp(9));
+        direction.addView(label(getString(R.string.phone_direction), 14, ink));
+        phoneDirection = label(getString(R.string.phone_direction_waiting), 20, ink);
+        phoneDirection.setPadding(0, dp(8), 0, 0);
+        direction.addView(phoneDirection);
+        TextView directionHint = label(getString(R.string.phone_direction_hint), 11, muted);
+        directionHint.setPadding(0, dp(8), 0, 0);
+        direction.addView(directionHint);
+        addSpaced(tile, direction, 8);
+        startPhoneOrientation();
         updatePlanets(Instant.now());
         addSpaced(page, tile, 9);
+    }
+
+    private void startPhoneOrientation() {
+        if (!resumed || phoneDirection == null) return;
+        SensorManager manager = getSystemService(SensorManager.class);
+        Sensor sensor = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        if (sensor == null) sensor = manager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
+        if (sensor == null || !manager.registerListener(phoneOrientation, sensor, SensorManager.SENSOR_DELAY_NORMAL)) {
+            phoneDirection.setText(R.string.phone_direction_unavailable);
+        }
     }
 
     private void updatePlanets(Instant now) {
@@ -1249,7 +1331,8 @@ public final class MainActivity extends Activity {
             }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
-                for (Planets.Window window : Planets.windows(row.body, today, zone, latitude, longitude)) {
+                row.observingWindows = Planets.windows(row.body, today, zone, latitude, longitude);
+                for (Planets.Window window : row.observingWindows) {
                     String start = window.start.atZone(zone).format(clockFormat());
                     String end = window.end.equals(tomorrow) && clock24 ? "24:00" : window.end.atZone(zone).format(clockFormat());
                     hours.add(start + "–" + end);
@@ -1257,6 +1340,9 @@ public final class MainActivity extends Activity {
                 row.windows.setText(hours.isEmpty() ? getString(R.string.planet_no_window)
                         : getString(R.string.planet_today_windows, android.text.TextUtils.join(" · ", hours)));
             }
+            boolean observingNow = row.observingWindows.stream()
+                    .anyMatch(window -> !now.isBefore(window.start) && now.isBefore(window.end));
+            row.now.setTextColor(observingNow ? getColor(R.color.sky_observing) : accent);
         }
         planetWindowDate = today;
     }
@@ -2003,6 +2089,82 @@ public final class MainActivity extends Activity {
         if (pendingSearch != null) main.removeCallbacks(pendingSearch);
         network.shutdownNow();
         super.onDestroy();
+    }
+
+    private static final class DayWeather {
+        final int code;
+        final boolean night;
+        final int eventCode;
+        final String eventTime;
+
+        DayWeather(int code, boolean night, int eventCode, String eventTime) {
+            this.code = code;
+            this.night = night;
+            this.eventCode = eventCode;
+            this.eventTime = eventTime;
+        }
+    }
+
+    private static DayWeather summarizeWeather(JSONObject hourly, int eventStart, String date, int fallback) {
+        int start = 0;
+        int size = length(hourly);
+        while (start < size && !at(hourly, "time", start).startsWith(date)) start++;
+        int end = start;
+        int[] counts = new int[100];
+        int[] daylight = new int[100];
+        boolean hasDaylight = false;
+        boolean allNight = true;
+        while (end < size && at(hourly, "time", end).startsWith(date)) {
+            double rawCode = value(hourly, "weather_code", end);
+            double isDay = value(hourly, "is_day", end++);
+            if (!Double.isFinite(rawCode) || rawCode < 0 || rawCode >= counts.length) continue;
+            int code = (int) rawCode;
+            counts[code]++;
+            allNight &= isDay == 0;
+            if (isDay == 1) {
+                daylight[code]++;
+                hasDaylight = true;
+            }
+        }
+
+        int[] preferred = hasDaylight ? daylight : counts;
+        int predominant = fallback;
+        int highestCount = 0;
+        for (int code = 0; code < preferred.length; code++) {
+            if (preferred[code] > highestCount) {
+                predominant = code;
+                highestCount = preferred[code];
+            }
+        }
+
+        int eventCode = 0;
+        int eventGroup = 0;
+        String eventTime = null;
+        int predominantGroup = weatherEventGroup(predominant);
+        for (int hour = Math.max(start, eventStart); hour < end; hour++) {
+            int code = (int) value(hourly, "weather_code", hour);
+            int group = weatherEventGroup(code);
+            if (group != 0 && group != predominantGroup
+                    && (group > eventGroup || (group == eventGroup && code > eventCode))) {
+                eventGroup = group;
+                eventCode = code;
+                eventTime = at(hourly, "time", hour);
+            }
+        }
+        return new DayWeather(predominant, highestCount > 0 && allNight, eventCode, eventTime);
+    }
+
+    private static int weatherEventGroup(int code) {
+        if (code >= 95) return 5;
+        if (code == 56 || code == 57 || code == 66 || code == 67) return 4;
+        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return 3;
+        if ((code >= 51 && code <= 65) || (code >= 80 && code <= 82)) return 2;
+        if (code == 45 || code == 48) return 1;
+        return 0;
+    }
+
+    private String weatherNote(DayWeather summary) {
+        return getString(R.string.forecast_weather_event, description(summary.eventCode), clock(summary.eventTime));
     }
 
     private static double remainingMaximum(JSONObject hourly, String key, int start, String date) {

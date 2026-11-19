@@ -14,14 +14,15 @@ SkyHere is an Android app for local weather, precipitation radar, and skywatchin
 
 - Current conditions for the phone's location, with manual search and saved locations.
 - Pull down from the top of the forecast to refresh it manually. The app also refreshes when you return after five minutes or when the local hour changes.
-- A scrollable 24-hour forecast and a 10-day forecast with a detail screen for each day.
+- A scrollable 24-hour forecast and a 10-day forecast. Daily icons summarize the most frequent condition during daylight hours, with notable events and their approximate times in the day details.
 - Hourly charts for precipitation amount and probability, wind and gusts, humidity, and actual and feels-like temperatures.
 - Interactive precipitation radar for Italian locations. Pan and zoom the map, scrub through the previous hour, or play the observed five-minute frames with a short crossfade.
-- Illustrated weather conditions, including separate symbols for rain, showers, snow, and hail. [Weather icon catalog](docs/weather-icons.html)
+- Illustrated weather conditions, including separate symbols for rain, showers, snow, and hail, plus high-contrast snowflakes. [Weather icon catalog](docs/weather-icons.html)
 - Matching Sun and Moon path charts with a marker for the current position. Azimuth and elevation update every minute while the app is open and are shown when the body is at or above the horizon.
-- Sunrise, solar noon, sunset, civil twilight, polar night, and midnight sun. The expandable 15-day table shows maximum solar elevation and second-resolution sunrise, sunset, and daylight duration.
+- Sunrise, solar noon, sunset, civil twilight, polar night, and midnight sun. During polar night or midnight sun, the whole solar curve stays on one side of the horizon. The expandable 15-day table shows maximum solar elevation and second-resolution sunrise, sunset, and daylight duration.
 - Current Moon phase and illuminated percentage, dates of the next full and new moons, and an expandable 15-day table with phases, illumination, and second-resolution moonrise and moonset.
-- Today’s estimated clear-sky viewing windows for Mercury, Venus, Mars, Jupiter, and Saturn, with live compass direction, azimuth, elevation, and apparent magnitude when above the horizon.
+- Today’s estimated clear-sky viewing windows for Mercury, Venus, Mars, Jupiter, and Saturn, with live compass direction, azimuth, elevation, and apparent magnitude when above the horizon. The current status turns green during a viewing window.
+- Live phone azimuth and elevation below the planets. Point the rear camera at the sky and compare the sensor readings with a planet’s coordinates. The app uses geographic north when the phone’s location is available and labels magnetic north otherwise.
 - Solar and lunar eclipses and planetary transits visible from the selected location, with local times, visible duration, and links to event details.
 - Light, Dark, and System themes, layouts that adapt to larger Android text sizes, and an adaptive crescent-and-horizon launcher icon.
 - Configurable units and time format. Defaults are °C, km/h, hPa, and a 24-hour clock. Precipitation is shown in mm.

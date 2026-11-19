@@ -205,4 +205,11 @@
     <string name="eclipse_total_lunar">Total lunar eclipse</string>
     <string name="eclipse_penumbral_lunar">Penumbral lunar eclipse</string>
     <string name="moon_illuminated">%1$s illuminated</string>
+    <string name="forecast_weather_event">%1$s around %2$s</string>
+    <string name="phone_direction">Phone direction</string>
+    <string name="phone_direction_hint">Point the rear camera at the sky.</string>
+    <string name="phone_direction_waiting">Reading sensors…</string>
+    <string name="phone_direction_unavailable">Orientation sensor unavailable</string>
+    <string name="phone_direction_reading">Azimuth %1$s · Elevation %2$d°</string>
+    <string name="phone_direction_magnetic">Magnetic azimuth %1$s · Elevation %2$d°</string>
 </resources>
