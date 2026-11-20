@@ -236,4 +236,9 @@
     <string name="totality_minutes">Totalità visibile · %1$dm %2$02ds</string>
     <string name="totality_hours">Totalità visibile · %1$dh %2$02dm %3$02ds</string>
     <string name="location_elevation">Quota %1$s m s.l.m.</string>
+    <string name="credits">Crediti</string>
+    <string name="warning_credit">Allerte meteo · MeteoAlarm</string>
+    <string name="radar_credit">Radar delle precipitazioni · Protezione Civile</string>
+    <string name="aurora_credit">Aurora e Kp · NOAA SWPC</string>
+    <string name="transit_credit">Previsioni dei transiti · Fred Espenak, NASA/GSFC</string>
 </resources>

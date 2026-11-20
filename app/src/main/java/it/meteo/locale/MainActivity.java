@@ -762,8 +762,6 @@ public final class MainActivity extends Activity {
             planets();
             aurora();
             eclipsesAndTransits();
-            page.addView(button(getString(R.string.weather_data), () -> startActivity(new android.content.Intent(
-                    android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://open-meteo.com/")))));
         } else {
             LinearLayout dates = carousel(page);
             View selectedChip = null;
@@ -1831,11 +1829,6 @@ public final class MainActivity extends Activity {
                 content.addView(events);
                 new EclipseList(events, lunar, lat, lon, zone).showNext();
             }
-            TextView source = button(getString(R.string.eclipse_data), () -> startActivity(new android.content.Intent(
-                    android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://opale.imcce.fr/"))));
-            source.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-            source.setPadding(0, dp(8), 0, 0);
-            content.addView(source);
             TextView heading = label(getString(R.string.planetary_transits), 16, ink);
             heading.setPadding(0, dp(14), 0, dp(6));
             content.addView(heading);
@@ -1846,11 +1839,6 @@ public final class MainActivity extends Activity {
                 content.addView(list);
                 appendTransits(list, transits, zone, 0);
             }
-            TextView transitSource = button("Transit Predictions by Fred Espenak, NASA/GSFC", () ->
-                    openAstronomyPage("https://eclipse.gsfc.nasa.gov/transit/transit.html"));
-            transitSource.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-            transitSource.setPadding(0, dp(4), 0, 0);
-            content.addView(transitSource);
         });
         card.addView(toggle, new LinearLayout.LayoutParams(-1, -2));
         card.addView(content);
@@ -2260,6 +2248,34 @@ public final class MainActivity extends Activity {
         return number(hpa * PRESSURE_FACTORS[pressureUnit], pressureUnit == 2 ? "%,.2f" : "%,.0f");
     }
 
+    private void addCredits(LinearLayout options, ScrollView scroller) {
+        LinearLayout sources = column();
+        sources.setVisibility(View.GONE);
+        Button toggle = accordionButton(getString(R.string.credits));
+        toggle.setOnClickListener(v -> {
+            boolean open = sources.getVisibility() != View.VISIBLE;
+            sources.setVisibility(open ? View.VISIBLE : View.GONE);
+            updateAccordion(toggle, open);
+            if (open) scroller.post(() -> scroller.smoothScrollTo(0, toggle.getTop()));
+        });
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);
+        size.topMargin = dp(12);
+        options.addView(toggle, size);
+        options.addView(sources);
+        addCredit(sources, R.string.weather_data, "https://open-meteo.com/");
+        addCredit(sources, R.string.warning_credit, "https://meteoalarm.org/");
+        addCredit(sources, R.string.radar_credit, "https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/");
+        addCredit(sources, R.string.aurora_credit, AuroraForecast.MAP);
+        addCredit(sources, R.string.eclipse_data, "https://opale.imcce.fr/");
+        addCredit(sources, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
+    }
+
+    private void addCredit(LinearLayout sources, int title, String url) {
+        TextView link = button(getString(title), () -> openAstronomyPage(url));
+        link.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        sources.addView(link, new LinearLayout.LayoutParams(-1, -2));
+    }
+
     private void settings() {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
@@ -2298,6 +2314,7 @@ public final class MainActivity extends Activity {
         TextView version = label(getString(R.string.app_version, getString(R.string.sky_version_name), versionDate), 12, muted);
         version.setPadding(0, dp(18), 0, 0);
         options.addView(version);
+        addCredits(options, scroller);
 
         LinearLayout actions = row();
         actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);

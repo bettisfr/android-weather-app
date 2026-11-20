@@ -236,5 +236,10 @@
     <string name="cached_forecast">Saved forecast · Updated %1$s</string>
     <string name="totality_minutes">Visible totality · %1$dm %2$02ds</string>
     <string name="totality_hours">Visible totality · %1$dh %2$02dm %3$02ds</string>
-    <string name="location_elevation">Elevation %1$s m above sea level</string>
+    <string name="location_elevation">Elevation %1$s m ASL</string>
+    <string name="credits">Credits</string>
+    <string name="warning_credit">Weather warnings · MeteoAlarm</string>
+    <string name="radar_credit">Precipitation radar · Italian Civil Protection</string>
+    <string name="aurora_credit">Aurora and Kp · NOAA SWPC</string>
+    <string name="transit_credit">Transit predictions · Fred Espenak, NASA/GSFC</string>
 </resources>
