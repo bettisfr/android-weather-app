@@ -6,6 +6,7 @@
     </style>
     <color name="sky_background">#111d30</color>
     <color name="sky_card">#1c2a40</color>
+    <color name="sky_card_outline">#00000000</color>
     <color name="sky_text">#edf3ff</color>
     <color name="sky_muted">#b0bed4</color>
     <color name="sky_accent">#adc8ff</color>

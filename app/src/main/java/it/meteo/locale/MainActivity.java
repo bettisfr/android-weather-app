@@ -220,7 +220,12 @@ public final class MainActivity extends Activity {
     }
 
     private void currentLocation(boolean askPermission) {
+        currentLocation(askPermission, false);
+    }
+
+    private void currentLocation(boolean askPermission, boolean manual) {
         stopLocating();
+        manualRefresh = manual;
         forecastRequest++;
         forecastLoading = false;
         if (!hasLocationPermission()) {
@@ -229,7 +234,7 @@ public final class MainActivity extends Activity {
                 requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,
                         Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION);
             } else {
-                fallbackLocation(getString(R.string.location_permission_off));
+                locationFailed(R.string.location_permission_off, manual);
             }
             return;
         }
@@ -269,7 +274,7 @@ public final class MainActivity extends Activity {
                 deviceWeather = null;
                 usingCurrentLocation = true;
                 locationNotice = null;
-                load();
+                load(manual);
             }
 
             @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
@@ -290,10 +295,10 @@ public final class MainActivity extends Activity {
             }
         }
         if (listening) {
-            locationTimeout = () -> fallbackLocation(getString(R.string.current_location_unavailable));
+            locationTimeout = () -> locationFailed(R.string.current_location_unavailable, manual);
             main.postDelayed(locationTimeout, 12000);
         } else {
-            fallbackLocation(getString(R.string.current_location_unavailable));
+            locationFailed(R.string.current_location_unavailable, manual);
         }
     }
 
@@ -370,6 +375,17 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private void locationFailed(int message, boolean manual) {
+        stopLocating();
+        manualRefresh = false;
+        if (manual && data != null) {
+            if (refreshIndicator != null) refreshIndicator.setVisibility(View.GONE);
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        fallbackLocation(getString(message));
+    }
+
     private void fallbackLocation(String reason) {
         stopLocating();
         usingCurrentLocation = false;
@@ -385,7 +401,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == LOCATION_PERMISSION) currentLocation(false);
+        if (requestCode == LOCATION_PERMISSION) currentLocation(false, manualRefresh);
     }
 
     private void showCachedForecast(ForecastCache cache) {
@@ -395,6 +411,10 @@ public final class MainActivity extends Activity {
     }
 
     private void load() {
+        load(false);
+    }
+
+    private void load(boolean manual) {
         int offset = cachedForecastAt != null && scroll != null ? scroll.getScrollY() : 0;
         data = null;
         cachedForecastAt = null;
@@ -412,7 +432,7 @@ public final class MainActivity extends Activity {
             page.addView(placeTitle());
             page.addView(loadingStatus(getString(R.string.loading_forecast)));
         }
-        requestForecast(hasCache);
+        requestForecast(hasCache, manual);
         if ((usingCurrentLocation && devicePlace == null) || selectedCountry.isEmpty()
                 || (inItaly() && selectedRegion.isEmpty())) resolveLocation(latitude, longitude);
     }
@@ -512,7 +532,7 @@ public final class MainActivity extends Activity {
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                canPullToRefresh = refreshIndicator != null && !forecastLoading
+                canPullToRefresh = refreshIndicator != null && !forecastLoading && locationListener == null
                         && !scroll.canScrollVertically(-1);
                 pullStartX = event.getX();
                 pullStartY = event.getY();
@@ -546,7 +566,7 @@ public final class MainActivity extends Activity {
                 pullingToRefresh = false;
                 if (event.getActionMasked() == MotionEvent.ACTION_UP && !forecastLoading
                         && event.getY() - pullStartY >= dp(REFRESH_PULL_DP)) {
-                    requestForecast(true, true);
+                    currentLocation(true, true);
                 } else {
                     refreshIndicator.setVisibility(View.GONE);
                 }
@@ -695,7 +715,7 @@ public final class MainActivity extends Activity {
                 int weather = dayWeather.code;
                 boolean roomy = largeText();
                 LinearLayout tile = roomy ? column() : row();
-                tile.setBackground(background(getColor(R.color.sky_card), 12));
+                tile.setBackground(cardBackground(12));
                 tile.setPadding(dp(14), dp(11), dp(14), dp(11));
                 TextView dateLabel = label(date(daily, index), 16, ink);
                 LinearLayout values = tile;
@@ -788,11 +808,10 @@ public final class MainActivity extends Activity {
             if (day == 0) start = todayHour;
             forecast(hourly, start, end, day == 0);
             title(getString(R.string.daily_conditions));
-            windTiles(getString(R.string.max_wind), windSpeed(value(daily, "wind_speed_10m_max", day), true),
-                    value(daily, "wind_direction_10m_dominant", day),
-                    humidityTile(getString(R.string.average_humidity), value(daily, "relative_humidity_2m_mean", day), Double.NaN));
-            addMetricRow(uvTile(getString(R.string.max_uv), value(daily, "uv_index_max", day)),
-                    dailySunTimes(daily, day));
+            addMetricGrid(windTile(getString(R.string.max_wind), windSpeed(value(daily, "wind_speed_10m_max", day), true),
+                            value(daily, "wind_direction_10m_dominant", day)),
+                    humidityTile(getString(R.string.average_humidity), value(daily, "relative_humidity_2m_mean", day), Double.NaN),
+                    uvTile(getString(R.string.max_uv), value(daily, "uv_index_max", day)), dailySunTimes(daily, day));
             details(hourly, daily, day, start, end, day == 0);
         }
     }
@@ -1028,7 +1047,7 @@ public final class MainActivity extends Activity {
         int legendGap = dp(5);
         TextView axisLabel = label("", 11, muted);
         int timeHeight = Math.max(dp(20), axisLabel.getLineHeight() + dp(5));
-        int directionHeight = wind ? dp(25) : 0;
+        int directionHeight = dp(25);
         chart.setPadding(0, topGap, 0, 0);
         int chartHeight = dp(DETAIL_CHART_HEIGHT_DP) + (largeText() ? dp(32) : 0);
         body.addView(chart, new LinearLayout.LayoutParams(-1, chartHeight));
@@ -1074,18 +1093,36 @@ public final class MainActivity extends Activity {
         int hourWidth = Math.max(Math.max(dp(32), minimumHourWidth),
                 (screenWidth - 2 * (dp(16) + dp(13)) - scaleWidth * (precipitation ? 2 : 1)) / 8);
         int plotHeight = chartHeight - topGap - legendHeight - legendGap - timeHeight - directionHeight;
-        HourlyLineChart plot = new HourlyLineChart(this, first, second, hourWidth, precipitation, humidity,
+        HourlyLineChart plot = new HourlyLineChart(this, first, second, hourWidth, precipitation, humidity, wind,
                 precipitation || (wind && windUnit == 2) ? 1 : 0);
         LinearLayout plotRow = row();
         plotRow.setGravity(Gravity.TOP);
         chart.addView(plotRow, new LinearLayout.LayoutParams(-1, 0, 1));
-        plotRow.addView(plot.scale(false), new LinearLayout.LayoutParams(scaleWidth, plotHeight));
+        LinearLayout.LayoutParams leftScale = new LinearLayout.LayoutParams(scaleWidth, plotHeight);
+        leftScale.topMargin = directionHeight;
+        plotRow.addView(plot.scale(false), leftScale);
         HorizontalScrollView viewport = new HorizontalScrollView(this);
         viewport.setHorizontalScrollBarEnabled(false);
         plotRow.addView(viewport, new LinearLayout.LayoutParams(0, -1, 1));
-        if (precipitation) plotRow.addView(plot.scale(true), new LinearLayout.LayoutParams(scaleWidth, plotHeight));
+        if (precipitation) {
+            LinearLayout.LayoutParams rightScale = new LinearLayout.LayoutParams(scaleWidth, plotHeight);
+            rightScale.topMargin = directionHeight;
+            plotRow.addView(plot.scale(true), rightScale);
+        }
         LinearLayout series = column();
         viewport.addView(series);
+        if (wind) {
+            LinearLayout directions = row();
+            for (int i = 0; i < count; i++) {
+                FrameLayout cell = new FrameLayout(this);
+                cell.addView(new WindIndicator(this, value(hourly, "wind_direction_10m", start + i)),
+                        new FrameLayout.LayoutParams(dp(22), directionHeight, Gravity.CENTER));
+                directions.addView(cell, new LinearLayout.LayoutParams(hourWidth, directionHeight));
+            }
+            series.addView(directions);
+        } else {
+            series.setPadding(0, directionHeight, 0, 0);
+        }
         series.addView(plot, new LinearLayout.LayoutParams(hourWidth * count, plotHeight));
         LinearLayout hours = row();
         series.addView(hours);
@@ -1094,10 +1131,6 @@ public final class MainActivity extends Activity {
             String hour = index == start && now ? getString(R.string.now) : formatTime(localTime(at(hourly, "time", index)), clock24 ? CLOCK_24 : DETAIL_CLOCK);
             LinearLayout cell = column();
             cell.setGravity(Gravity.CENTER_HORIZONTAL);
-            if (wind) {
-                cell.addView(new WindIndicator(this, value(hourly, "wind_direction_10m", index)),
-                        new LinearLayout.LayoutParams(dp(22), directionHeight));
-            }
             TextView time = label(hour, 11, muted);
             time.setGravity(Gravity.CENTER);
             String description = hour + ", " + lineReading(firstName, first[i], unit);
@@ -1114,13 +1147,25 @@ public final class MainActivity extends Activity {
     }
 
     private void metrics(String wind, double direction, double humidity, double dewPoint, double uv, double pressure) {
-        windTiles(getString(R.string.wind), wind, direction, humidityTile(getString(R.string.humidity), humidity, dewPoint));
-        addMetricRow(uvTile(getString(R.string.uv_index), uv), gaugeTile(getString(R.string.pressure), pressureReading(pressure), PRESSURE_UNITS[pressureUnit],
-                new PressureGauge(this, pressure, pressureReading(PressureGauge.MIN_HPA),
-                        pressureReading(PressureGauge.MAX_HPA)), 60));
+        String pressureValue = pressureReading(pressure);
+        android.text.SpannableString pressureWithUnit = new android.text.SpannableString(
+                pressureValue + "\u00a0" + PRESSURE_UNITS[pressureUnit]);
+        pressureWithUnit.setSpan(new android.text.style.RelativeSizeSpan(13f / 25),
+                pressureValue.length(), pressureWithUnit.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        LinearLayout pressureTile = gaugeTile(getString(R.string.pressure), pressureWithUnit,
+                null, new PressureGauge(this, pressure, this::pressureReading), 60);
+        double elevation = data.optDouble("elevation");
+        if (Double.isFinite(elevation)) {
+            TextView altitude = label(getString(R.string.location_elevation, number(elevation, "%,.0f")), 13, muted);
+            altitude.setPadding(0, dp(4), 0, 0);
+            pressureTile.addView(altitude);
+        }
+        addMetricGrid(windTile(getString(R.string.wind), wind, direction),
+                humidityTile(getString(R.string.humidity), humidity, dewPoint),
+                uvTile(getString(R.string.uv_index), uv), pressureTile);
     }
 
-    private void windTiles(String title, String speed, double direction, View second) {
+    private LinearLayout windTile(String title, String speed, double direction) {
         LinearLayout wind = card();
         wind.addView(label(title, 14, muted));
         LinearLayout readings = row();
@@ -1136,7 +1181,7 @@ public final class MainActivity extends Activity {
             text.addView(label(getString(R.string.from_bearing, compass[index], bearing), 13, muted));
         }
         readings.addView(new WindIndicator(this, direction), new LinearLayout.LayoutParams(dp(46), dp(46)));
-        addMetricRow(wind, second);
+        return wind;
     }
 
     private LinearLayout humidityTile(String title, double humidity, double dewPoint) {
@@ -1157,14 +1202,16 @@ public final class MainActivity extends Activity {
         return gaugeTile(title, number(index, "%.1f"), level, new UvGauge(this, index), 38);
     }
 
-    private LinearLayout gaugeTile(String title, String value, String detail, View gauge, int gaugeWidth) {
+    private LinearLayout gaugeTile(String title, CharSequence value, String detail, View gauge, int gaugeWidth) {
         LinearLayout tile = card();
         tile.addView(label(title, 14, muted));
         LinearLayout content = row();
         tile.addView(content, new LinearLayout.LayoutParams(-1, -2));
         LinearLayout text = column();
         content.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
-        text.addView(label(value, 25, ink));
+        TextView reading = label("", 25, ink);
+        reading.setText(value);
+        text.addView(reading);
         if (detail != null) {
             TextView subtitle = label(detail, 13, muted);
             subtitle.setPadding(0, dp(3), 0, 0);
@@ -1187,9 +1234,24 @@ public final class MainActivity extends Activity {
         return tile;
     }
 
+    private void addMetricGrid(View first, View second, View third, View fourth) {
+        View[] cards = {first, second, third, fourth};
+        boolean stacked = stackedCards();
+        int width = dp(getResources().getConfiguration().screenWidthDp) - page.getPaddingLeft() - page.getPaddingRight();
+        int tileWidth = Math.max(1, stacked ? width : (width - dp(10)) / 2);
+        int widthSpec = View.MeasureSpec.makeMeasureSpec(tileWidth, View.MeasureSpec.EXACTLY);
+        int heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
+        int height = dp(100);
+        for (View card : cards) {
+            card.measure(widthSpec, heightSpec);
+            height = Math.max(height, card.getMeasuredHeight());
+        }
+        for (View card : cards) card.setMinimumHeight(height);
+        addMetricRow(first, second);
+        addMetricRow(third, fourth);
+    }
+
     private void addMetricRow(View first, View second) {
-        first.setMinimumHeight(dp(100));
-        second.setMinimumHeight(dp(100));
         if (stackedCards()) {
             addSpaced(page, first, 9);
             addSpaced(page, second, 9);
@@ -1197,8 +1259,8 @@ public final class MainActivity extends Activity {
         }
         LinearLayout tiles = row();
         tiles.setGravity(Gravity.TOP);
-        tiles.addView(first, new LinearLayout.LayoutParams(0, -2, 1));
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -2, 1);
+        tiles.addView(first, new LinearLayout.LayoutParams(0, -1, 1));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1);
         params.leftMargin = dp(10);
         tiles.addView(second, params);
         addSpaced(page, tiles, 9);
@@ -1555,6 +1617,8 @@ public final class MainActivity extends Activity {
         tile.addView(heading);
         auroraTimes = label("", 12, muted);
         auroraTimes.setPadding(0, dp(4), 0, 0);
+        auroraTimes.setSingleLine(true);
+        auroraTimes.setEllipsize(android.text.TextUtils.TruncateAt.END);
         tile.addView(auroraTimes);
         currentKpView = label("", 14, accent);
         currentKpView.setPadding(0, dp(8), 0, 0);
@@ -1712,11 +1776,11 @@ public final class MainActivity extends Activity {
         Instant forecastTime = auroraForecast.forecastTime;
         Instant viewingTime = forecastTime.isBefore(now) ? now : forecastTime;
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        DateTimeFormatter format = DateTimeFormatter.ofPattern("EEE d MMM, " + (clock24 ? "HH:mm" : "h:mm a"), appLocale())
-                .withZone(zone);
+        LocalDate today = now.atZone(zone).toLocalDate();
         auroraTimes.setVisibility(View.VISIBLE);
-        auroraTimes.setText(getString(R.string.aurora_times, format.format(auroraForecast.observationTime),
-                format.format(forecastTime)));
+        auroraTimes.setText(getString(R.string.aurora_times,
+                auroraTimestamp(auroraForecast.observationTime.atZone(zone), today),
+                auroraTimestamp(forecastTime.atZone(zone), today)));
         double direction = auroraForecast.estimatedDirection(latitude, longitude);
         if (!Double.isFinite(direction)) {
             auroraStatus.setText(R.string.aurora_unlikely);
@@ -1729,6 +1793,12 @@ public final class MainActivity extends Activity {
         } else {
             auroraStatus.setText(getString(R.string.aurora_direction, compassDirection(direction)));
         }
+    }
+
+    private String auroraTimestamp(ZonedDateTime timestamp, LocalDate today) {
+        String time = timestamp.format(clockFormat());
+        return timestamp.toLocalDate().equals(today) ? time
+                : timestamp.format(DateTimeFormatter.ofPattern(italian() ? "d/M" : "M/d", appLocale())) + " " + time;
     }
 
     private double auroraCloudCover(Instant time, ZoneId zone) {
@@ -2442,7 +2512,7 @@ public final class MainActivity extends Activity {
             placeDetails = placeDetails.isEmpty() ? country : placeDetails + ", " + country;
         }
         LinearLayout line = row();
-        line.setBackground(background(getColor(R.color.sky_card), 12));
+        line.setBackground(cardBackground(12));
         line.setPadding(dp(12), dp(5), dp(8), dp(5));
         LinearLayout open = column();
         open.setPadding(0, dp(7), dp(8), dp(7));
@@ -2815,10 +2885,16 @@ public final class MainActivity extends Activity {
     private LinearLayout row() { LinearLayout view = new LinearLayout(this); view.setGravity(Gravity.CENTER_VERTICAL); return view; }
     private LinearLayout card() {
         LinearLayout view = column();
-        view.setBackground(background(getColor(R.color.sky_card), 16));
+        view.setBackground(cardBackground(16));
         view.setPadding(dp(13), dp(13), dp(13), dp(13));
         return view;
     }
+    private GradientDrawable cardBackground(int radius) {
+        GradientDrawable drawable = background(getColor(R.color.sky_card), radius);
+        drawable.setStroke(dp(1), getColor(R.color.sky_card_outline));
+        return drawable;
+    }
+
     private GradientDrawable background(int color, int radius) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(color);

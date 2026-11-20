@@ -221,7 +221,7 @@
     <string name="aurora_cloudy">Attività aurorale vicina · Le nuvole possono coprire la visuale</string>
     <string name="aurora_possible">Aurora possibile in zona con cielo sereno</string>
     <string name="aurora_direction">Aurora possibile verso %1$s con cielo sereno</string>
-    <string name="aurora_times">NOAA · Aggiornata %1$s · Previsione %2$s</string>
+    <string name="aurora_times">NOAA · Dati %1$s · Prev. %2$s</string>
     <string name="aurora_kp_forecast">Previsione Kp</string>
     <string name="aurora_kp_hint">NOAA · Kp misura l’attività geomagnetica globale su una scala da 0 a 9. Orari locali.</string>
     <string name="aurora_kp_current">Kp attuale stimato %1$s/9 · %2$s</string>
@@ -235,4 +235,5 @@
     <string name="cached_forecast">Previsioni salvate · Aggiornate %1$s</string>
     <string name="totality_minutes">Totalità visibile · %1$dm %2$02ds</string>
     <string name="totality_hours">Totalità visibile · %1$dh %2$02dm %3$02ds</string>
+    <string name="location_elevation">Quota %1$s m s.l.m.</string>
 </resources>

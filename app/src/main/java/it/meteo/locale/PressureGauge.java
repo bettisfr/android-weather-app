@@ -5,23 +5,33 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.view.View;
+import java.util.function.DoubleFunction;
 
 final class PressureGauge extends View {
-    static final int MIN_HPA = 950;
-    static final int MAX_HPA = 1050;
+    private static final int MIN_HPA = 950;
+    private static final int MAX_HPA = 1050;
     private static final float START_ANGLE = 135;
     private static final float SWEEP_ANGLE = 270;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF arc = new RectF();
     private final double pressure;
+    private final double minimum;
+    private final double maximum;
     private final String minimumLabel;
     private final String maximumLabel;
 
-    PressureGauge(Context context, double pressure, String minimumLabel, String maximumLabel) {
+    PressureGauge(Context context, double pressure, DoubleFunction<String> format) {
         super(context);
         this.pressure = pressure;
-        this.minimumLabel = minimumLabel;
-        this.maximumLabel = maximumLabel;
+        double center = (MIN_HPA + MAX_HPA) / 2.0;
+        if (Double.isFinite(pressure) && (pressure < MIN_HPA || pressure > MAX_HPA)) {
+            center = Math.round(pressure / 50) * 50.0;
+        }
+        double halfRange = (MAX_HPA - MIN_HPA) / 2.0;
+        minimum = center - halfRange;
+        maximum = center + halfRange;
+        minimumLabel = format.apply(minimum);
+        maximumLabel = format.apply(maximum);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
     }
 
@@ -38,7 +48,7 @@ final class PressureGauge extends View {
         paint.setColor(getContext().getColor(R.color.sky_pressure_track));
         canvas.drawArc(arc, START_ANGLE, SWEEP_ANGLE, false, paint);
         if (Double.isFinite(pressure)) {
-            double fraction = (pressure - MIN_HPA) / (MAX_HPA - MIN_HPA);
+            double fraction = (pressure - minimum) / (maximum - minimum);
             float sweep = SWEEP_ANGLE * (float) Math.max(0, Math.min(1, fraction));
             paint.setColor(getContext().getColor(R.color.sky_pressure_value));
             canvas.drawArc(arc, START_ANGLE, sweep, false, paint);

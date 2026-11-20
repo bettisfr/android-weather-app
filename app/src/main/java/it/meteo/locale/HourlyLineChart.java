@@ -3,8 +3,10 @@ package it.meteo.locale;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.DashPathEffect;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.Shader;
 import android.util.TypedValue;
 import android.view.View;
 import java.util.Locale;
@@ -16,6 +18,8 @@ final class HourlyLineChart extends View {
     private final int muted;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+    private Shader primaryGradient;
+    private Shader secondaryGradient;
     private final DashPathEffect dashed;
     private final float density;
     private final float readingTextSize;
@@ -29,7 +33,7 @@ final class HourlyLineChart extends View {
     private final Locale locale;
     private final int decimals;
 
-    HourlyLineChart(Context context, double[] first, double[] second, int hourWidth, boolean precipitation, boolean humidity, int decimals) {
+    HourlyLineChart(Context context, double[] first, double[] second, int hourWidth, boolean precipitation, boolean humidity, boolean wind, int decimals) {
         super(context);
         primary = context.getColor(R.color.sky_accent);
         secondary = context.getColor(R.color.sky_chart_secondary);
@@ -58,15 +62,37 @@ final class HourlyLineChart extends View {
         if (precipitation) {
             low = 0;
             high = Math.max(1, Math.ceil(maximum));
+        } else if (wind) {
+            low = 0;
+            high = Double.isFinite(maximum) ? Math.max(2, Math.ceil(maximum * 1.08 / 2) * 2) : 2;
         } else if (humidity) {
             low = 0;
             high = 100;
         } else {
-            double step = Math.max(1, Math.ceil((maximum - minimum) / 2));
-            double upper = Math.floor(minimum / step) * step + step * 2;
-            high = Math.max(maximum, upper);
-            low = high - step * 2;
+            double extent = hasReadings ? Math.max(2, Math.ceil(Math.max(-minimum, maximum) * 1.08)) : 2;
+            if (minimum < 0 && maximum > 0) {
+                low = -extent;
+                high = extent;
+            } else {
+                double evenExtent = Math.ceil(extent / 2) * 2;
+                low = minimum < 0 ? -evenExtent : 0;
+                high = minimum < 0 ? 0 : evenExtent;
+            }
         }
+    }
+
+    @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
+        super.onSizeChanged(width, height, oldWidth, oldHeight);
+        float top = gridY(height, 0);
+        float bottom = gridY(height, 2);
+        primaryGradient = bottom > top ? gradient(primary, top, bottom, 0x50, 0x0d) : null;
+        secondaryGradient = bottom > top ? gradient(secondary, top, bottom, 0x42, 0x09) : null;
+    }
+
+    private static Shader gradient(int color, float top, float bottom, int topAlpha, int bottomAlpha) {
+        int rgb = color & 0x00ffffff;
+        return new LinearGradient(0, top, 0, bottom, rgb | (topAlpha << 24), rgb | (bottomAlpha << 24),
+                Shader.TileMode.CLAMP);
     }
 
     @Override protected void onDraw(Canvas canvas) {
@@ -79,9 +105,15 @@ final class HourlyLineChart extends View {
             canvas.drawLine(0, y, getWidth(), y, paint);
         }
         if (!hasReadings) return;
+        double secondaryLow = precipitation ? 0 : low;
+        double secondaryHigh = precipitation ? 100 : high;
+        drawArea(canvas, second, secondaryGradient, secondaryLow, secondaryHigh);
         if (precipitation) drawBars(canvas);
-        else drawLine(canvas, first, primary, null, low, high);
-        drawLine(canvas, second, secondary, dashed, precipitation ? 0 : low, precipitation ? 100 : high);
+        else {
+            drawArea(canvas, first, primaryGradient, low, high);
+            drawLine(canvas, first, primary, null, low, high);
+        }
+        drawLine(canvas, second, secondary, dashed, secondaryLow, secondaryHigh);
         drawReadings(canvas);
     }
 
@@ -110,6 +142,33 @@ final class HourlyLineChart extends View {
         return padding + (height - 2 * padding) * tick / 2;
     }
 
+    private void drawArea(Canvas canvas, double[] readings, Shader shading, double minimum, double maximum) {
+        if (shading == null || readings.length == 0) return;
+        float baseline = pointY(Math.max(minimum, Math.min(0, maximum)), minimum, maximum);
+        path.reset();
+        int start = -1;
+        for (int i = 0; i <= readings.length; i++) {
+            if (i < readings.length && Double.isFinite(readings[i])) {
+                float x = (i + .5f) * hourWidth;
+                float y = pointY(readings[i], minimum, maximum);
+                if (start < 0) {
+                    start = i;
+                    path.moveTo(x, baseline);
+                }
+                path.lineTo(x, y);
+            } else if (start >= 0) {
+                path.lineTo((i - .5f) * hourWidth, baseline);
+                path.close();
+                start = -1;
+            }
+        }
+        paint.setColor(primary);
+        paint.setStyle(Paint.Style.FILL);
+        paint.setShader(shading);
+        canvas.drawPath(path, paint);
+        paint.setShader(null);
+    }
+
     private void drawBars(Canvas canvas) {
         paint.setColor(primary);
         paint.setStyle(Paint.Style.FILL);
@@ -117,9 +176,13 @@ final class HourlyLineChart extends View {
             if (!Double.isFinite(first[i]) || first[i] <= 0) continue;
             float center = (i + .5f) * hourWidth;
             float halfWidth = hourWidth * .24f;
-            canvas.drawRoundRect(center - halfWidth, pointY(first[i], low, high), center + halfWidth,
-                    gridY(getHeight(), 2), 2 * density, 2 * density, paint);
+            float top = pointY(first[i], low, high);
+            float bottom = gridY(getHeight(), 2);
+            if (bottom <= top) continue;
+            paint.setShader(gradient(primary, top, bottom, 0xff, 0x80));
+            canvas.drawRoundRect(center - halfWidth, top, center + halfWidth, bottom, 2 * density, 2 * density, paint);
         }
+        paint.setShader(null);
     }
 
     private void drawLine(Canvas canvas, double[] values, int color, DashPathEffect style, double minimum, double maximum) {
@@ -160,7 +223,7 @@ final class HourlyLineChart extends View {
             float aY = pointY(a, low, high);
             float bY = pointY(b, precipitation ? 0 : low, precipitation ? 100 : high);
             boolean firstAbove = !precipitation && (!Double.isFinite(b) || aY <= bY);
-            drawReading(canvas, a, x, aY, firstAbove, primary, decimals);
+            drawReading(canvas, a, x, precipitation ? gridY(getHeight(), 2) : aY, firstAbove, primary, decimals);
             drawReading(canvas, b, x, bY, !Double.isFinite(a) || !firstAbove,
                     secondary, precipitation ? 0 : decimals);
         }

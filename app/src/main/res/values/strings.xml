@@ -222,7 +222,7 @@
     <string name="aurora_cloudy">Aurora activity nearby · Cloud cover may block the view</string>
     <string name="aurora_possible">Aurora possible nearby with clear skies</string>
     <string name="aurora_direction">Aurora possible toward %1$s with clear skies</string>
-    <string name="aurora_times">NOAA · Updated %1$s · Forecast %2$s</string>
+    <string name="aurora_times">NOAA · Data %1$s · Forecast %2$s</string>
     <string name="aurora_kp_forecast">Kp forecast</string>
     <string name="aurora_kp_hint">NOAA · Kp measures global geomagnetic activity on a scale of 0–9. Times are local.</string>
     <string name="aurora_kp_current">Current estimated Kp %1$s/9 · %2$s</string>
@@ -236,4 +236,5 @@
     <string name="cached_forecast">Saved forecast · Updated %1$s</string>
     <string name="totality_minutes">Visible totality · %1$dm %2$02ds</string>
     <string name="totality_hours">Visible totality · %1$dh %2$02dm %3$02ds</string>
+    <string name="location_elevation">Elevation %1$s m above sea level</string>
 </resources>

@@ -4,8 +4,9 @@
         <item name="android:windowBackground">@color/sky_background</item>
         <item name="android:colorAccent">@color/sky_accent</item>
     </style>
-    <color name="sky_background">#e5eefb</color>
+    <color name="sky_background">#fafafa</color>
     <color name="sky_card">#ffffff</color>
+    <color name="sky_card_outline">#d9dee6</color>
     <color name="sky_text">#242d40</color>
     <color name="sky_muted">#546074</color>
     <color name="sky_accent">#435e94</color>
@@ -13,7 +14,7 @@
     <color name="sky_selected">#d9e3f8</color>
     <color name="sky_subtle">#f1f3f8</color>
     <color name="sky_header">#dfe5f0</color>
-    <color name="sky_action">#bfd3fa</color>
+    <color name="sky_action">#dce5f2</color>
     <color name="sky_on_action">#243f73</color>
     <color name="sky_ripple">#25435e94</color>
     <color name="sky_chart_secondary">#a55d23</color>
