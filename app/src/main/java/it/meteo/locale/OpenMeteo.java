@@ -122,7 +122,18 @@ final class OpenMeteo {
                 + URLEncoder.encode(query, "UTF-8"));
     }
 
+    private static final String AIR_QUALITY = "https://air-quality-api.open-meteo.com/v1/air-quality?";
+
+    static JSONObject airQuality(double latitude, double longitude) throws Exception {
+        return read(AIR_QUALITY + "latitude=" + latitude + "&longitude=" + longitude
+                + "&current=european_aqi,pm2_5,pm10,ozone,nitrogen_dioxide").getJSONObject("current");
+    }
+
     private static JSONObject read(String address) throws Exception {
+        return new JSONObject(readBody(address));
+    }
+
+    static String readBody(String address) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         connection.setConnectTimeout(10000);
         connection.setReadTimeout(10000);
@@ -131,7 +142,7 @@ final class OpenMeteo {
             byte[] buffer = new byte[8192];
             int count;
             while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
-            return new JSONObject(new String(bytes.toByteArray(), StandardCharsets.UTF_8));
+            return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
         } finally {
             connection.disconnect();
         }

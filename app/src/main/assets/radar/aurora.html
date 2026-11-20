@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org https://air.discomap.eea.europa.eu; connect-src https://air.discomap.eea.europa.eu">
 <link rel="stylesheet" href="leaflet.css">
 <style>
   :root { color-scheme:light; --map:#dfe5ed; --card:#fff; --ink:#242d40; --accent:#435e94; }
@@ -20,6 +20,8 @@
   .line { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
   .legend { display:flex; gap:8px; align-items:center; margin-top:8px; font-size:12px; }
   .scale { height:8px; flex:1; border-radius:4px; background:linear-gradient(to right,#4a9c68,#6dde74,#f4d54c,#f15b44); }
+  .air-quality .legend { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; align-items:start; }
+  .aqi-band { border-top:5px solid var(--band); padding-top:4px; text-align:center; font-size:10px; overflow-wrap:anywhere; }
 </style>
 </head>
 <body>
@@ -30,6 +32,7 @@
     <div class="legend"><span id="low"></span><span class="scale"></span><span id="high"></span></div>
   </section>
   <script src="leaflet.js"></script>
+  <script src="map.js"></script>
   <script src="aurora.js"></script>
 </body>
 </html>

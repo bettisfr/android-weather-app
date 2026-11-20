@@ -170,7 +170,8 @@ public final class MainActivity extends Activity {
     private ZonedDateTime forecastHour;
     private boolean usingCurrentLocation;
     private TextView placeHeader;
-    private Button radarButton;
+    private View forecastMaps;
+    private Button airQualityMapButton;
     private TextView currentLocationTitle;
     private TextView currentLocationWeather;
     private String devicePlace;
@@ -320,7 +321,7 @@ public final class MainActivity extends Activity {
                     if (region != null) selectedRegion = region;
                     refreshWarnings();
                     renderWarnings(Instant.now());
-                    if (radarButton != null) radarButton.setVisibility(inItaly() ? View.VISIBLE : View.GONE);
+                    updateItalianMaps();
                     if (!gps) getPreferences(MODE_PRIVATE).edit().putString("countryCode", country).apply();
                 }
                 if (gps && name != null && !name.trim().isEmpty()) {
@@ -585,7 +586,8 @@ public final class MainActivity extends Activity {
         currentKpView = null;
         currentKpBar = null;
         kpTable = null;
-        radarButton = null;
+        forecastMaps = null;
+        airQualityMapButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
         if (phoneDirection != null) {
@@ -755,6 +757,8 @@ public final class MainActivity extends Activity {
                     current.optDouble("relative_humidity_2m"), value(hourly, "dew_point_2m", todayHour),
                     value(hourly, "uv_index", todayHour),
                     current.optDouble("surface_pressure"));
+            airQuality();
+            updateItalianMaps();
             details(hourly, daily, 0, todayHour, todayHour + 24, true);
             title(getString(R.string.astronomy));
             sun(daily, 0);
@@ -821,9 +825,14 @@ public final class MainActivity extends Activity {
             TextView caption = label(getString(R.string.hourly_forecast), 19, ink);
             caption.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             heading.addView(caption, new LinearLayout.LayoutParams(0, -2, 1));
-            radarButton = mapButton(R.string.radar, this::openRadar);
-            radarButton.setVisibility(inItaly() ? View.VISIBLE : View.GONE);
-            heading.addView(radarButton);
+            LinearLayout maps = row();
+            maps.addView(mapButton(R.string.radar, () -> openItalianMap(RadarActivity.Layer.RADAR)));
+            Button satellite = mapButton(R.string.satellite, () -> openItalianMap(RadarActivity.Layer.SATELLITE));
+            LinearLayout.LayoutParams satelliteSize = new LinearLayout.LayoutParams(-2, -2);
+            satelliteSize.setMarginStart(dp(5));
+            maps.addView(satellite, satelliteSize);
+            heading.addView(maps);
+            forecastMaps = maps;
             page.addView(heading);
         } else {
             title(getString(R.string.hourly_forecast));
@@ -865,15 +874,20 @@ public final class MainActivity extends Activity {
         return button;
     }
 
-    private void openRadar() {
-        if (!inItaly() || data == null) return;
-        openMap(false);
+    private void updateItalianMaps() {
+        int visibility = inItaly() ? View.VISIBLE : View.GONE;
+        if (forecastMaps != null) forecastMaps.setVisibility(visibility);
+        if (airQualityMapButton != null) airQualityMapButton.setVisibility(visibility);
     }
 
-    private void openMap(boolean aurora) {
+    private void openItalianMap(RadarActivity.Layer layer) {
+        if (inItaly()) openMap(layer);
+    }
+
+    private void openMap(RadarActivity.Layer layer) {
         if (data == null) return;
         startActivity(new android.content.Intent(this, RadarActivity.class)
-                .putExtra("aurora", aurora).putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
+                .putExtra("layer", layer.name()).putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
                 .putExtra("timeZone", data.optString("timezone", "UTC")).putExtra("clock24", clock24));
     }
 
@@ -1144,20 +1158,66 @@ public final class MainActivity extends Activity {
                 : getString(R.string.chart_reading_missing, name);
     }
 
+    private void airQuality() {
+        LinearLayout tile = card();
+        tile.addView(label(getString(R.string.air_quality), 14, muted));
+        LinearLayout footer = row();
+        LinearLayout readings = column();
+        footer.addView(readings, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView index = label(getString(R.string.air_quality_loading), 19, ink);
+        readings.addView(index, new LinearLayout.LayoutParams(-2, -2));
+        TextView particles = label("", 13, muted);
+        particles.setPadding(0, dp(5), 0, 0);
+        readings.addView(particles);
+        airQualityMapButton = mapButton(R.string.aurora_map_short, () -> openItalianMap(RadarActivity.Layer.AIR_QUALITY));
+        airQualityMapButton.setContentDescription(getString(R.string.air_quality_map));
+        LinearLayout.LayoutParams mapSize = new LinearLayout.LayoutParams(-2, -2);
+        mapSize.gravity = Gravity.BOTTOM;
+        mapSize.setMarginStart(dp(8));
+        footer.addView(airQualityMapButton, mapSize);
+        LinearLayout.LayoutParams footerSize = new LinearLayout.LayoutParams(-1, -2);
+        footerSize.topMargin = dp(5);
+        tile.addView(footer, footerSize);
+        addSpaced(page, tile, 9);
+        double lat = latitude;
+        double lon = longitude;
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return OpenMeteo.airQuality(lat, lon);
+            } catch (Exception unavailable) {
+                return null;
+            }
+        }).thenAccept(result -> main.post(() -> {
+            if (isDestroyed() || !tile.isAttachedToWindow()) return;
+            double aqi = result == null ? Double.NaN : result.optDouble("european_aqi");
+            if (!Double.isFinite(aqi)) {
+                index.setText(R.string.air_quality_unavailable);
+                particles.setVisibility(View.GONE);
+                return;
+            }
+            AirQualityBand band = AirQualityBand.forIndex(Math.round(aqi));
+            index.setText(getString(R.string.air_quality_index, getString(band.label)));
+            GradientDrawable marker = background(band.color, 6);
+            marker.setBounds(0, 0, dp(10), dp(10));
+            index.setCompoundDrawablesRelative(marker, null, null, null);
+            index.setCompoundDrawablePadding(dp(7));
+            index.setBackground(background((band.color & 0x00ffffff) | 0x30000000, 9));
+            index.setPaddingRelative(dp(9), dp(4), dp(9), dp(4));
+            particles.setText(getString(R.string.air_quality_particles, number(result.optDouble("pm2_5"), "%.1f"),
+                    number(result.optDouble("pm10"), "%.1f")));
+        }));
+    }
+
     private void metrics(String wind, double direction, double humidity, double dewPoint, double uv, double pressure) {
         String pressureValue = pressureReading(pressure);
         android.text.SpannableString pressureWithUnit = new android.text.SpannableString(
                 pressureValue + "\u00a0" + PRESSURE_UNITS[pressureUnit]);
         pressureWithUnit.setSpan(new android.text.style.RelativeSizeSpan(13f / 25),
                 pressureValue.length(), pressureWithUnit.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        LinearLayout pressureTile = gaugeTile(getString(R.string.pressure), pressureWithUnit,
-                null, new PressureGauge(this, pressure, this::pressureReading), 60);
         double elevation = data.optDouble("elevation");
-        if (Double.isFinite(elevation)) {
-            TextView altitude = label(getString(R.string.location_elevation, number(elevation, "%,.0f")), 13, muted);
-            altitude.setPadding(0, dp(4), 0, 0);
-            pressureTile.addView(altitude);
-        }
+        String altitude = Double.isFinite(elevation) ? getString(R.string.location_elevation, number(elevation, "%,.0f")) : null;
+        LinearLayout pressureTile = gaugeTile(getString(R.string.pressure), pressureWithUnit,
+                altitude, new PressureGauge(this, pressure, this::pressureReading), 60);
         addMetricGrid(windTile(getString(R.string.wind), wind, direction),
                 humidityTile(getString(R.string.humidity), humidity, dewPoint),
                 uvTile(getString(R.string.uv_index), uv), pressureTile);
@@ -1609,7 +1669,7 @@ public final class MainActivity extends Activity {
         auroraStatus.setPadding(0, dp(10), 0, 0);
         summary.addView(auroraStatus);
         heading.addView(summary, new LinearLayout.LayoutParams(0, -2, 1));
-        Button map = mapButton(R.string.aurora_map_short, () -> openMap(true));
+        Button map = mapButton(R.string.aurora_map_short, () -> openMap(RadarActivity.Layer.AURORA));
         map.setContentDescription(getString(R.string.aurora_map));
         heading.addView(map);
         tile.addView(heading);
@@ -2266,6 +2326,10 @@ public final class MainActivity extends Activity {
         addCredit(sources, R.string.warning_credit, "https://meteoalarm.org/");
         addCredit(sources, R.string.radar_credit, "https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/");
         addCredit(sources, R.string.aurora_credit, AuroraForecast.MAP);
+        addCredit(sources, R.string.air_quality_credit, "https://open-meteo.com/en/docs/air-quality-api");
+        addCredit(sources, R.string.air_quality_map_credit, "https://airindex.eea.europa.eu/AQI/");
+        addCredit(sources, R.string.satellite_credit, SatelliteImagery.EUMETSAT);
+        addCredit(sources, R.string.satellite_mosaic_credit, SatelliteImagery.SOURCE);
         addCredit(sources, R.string.eclipse_data, "https://opale.imcce.fr/");
         addCredit(sources, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
     }

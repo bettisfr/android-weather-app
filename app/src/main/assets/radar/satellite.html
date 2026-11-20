@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://www.ospo.noaa.gov https://view.eumetsat.int https://tile.openstreetmap.org data:">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+  :root { color-scheme: light; --page:#fafafa; --ink:#242d40; --accent:#435e94; }
+  :root.dark { color-scheme: dark; --page:#111d30; --ink:#edf3ff; --accent:#adc8ff; }
+  body { margin:0; height:100vh; display:flex; flex-direction:column; background:var(--page); color:var(--ink); font:14px system-ui,sans-serif; }
+  main { position:relative; flex:1; min-height:0; }
+  #map { position:absolute; inset:0; background:#dfe5ed; }
+  .dark .leaflet-basemap-pane { filter:invert(1) hue-rotate(180deg) saturate(.65) brightness(.86); }
+  #status { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:800;
+    background:var(--page); padding:8px 12px; border-radius:8px; text-align:center; }
+  section { padding:12px 16px; }
+  .line { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+  a { color:var(--accent); }
+  button { min-width:44px; min-height:44px; color:var(--accent); font-size:18px; }
+  input { flex:1; accent-color:var(--accent); }
+</style>
+</head>
+<body>
+  <main><div id="map" role="region"></div><div id="status" role="status" hidden></div></main>
+  <section>
+    <div class="line"><output id="time"></output><a id="source" hidden></a></div>
+    <div class="line"><button id="play" disabled>▶</button><input id="steps" type="range" min="0" value="0" disabled></div>
+  </section>
+  <script src="leaflet.js"></script>
+  <script src="map.js"></script>
+  <script src="satellite.js"></script>
+</body>
+</html>

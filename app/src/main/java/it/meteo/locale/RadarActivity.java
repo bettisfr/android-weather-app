@@ -26,12 +26,23 @@ import org.json.JSONObject;
 
 public final class RadarActivity extends Activity {
     private static final String ASSET_ORIGIN = "https://appassets.androidplatform.net";
-    private static final String PAGE = ASSET_ORIGIN + "/radar/index.html";
+    enum Layer {
+        RADAR("index", R.string.radar_title), AURORA("aurora", R.string.aurora_map_title),
+        AIR_QUALITY("aurora", R.string.air_quality_map_title), SATELLITE("satellite", R.string.satellite_title);
+
+        final String page;
+        final int title;
+
+        Layer(String page, int title) {
+            this.page = ASSET_ORIGIN + "/radar/" + page + ".html";
+            this.title = title;
+        }
+    }
     private static final String METADATA = "https://radar-api.protezionecivile.it/findLastProductByType?type=SRI";
     private static final String USER_AGENT_PROJECT = " (+https://github.com/bettisfr/android-weather-app)";
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WebView web;
-    private boolean aurora;
+    private Layer layer;
 
     @Override protected void attachBaseContext(android.content.Context base) {
         super.attachBaseContext(SkyTheme.withPreference(base));
@@ -39,8 +50,9 @@ public final class RadarActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
-        aurora = getIntent().getBooleanExtra("aurora", false);
-        String page = aurora ? ASSET_ORIGIN + "/radar/aurora.html" : PAGE;
+        String requested = getIntent().getStringExtra("layer");
+        layer = requested == null ? Layer.RADAR : Layer.valueOf(requested);
+        String page = layer.page;
         int surface = getColor(R.color.sky_background);
         int ink = getColor(R.color.sky_text);
         SkyTheme.applySystemBars(this);
@@ -59,7 +71,7 @@ public final class RadarActivity extends Activity {
         back.setOnClickListener(view -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
         TextView title = new TextView(this);
-        title.setText(getString(aurora ? R.string.aurora_map_title : R.string.radar_title, getIntent().getStringExtra("place")));
+        title.setText(getString(layer.title, getIntent().getStringExtra("place")));
         title.setTextColor(ink);
         title.setTextSize(19);
         title.setPadding(0, dp(7), dp(12), dp(7));
@@ -78,9 +90,10 @@ public final class RadarActivity extends Activity {
                 if (!"https".equals(url.getScheme()) || !"appassets.androidplatform.net".equals(url.getHost())) return null;
                 String path = url.getPath();
                 String type;
-                if ("/radar/index.html".equals(path) || "/radar/aurora.html".equals(path)) type = "text/html";
+                if ("/radar/index.html".equals(path) || "/radar/aurora.html".equals(path) || "/radar/satellite.html".equals(path)) type = "text/html";
                 else if ("/radar/leaflet.css".equals(path)) type = "text/css";
-                else if ("/radar/leaflet.js".equals(path) || "/radar/radar.js".equals(path) || "/radar/aurora.js".equals(path)) type = "application/javascript";
+                else if ("/radar/leaflet.js".equals(path) || "/radar/map.js".equals(path) || "/radar/radar.js".equals(path)
+                        || "/radar/aurora.js".equals(path) || "/radar/satellite.js".equals(path)) type = "application/javascript";
                 else return null;
                 try {
                     return new WebResourceResponse(type, "UTF-8", getAssets().open(path.substring(1)));
@@ -103,7 +116,14 @@ public final class RadarActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url) {
                 if (!page.equals(url) || isFinishing()) return;
                 view.evaluateJavascript("initialize(" + parameters() + ")", null);
-                network.execute(aurora ? RadarActivity.this::loadAurora : RadarActivity.this::loadLatest);
+                if (layer == Layer.AIR_QUALITY) return;
+                network.execute(() -> {
+                    switch (layer) {
+                        case AURORA: loadAurora(); break;
+                        case SATELLITE: loadSatellite(); break;
+                        default: loadLatest();
+                    }
+                });
             }
         });
         screen.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -121,7 +141,40 @@ public final class RadarActivity extends Activity {
             result.put("clock24", options.getBooleanExtra("clock24", true));
             result.put("dark", SkyTheme.isDark(this));
             result.put("language", getString(R.string.app_language_tag));
-            if (aurora) {
+            if (layer == Layer.AIR_QUALITY) {
+                result.put("airQuality", true);
+                result.put("source", "https://airindex.eea.europa.eu/AQI/");
+                result.put("time", java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.HOURS)
+                        .minus(Duration.ofHours(3)).toEpochMilli());
+                result.put("coverage", getString(R.string.air_quality_map_coverage));
+                result.put("unavailable", getString(R.string.air_quality_unavailable));
+                result.put("mapLabel", getString(R.string.air_quality_map));
+                result.put("forecast", getString(R.string.air_quality_grid));
+                result.put("intensity", getString(R.string.air_quality));
+                org.json.JSONArray bands = new org.json.JSONArray();
+                for (AirQualityBand band : AirQualityBand.values()) {
+                    bands.put(new JSONObject()
+                            .put("label", getString(band.label))
+                            .put("legend", getString(band == AirQualityBand.EXTREME ? R.string.aqi_extreme_short : band.label))
+                            .put("color", String.format(java.util.Locale.ROOT, "#%06x", band.color & 0x00ffffff)));
+                }
+                result.put("bands", bands);
+                result.put("loading", getString(R.string.air_quality_loading));
+                return result;
+            }
+            if (layer == Layer.SATELLITE) {
+                result.put("regionalSource", SatelliteImagery.EUMETSAT);
+                result.put("globalSource", SatelliteImagery.SOURCE);
+                result.put("observed", getString(R.string.satellite_observed));
+                result.put("coverage", getString(R.string.satellite_coverage));
+                result.put("timelineLabel", getString(R.string.satellite_timeline));
+                result.put("play", getString(R.string.radar_play));
+                result.put("pause", getString(R.string.radar_pause));
+                result.put("loading", getString(R.string.satellite_loading));
+                result.put("unavailable", getString(R.string.satellite_unavailable));
+                return result;
+            }
+            if (layer == Layer.AURORA) {
                 result.put("source", AuroraForecast.MAP);
                 result.put("mapLabel", getString(R.string.aurora_map));
                 result.put("forecast", getString(R.string.aurora_map_forecast));
@@ -143,6 +196,36 @@ public final class RadarActivity extends Activity {
             throw new IllegalStateException(error);
         }
         return result;
+    }
+
+    private void loadSatellite() {
+        try {
+            JSONObject regional = null;
+            try {
+                regional = SatelliteImagery.regionalFrames(getIntent().getDoubleExtra("lat", 42),
+                        getIntent().getDoubleExtra("lon", 12));
+            } catch (Exception unavailable) {
+                android.util.Log.w("SkyHere", "Meteosat imagery unavailable", unavailable);
+            }
+            if (regional != null) {
+                String payload = regional.toString();
+                runOnUiThread(() -> evaluate("setRegionalFrames(" + payload + ")"));
+                return;
+            }
+            org.json.JSONArray frames = SatelliteImagery.recentFrames();
+            if (frames.length() == 0) {
+                showMapError(R.string.satellite_unavailable);
+                return;
+            }
+            runOnUiThread(() -> evaluate("setFrames(" + frames + ")"));
+        } catch (Exception error) {
+            android.util.Log.w("SkyHere", "NOAA satellite imagery unavailable", error);
+            showMapError(R.string.satellite_unavailable);
+        }
+    }
+
+    private void showMapError(int message) {
+        runOnUiThread(() -> evaluate("status(" + JSONObject.quote(getString(message)) + ")"));
     }
 
     private void loadAurora() {

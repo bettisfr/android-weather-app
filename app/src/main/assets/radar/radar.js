@@ -89,15 +89,7 @@ function initialize(config) {
         legend.append(entry);
     }
 
-    map = L.map(mapElement, {minZoom: 4, maxZoom: 13, zoomControl: true}).setView([config.lat, config.lon], 8);
-    map.attributionControl.setPrefix(false);
-    const basemap = map.createPane('basemap');
-    basemap.style.zIndex = 190;
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        pane: 'basemap',
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-        referrerPolicy: 'strict-origin-when-cross-origin',
-    }).addTo(map);
+    map = createWeatherMap(mapElement, [config.lat, config.lon], 8);
     map.attributionControl.addAttribution('<a href="https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/">Radar-DPC</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>');
     L.circleMarker([config.lat, config.lon], {
         radius: 7, color: '#fff', weight: 3, fillColor: '#273b6a', fillOpacity: 1,
@@ -124,7 +116,7 @@ function showFrame(index) {
     timeline.setAttribute('aria-valuetext', frameTime);
     if (radar && radar !== displayedRadar) radar.remove();
     const layer = new RadarTiles(`${radarRoot}/${folder}/{z}/{x}/{y}/sri.webp`, {
-        maxNativeZoom: 7, noWrap: true, keepBuffer: 1, zIndex: 2, opacity: 0,
+        maxZoom: maximumMapZoom, maxNativeZoom: 7, noWrap: true, keepBuffer: 1, zIndex: 2, opacity: 0,
     });
     radar = layer;
     if (!playing || !displayedRadar) status(strings.loading);
