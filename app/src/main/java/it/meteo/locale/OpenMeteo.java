@@ -28,7 +28,7 @@ final class OpenMeteo {
         // The regional model covers Italy and surrounding land, and only provides three days.
         boolean nearItaly = latitude >= 35.4 && latitude <= 47.2 && longitude >= 6.5 && longitude <= 19.0;
         CompletableFuture<JSONObject> best = request(latitude, longitude, "best_match", UPCOMING_ASTRONOMY_DAYS + 1);
-        CompletableFuture<JSONObject> ecmwf = request(latitude, longitude, "ecmwf_ifs", 11);
+        CompletableFuture<JSONObject> ecmwf = request(latitude, longitude, "ecmwf_ifs", UPCOMING_ASTRONOMY_DAYS + 1);
         CompletableFuture<JSONObject> regional = nearItaly
                 ? request(latitude, longitude, "italia_meteo_arpae_icon_2i", 3)
                 : CompletableFuture.completedFuture(null);

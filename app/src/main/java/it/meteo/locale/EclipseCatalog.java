@@ -1,13 +1,18 @@
 package it.meteo.locale;
 
+import android.content.Context;
+import android.util.AtomicFile;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,6 +25,7 @@ import java.util.Locale;
 
 final class EclipseCatalog {
     private static final String ENDPOINT = "https://opale.imcce.fr/api/v1/phenomena/eclipses/";
+    private static final long CACHE_AGE_MS = Duration.ofDays(30).toMillis();
     private static final double REFRACTION_DEGREES = .57;
 
     static final class Event {
@@ -32,13 +38,14 @@ final class EclipseCatalog {
         final boolean penumbral;
         final boolean estimatedPeak;
         final double obscuration;
+        final long totalitySeconds;
         final double shadowX;
         final double shadowY;
         final double shadowRadius;
         final LocalDate catalogDate;
 
         Event(String type, long start, long bestVisible, long end, boolean horizonLimited,
-              boolean lunar, boolean penumbral, boolean estimatedPeak, double obscuration,
+              boolean lunar, boolean penumbral, boolean estimatedPeak, double obscuration, long totalitySeconds,
               double shadowX, double shadowY, double shadowRadius, LocalDate catalogDate) {
             this.type = type;
             this.start = Instant.ofEpochSecond(start);
@@ -49,17 +56,21 @@ final class EclipseCatalog {
             this.penumbral = penumbral;
             this.estimatedPeak = estimatedPeak;
             this.obscuration = obscuration;
+            this.totalitySeconds = totalitySeconds;
             this.shadowX = shadowX;
             this.shadowY = shadowY;
             this.shadowRadius = shadowRadius;
             this.catalogDate = catalogDate;
         }
 
-        String detailsUrl() {
-            String date = catalogDate.format(DateTimeFormatter.ofPattern("uuuu-MMMM-d", Locale.US))
-                    .toLowerCase(Locale.ROOT);
-            return "https://www.timeanddate.com/eclipse/" + (lunar ? "lunar/" : "solar/") + date;
+        String detailsUrl(double latitude, double longitude) {
+            return localDetailsUrl(catalogDate, latitude, longitude);
         }
+    }
+
+    static String localDetailsUrl(LocalDate date, double latitude, double longitude) {
+        return String.format(Locale.US, "https://www.timeanddate.com/eclipse/in/@%.5f,%.5f?iso=%s",
+                latitude, longitude, date.format(DateTimeFormatter.BASIC_ISO_DATE));
     }
 
     private static final class Contact {
@@ -93,11 +104,13 @@ final class EclipseCatalog {
         return lunar ? 3 : 10;
     }
 
-    static List<Event> upcoming(boolean lunar, int year, double latitude, double longitude, Instant now) throws Exception {
+    static List<Event> upcoming(Context context, boolean lunar, int year, double latitude, double longitude,
+                                Instant now) throws Exception {
+        String observer = String.format(Locale.US, "%.5f,%.5f", latitude, longitude);
         String path = (lunar ? "301/" : "10/") + year + "?nbd=" + yearsPerRequest(lunar);
-        if (!lunar) path += String.format(Locale.US, "&observer=%.5f,%.5f", latitude, longitude);
-        JSONArray rows = read(ENDPOINT + path).getJSONObject("response")
-                .getJSONArray(lunar ? "lunareclipse" : "data");
+        if (!lunar) path += "&observer=" + observer;
+        String key = lunar ? "lunar-" + year : "solar-" + year + "-" + observer;
+        JSONArray rows = catalogRows(context, path, key, lunar);
         List<Event> result = new ArrayList<>();
         for (int i = 0; i < rows.length(); i++) {
             Event event = visibleEvent(rows.getJSONObject(i), lunar, latitude, longitude);
@@ -105,6 +118,51 @@ final class EclipseCatalog {
         }
         result.sort(Comparator.comparing(event -> event.start));
         return result;
+    }
+
+    private static JSONArray catalogRows(Context context, String path, String key, boolean lunar) throws Exception {
+        File cacheDir = new File(context.getCacheDir(), "eclipse_catalog");
+        File file = new File(cacheDir, key + ".json");
+        AtomicFile cache = new AtomicFile(file);
+        String field = lunar ? "lunareclipse" : "data";
+        JSONArray saved = null;
+        if (file.isFile()) {
+            try {
+                synchronized (EclipseCatalog.class) {
+                    saved = new JSONObject(new String(cache.readFully(), StandardCharsets.UTF_8))
+                            .getJSONObject("response").getJSONArray(field);
+                }
+                if (System.currentTimeMillis() - file.lastModified() < CACHE_AGE_MS) return saved;
+            } catch (IOException | org.json.JSONException invalid) {
+                android.util.Log.d("SkyHere", "Eclipse cache unavailable", invalid);
+            }
+        }
+        JSONObject downloaded;
+        JSONArray rows;
+        try {
+            downloaded = read(ENDPOINT + path);
+            rows = downloaded.getJSONObject("response").getJSONArray(field);
+        } catch (IOException | org.json.JSONException error) {
+            if (saved != null) return saved;
+            throw error;
+        }
+        synchronized (EclipseCatalog.class) {
+            FileOutputStream output = null;
+            try {
+                output = cache.startWrite();
+                output.write(downloaded.toString().getBytes(StandardCharsets.UTF_8));
+                cache.finishWrite(output);
+                File[] files = cacheDir.listFiles((dir, name) -> name.endsWith(".json"));
+                if (files != null && files.length > 32) {
+                    java.util.Arrays.sort(files, Comparator.comparingLong(File::lastModified));
+                    for (int i = 0; i < files.length - 32; i++) files[i].delete();
+                }
+            } catch (IOException error) {
+                cache.failWrite(output);
+                android.util.Log.d("SkyHere", "Could not save eclipse catalog", error);
+            }
+        }
+        return rows;
     }
 
     private static Event visibleEvent(JSONObject row, boolean lunar, double latitude, double longitude) throws org.json.JSONException {
@@ -185,11 +243,21 @@ final class EclipseCatalog {
                 obscuration = diskCoverage(diskRadius, shadowRadius, separation);
             }
         }
+        long totalitySeconds = 0;
+        if (row.optString("type").toLowerCase(Locale.ROOT).contains("total")) {
+            Contact totalityStart = contact(events.optJSONObject(lunar ? "U2" : "U1"), lunar, latitude, longitude);
+            Contact totalityEnd = contact(events.optJSONObject(lunar ? "U3" : "U4"), lunar, latitude, longitude);
+            if (totalityStart != null && totalityEnd != null) {
+                totalitySeconds = Math.max(0, Math.min(visibleEnd, totalityEnd.time)
+                        - Math.max(visibleStart, totalityStart.time));
+                if (totalitySeconds > 0) type = eclipseType(row.optString("type"), lunar, true);
+            }
+        }
         String date = row.optString("calendarDate");
         LocalDate catalogDate = date.isEmpty()
                 ? Instant.ofEpochSecond(peak.time).atOffset(ZoneOffset.UTC).toLocalDate() : LocalDate.parse(date);
         return new Event(type, visibleStart, bestVisible, visibleEnd, visibleStart > start.time || visibleEnd < end.time,
-                lunar, penumbral, estimatedPeak, obscuration, x / diskRadius, y / diskRadius,
+                lunar, penumbral, estimatedPeak, obscuration, totalitySeconds, x / diskRadius, y / diskRadius,
                 shadowRadius / diskRadius, catalogDate);
     }
 

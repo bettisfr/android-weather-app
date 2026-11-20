@@ -232,4 +232,7 @@
     <string name="aurora_map_low">Debole</string>
     <string name="aurora_map_high">Forte</string>
     <string name="aurora_map_short">Mappa</string>
+    <string name="cached_forecast">Previsioni salvate · Aggiornate %1$s</string>
+    <string name="totality_minutes">Totalità visibile · %1$dm %2$02ds</string>
+    <string name="totality_hours">Totalità visibile · %1$dh %2$02dm %3$02ds</string>
 </resources>

@@ -233,4 +233,7 @@
     <string name="aurora_map_low">Lower</string>
     <string name="aurora_map_high">Higher</string>
     <string name="aurora_map_short">Map</string>
+    <string name="cached_forecast">Saved forecast · Updated %1$s</string>
+    <string name="totality_minutes">Visible totality · %1$dm %2$02ds</string>
+    <string name="totality_hours">Visible totality · %1$dh %2$02dm %3$02ds</string>
 </resources>

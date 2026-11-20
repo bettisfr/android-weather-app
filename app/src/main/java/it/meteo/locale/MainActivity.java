@@ -165,6 +165,7 @@ public final class MainActivity extends Activity {
     private String locationNotice;
     private int forecastRequest;
     private boolean forecastLoading;
+    private Instant cachedForecastAt;
     private long forecastAttemptAt;
     private ZonedDateTime forecastHour;
     private boolean usingCurrentLocation;
@@ -235,9 +236,23 @@ public final class MainActivity extends Activity {
 
         choosingLocation = false;
         day = -1;
-        layout();
-        page.addView(header(getString(R.string.current_location), this::locations));
-        page.addView(loadingStatus(getString(R.string.finding_location)));
+        if (data == null) {
+            ForecastCache cache = ForecastCache.read(this);
+            if (cache != null) {
+                place = cache.place;
+                latitude = cache.latitude;
+                longitude = cache.longitude;
+                selectedCountry = cache.country;
+                selectedRegion = cache.region;
+                usingCurrentLocation = false;
+                showCachedForecast(cache);
+            }
+        }
+        if (data == null) {
+            layout();
+            page.addView(header(getString(R.string.current_location), this::locations));
+            page.addView(loadingStatus(getString(R.string.finding_location)));
+        }
         LocationManager manager = getSystemService(LocationManager.class);
         locationListener = new LocationListener() {
             @Override public void onLocationChanged(Location location) {
@@ -373,15 +388,31 @@ public final class MainActivity extends Activity {
         if (requestCode == LOCATION_PERMISSION) currentLocation(false);
     }
 
+    private void showCachedForecast(ForecastCache cache) {
+        data = cache.forecast;
+        cachedForecastAt = cache.updatedAt;
+        render();
+    }
+
     private void load() {
+        int offset = cachedForecastAt != null && scroll != null ? scroll.getScrollY() : 0;
         data = null;
+        cachedForecastAt = null;
         day = -1;
         homeScroll = 0;
         choosingLocation = false;
-        layout();
-        page.addView(placeTitle());
-        page.addView(loadingStatus(getString(R.string.loading_forecast)));
-        requestForecast(false);
+        ForecastCache cache = ForecastCache.read(this);
+        boolean hasCache = cache != null && cache.matches(latitude, longitude, usingCurrentLocation);
+        if (hasCache) {
+            showCachedForecast(cache);
+            ScrollView target = scroll;
+            if (offset > 0) target.post(() -> target.scrollTo(0, offset));
+        } else {
+            layout();
+            page.addView(placeTitle());
+            page.addView(loadingStatus(getString(R.string.loading_forecast)));
+        }
+        requestForecast(hasCache);
         if ((usingCurrentLocation && devicePlace == null) || selectedCountry.isEmpty()
                 || (inItaly() && selectedRegion.isEmpty())) resolveLocation(latitude, longitude);
     }
@@ -428,6 +459,8 @@ public final class MainActivity extends Activity {
         network.execute(() -> {
             try {
                 JSONObject response = OpenMeteo.forecast(lat, lon);
+                String serialized = response.toString();
+                Instant updatedAt = Instant.now();
                 runOnUiThread(() -> {
                     if (request != forecastRequest || isDestroyed()) return;
                     forecastLoading = false;
@@ -444,6 +477,8 @@ public final class MainActivity extends Activity {
                         }
                     }
                     data = response;
+                    cachedForecastAt = null;
+                    ForecastCache.write(this, serialized, updatedAt, lat, lon, place, selectedCountry, selectedRegion);
                     if (usingCurrentLocation) {
                         deviceWeather = response.optJSONObject("current");
                         updateCurrentLocationShortcut();
@@ -608,6 +643,12 @@ public final class MainActivity extends Activity {
             top.addView(settings);
             page.addView(top);
             if (locationNotice != null) page.addView(label(locationNotice, 13, muted));
+            if (cachedForecastAt != null) {
+                ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+                ZonedDateTime updated = cachedForecastAt.atZone(zone);
+                String timestamp = updated.format(shortDate(true)) + " · " + updated.format(clockFormat());
+                addSpaced(page, label(getString(R.string.cached_forecast, timestamp), 13, muted), 4);
+            }
             title(getString(R.string.now));
             LinearLayout hero = row();
             TextView temperature = label(temp(current.optDouble("temperature_2m")), 76, ink);
@@ -1807,7 +1848,7 @@ public final class MainActivity extends Activity {
             int startYear = year;
             CompletableFuture.supplyAsync(() -> {
                 try {
-                    return EclipseCatalog.upcoming(lunar, startYear, latitude, longitude, Instant.now());
+                    return EclipseCatalog.upcoming(getApplicationContext(), lunar, startYear, latitude, longitude, Instant.now());
                 } catch (Exception error) {
                     android.util.Log.w("SkyHere", "Eclipse catalog unavailable: " + error, error);
                     return null;
@@ -1831,7 +1872,7 @@ public final class MainActivity extends Activity {
         LinearLayout entry = column();
         entry.setPadding(dp(11), dp(10), dp(11), dp(10));
         entry.setBackground(background(getColor(R.color.sky_subtle), 12));
-        linkAstronomyCard(entry, event.detailsUrl());
+        linkAstronomyCard(entry, event.detailsUrl(latitude, longitude));
         LinearLayout heading = row();
         EclipseIcon icon = new EclipseIcon(this, event);
         LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(36), dp(36));
@@ -1862,6 +1903,15 @@ public final class MainActivity extends Activity {
         TextView details = label(durationLabel, 13, muted);
         details.setPadding(0, dp(3), 0, 0);
         entry.addView(details);
+        if (event.totalitySeconds > 0) {
+            long seconds = event.totalitySeconds;
+            String totality = seconds >= 3600
+                    ? getString(R.string.totality_hours, seconds / 3600, seconds / 60 % 60, seconds % 60)
+                    : getString(R.string.totality_minutes, seconds / 60, seconds % 60);
+            TextView totalityLabel = label(totality, 13, accent);
+            totalityLabel.setPadding(0, dp(3), 0, 0);
+            entry.addView(totalityLabel);
+        }
         if (Double.isFinite(event.obscuration)) {
             int disk = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow) : R.string.sun_covered;
             String coverageText = getString(disk, percent(event.obscuration));
@@ -1877,7 +1927,7 @@ public final class MainActivity extends Activity {
         LinearLayout entry = column();
         entry.setPadding(dp(11), dp(10), dp(11), dp(10));
         entry.setBackground(background(getColor(R.color.sky_subtle), 12));
-        linkAstronomyCard(entry, event.detailsUrl());
+        linkAstronomyCard(entry, event.detailsUrl(latitude, longitude));
 
         LinearLayout header = row();
         View icon = new View(this) {

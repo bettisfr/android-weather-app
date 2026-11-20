@@ -4,11 +4,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 
 final class TransitCatalog {
     // Transit Predictions by Fred Espenak, NASA/GSFC.
@@ -88,13 +86,12 @@ final class TransitCatalog {
             this.visibleEnd = visibleEnd;
         }
 
-        String detailsUrl() {
+        String detailsUrl(double latitude, double longitude) {
             // The NASA catalog also covers dates outside Timeanddate's event pages.
             if (transit.date.getYear() > 2125) {
                 return "https://eclipse.gsfc.nasa.gov/transit/catalog/" + transit.planet + "Catalog.html";
             }
-            String date = transit.date.format(DateTimeFormatter.ofPattern("uuuu-MMMM-d", Locale.US)).toLowerCase(Locale.ROOT);
-            return "https://www.timeanddate.com/eclipse/transit/" + date;
+            return EclipseCatalog.localDetailsUrl(transit.date, latitude, longitude);
         }
     }
 
