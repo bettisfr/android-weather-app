@@ -2662,7 +2662,7 @@ public final class MainActivity extends Activity {
         }
         if (Double.isFinite(event.obscuration)) {
             int disk = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow) : R.string.sun_covered;
-            String coverageText = getString(disk, percent(event.obscuration));
+            String coverageText = getString(disk, event.formattedObscuration(appLocale()));
             if (event.estimatedPeak) coverageText = getString(R.string.approximate_value, coverageText);
             TextView coverage = label(coverageText, 13, accent);
             localDetails.add(coverageText);

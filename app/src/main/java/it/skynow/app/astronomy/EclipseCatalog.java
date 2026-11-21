@@ -75,6 +75,13 @@ public final class EclipseCatalog {
             return catalogDate;
         }
 
+        public String formattedObscuration(Locale locale) {
+            if (lunar) return String.format(locale, "%.0f%%", obscuration);
+            boolean total = totalitySeconds > 0 || (!estimatedPeak && "Total solar eclipse".equals(type));
+            double coverage = total ? 100 : Math.min(99.9, obscuration);
+            return String.format(locale, "%.1f%%", coverage);
+        }
+
         public JSONArray lunarVisibilitySamples() throws org.json.JSONException {
             JSONArray samples = new JSONArray();
             if (contacts.isEmpty()) return samples;

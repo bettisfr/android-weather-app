@@ -206,6 +206,7 @@ public final class RadarActivity extends Activity {
                 result.put("whole", getString(transit ? R.string.transit_whole_band : R.string.eclipse_whole_lunar_band));
                 result.put("loading", getString(R.string.eclipse_map_loading));
                 result.put("approximate", getString(R.string.eclipse_map_approximate));
+                result.put("obscuration", getString(R.string.eclipse_map_obscuration));
                 result.put("unavailable", getString(R.string.eclipse_map_unavailable));
                 result.put("pointLoading", getString(R.string.visibility_point_loading));
                 result.put("openDetails", getString(transit && detailsUrl.equals(catalogUrl)

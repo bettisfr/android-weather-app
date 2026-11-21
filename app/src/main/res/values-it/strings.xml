@@ -312,6 +312,7 @@
     <string name="eclipse_partial_solar_band">Eclissi parziale visibile</string>
     <string name="eclipse_whole_lunar_band">Visibile per tutta l’eclissi</string>
     <string name="eclipse_map_loading">Calcolo dell’area di visibilità approssimativa…</string>
+    <string name="eclipse_map_obscuration">Copertura massima del Sole</string>
     <string name="eclipse_map_approximate">Limiti di visibilità approssimativi</string>
     <string name="eclipse_map_unavailable">Area di visibilità non disponibile</string>
     <string name="eclipse_totality_band">Fascia di totalità</string>

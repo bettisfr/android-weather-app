@@ -3,6 +3,7 @@
 const radians = Math.PI / 180;
 const maxLatitude = 85;
 const observerEccentricitySquared = .00669437999014;
+const centralBand = 7;
 
 function observer(latitude) {
     const phi = latitude * radians;
@@ -29,6 +30,36 @@ function solarSamples(elements, stepMinutes) {
             partialRadius: polynomial(l1, time), centralRadius: polynomial(l2, time),
         };
     });
+}
+
+function solarObscuration(sample, horizontal, vertical, sinLongitude, cosLongitude, partialSlope, centralSlope) {
+    const sinH = sample.sinH * cosLongitude + sample.cosH * sinLongitude;
+    const cosH = sample.cosH * cosLongitude - sample.sinH * sinLongitude;
+    const meridian = horizontal * cosH;
+    const zeta = vertical * sample.sinD + meridian * sample.cosD;
+    if (zeta <= 0) return 0;
+    const dx = sample.x - horizontal * sinH;
+    const dy = sample.y - (vertical * sample.cosD - meridian * sample.sinD);
+    const separationSquared = dx * dx + dy * dy;
+    // The reduced penumbral radius is the sum of the apparent radii; the
+    // signed central radius is their difference (Sun minus Moon).
+    const sum = sample.partialRadius - zeta * partialSlope;
+    if (separationSquared >= sum * sum) return 0;
+    const difference = sample.centralRadius - zeta * centralSlope;
+    const sun = (sum + difference) / 2;
+    const moon = (sum - difference) / 2;
+    if (sun <= 0 || moon <= 0) return 0;
+    if (separationSquared <= difference * difference) return Math.min(1, (moon / sun) ** 2);
+
+    const distance = Math.sqrt(separationSquared);
+    const sunSquared = sun * sun;
+    const moonSquared = moon * moon;
+    const acos = value => Math.acos(Math.max(-1, Math.min(1, value)));
+    const sunAngle = 2 * acos((separationSquared + sunSquared - moonSquared) / (2 * distance * sun));
+    const moonAngle = 2 * acos((separationSquared + moonSquared - sunSquared) / (2 * distance * moon));
+    const overlap = (sunSquared * (sunAngle - Math.sin(sunAngle))
+        + moonSquared * (moonAngle - Math.sin(moonAngle))) / 2;
+    return Math.max(0, Math.min(1, overlap / (Math.PI * sunSquared)));
 }
 
 function insideShadow(sample, horizontal, vertical, sinLongitude, cosLongitude, radius, slope) {
@@ -104,7 +135,7 @@ function centralBands(samples, slope) {
             }
         }
     }
-    return coverageBands(step, (row, column) => cells.get(row)?.has(column) ? 2 : 0);
+    return coverageBands(step, (row, column) => cells.get(row)?.has(column) ? centralBand : 0);
 }
 
 function solarGeometry(date, useExactPath) {
@@ -113,9 +144,17 @@ function solarGeometry(date, useExactPath) {
     if (!elements) return null;
     const [type, latitude, longitude, , , , , , , , , , partialSlope, centralSlope] = elements;
     const samples = solarSamples(elements, 3);
-    const bands = coverageBands(1, (_row, _column, horizontal, vertical, sinLon, cosLon) =>
-        samples.some(sample => insideShadow(sample, horizontal, vertical, sinLon, cosLon,
-            sample.partialRadius, partialSlope)) ? 1 : 0);
+    const thresholds = [.2, .4, .6, .8, .9];
+    const bands = coverageBands(1, (_row, _column, horizontal, vertical, sinLon, cosLon) => {
+        let maximum = 0;
+        for (const sample of samples) {
+            maximum = Math.max(maximum, solarObscuration(sample, horizontal, vertical, sinLon, cosLon,
+                partialSlope, centralSlope));
+            if (maximum >= .9) return 6;
+        }
+        if (maximum <= 0) return 0;
+        return 1 + thresholds.filter(threshold => maximum >= threshold).length;
+    });
     if (!useExactPath && /[ATH]/.test(type)) bands.push(...centralBands(solarSamples(elements, .75), centralSlope));
     return {type, bands, center: [latitude, longitude]};
 }

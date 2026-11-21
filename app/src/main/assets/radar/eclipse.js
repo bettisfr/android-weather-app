@@ -116,21 +116,32 @@ function initialize(config) {
         note.textContent = config.approximate;
         note.hidden = false;
         const colors = lunar ? ['#7797ce', '#435e94']
-            : solar ? ['#a8a0ce', '#8958bd'] : ['#e3ba77', '#c48227'];
+            : solar ? ['#71a3d5', '#70a79a', '#ceb268', '#e69b59', '#d06c76', '#bd548e', '#8958bd']
+                : ['#e3ba77', '#c48227'];
         const renderer = L.canvas({padding: .5});
         const central = [];
         for (const [south, north, west, east, band] of geometry.bands) {
             L.rectangle([[south, west], [north, east]], {
-                renderer, stroke: false, fillColor: colors[band - 1], fillOpacity: band === 2 ? .47 : .36,
+                renderer, stroke: false, fillColor: colors[band - 1],
+                fillOpacity: solar ? (band === 7 ? .63 : .39 + band * .035) : (band === 2 ? .47 : .36),
                 interactive: false,
             }).addTo(map);
-            if (solar && band === 2) central.push([(south + north) / 2, (west + east) / 2]);
+            if (solar && band === 7) central.push([(south + north) / 2, (west + east) / 2]);
         }
-        addLegend(config.partial, colors[0]);
+        if (solar) {
+            const title = document.createElement('strong');
+            title.className = 'band-title';
+            title.textContent = config.obscuration;
+            legend.append(title);
+            ['<20%', '20–39%', '40–59%', '60–79%', '80–89%', '≥90%'].forEach((label, index) =>
+                addLegend(label, colors[index]));
+        } else {
+            addLegend(config.partial, colors[0]);
+        }
         if (exact || central.length) {
             const label = geometry.type.startsWith('A') ? config.annularity
                 : geometry.type.startsWith('H') ? config.mixed : config.totality;
-            addLegend(label, colors[1]);
+            addLegend(label, colors[6]);
             if (!exact) fitCentralPath(central);
         } else if (!solar && geometry.bands.some(band => band[4] === 2)) {
             addLegend(config.whole, colors[1]);
@@ -139,7 +150,7 @@ function initialize(config) {
 
     status.textContent = config.loading;
     status.hidden = false;
-    const cacheKey = 'eclipse-geometry-v1';
+    const cacheKey = 'eclipse-geometry-v2';
     const id = config.kind + ':' + config.date;
     try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');

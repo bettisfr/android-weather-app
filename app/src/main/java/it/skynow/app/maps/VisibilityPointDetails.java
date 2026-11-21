@@ -44,7 +44,7 @@ final class VisibilityPointDetails {
             if (Double.isFinite(event.obscuration)) {
                 int label = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow)
                         : R.string.sun_covered;
-                String coverage = context.getString(label, String.format(locale, "%.0f%%", event.obscuration));
+                String coverage = context.getString(label, event.formattedObscuration(locale));
                 lines.put(event.estimatedPeak ? context.getString(R.string.approximate_value, coverage) : coverage);
             }
             if (event.totalitySeconds > 0) {

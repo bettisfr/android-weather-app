@@ -313,6 +313,7 @@
     <string name="eclipse_partial_solar_band">Partial eclipse visible</string>
     <string name="eclipse_whole_lunar_band">Entire eclipse visible</string>
     <string name="eclipse_map_loading">Calculating approximate coverage…</string>
+    <string name="eclipse_map_obscuration">Maximum Sun coverage</string>
     <string name="eclipse_map_approximate">Approximate visibility boundaries</string>
     <string name="eclipse_map_unavailable">Coverage unavailable</string>
     <string name="eclipse_totality_band">Path of totality</string>
