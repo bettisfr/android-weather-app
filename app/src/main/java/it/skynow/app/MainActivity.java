@@ -138,6 +138,7 @@ public final class MainActivity extends Activity {
     private static final double[] WIND_FACTORS = {1, 0.621371, 1.0 / 3.6, 1.0 / 1.852};
     private static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
     private static final double[] PRESSURE_FACTORS = {1, 1, 0.029529983, 0.750061683};
+    private static final int EXTREME_MAGNITUDE_COLOR = 0xffd6bef3;
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
     private DashboardTab dashboardTab = DashboardTab.WEATHER;
@@ -1926,7 +1927,8 @@ public final class MainActivity extends Activity {
             int status = reading.favorable ? R.string.planet_visible_now
                     : above ? R.string.planet_difficult : R.string.planet_below_horizon;
             row.now.setText(getString(R.string.planet_now_status, getString(status)));
-            setMagnitudeBadge(row.magnitude, reading.magnitude, !daylight);
+            setMagnitudeBadge(row.magnitude, reading.magnitude,
+                    daylight ? android.graphics.Color.TRANSPARENT : magnitudeColor(reading.magnitude));
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
                 row.observingWindows = Planets.windows(row.body, today, zone, latitude, longitude);
@@ -2228,7 +2230,7 @@ public final class MainActivity extends Activity {
             details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
                     Math.round(pass.peak.elevation)), 13, muted), new LinearLayout.LayoutParams(0, -2, 1));
             TextView magnitude = astronomyBadge("");
-            setMagnitudeBadge(magnitude, pass.magnitude, true);
+            setMagnitudeBadge(magnitude, pass.magnitude, magnitudeColor(pass.magnitude));
             details.addView(magnitude);
             entry.addView(details);
             String appears = issBearing(pass.rise.azimuth);
@@ -2291,15 +2293,16 @@ public final class MainActivity extends Activity {
         return badge;
     }
 
-    private void setMagnitudeBadge(TextView badge, double magnitude, boolean colored) {
+    private void setMagnitudeBadge(TextView badge, double magnitude, int fill) {
         badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
+        boolean colored = fill != android.graphics.Color.TRANSPARENT;
         badge.setTextColor(colored ? 0xff202735 : muted);
-        badge.setBackground(colored ? background(issMagnitudeColor(magnitude), 8) : null);
+        badge.setBackground(colored ? background(fill, 8) : null);
     }
 
     private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
         LocalDate date = Instant.ofEpochSecond(pass.rise.time).atZone(zone).toLocalDate();
-        showSkyTrack(getString(R.string.iss_track), period, pass.magnitude, true, panel -> {
+        showSkyTrack(getString(R.string.iss_track), period, pass.magnitude, magnitudeColor(pass.magnitude), panel -> {
             addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
             addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
@@ -2330,7 +2333,9 @@ public final class MainActivity extends Activity {
         if (track.rise != null && track.set != null && track.rise.time <= track.set.time) {
             period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
         }
-        showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, sun.zenith >= 90, panel -> {
+        int fill = planet == null ? EXTREME_MAGNITUDE_COLOR
+                : sun.zenith >= 90 ? magnitudeColor(magnitude) : android.graphics.Color.TRANSPARENT;
+        showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
             addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
             if (track.peak.elevation < 0) {
                 panel.addView(label(getString(R.string.sky_track_no_path), 14, muted));
@@ -2342,7 +2347,7 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void showSkyTrack(String title, String period, double magnitude, boolean coloredMagnitude,
+    private void showSkyTrack(String title, String period, double magnitude, int magnitudeFill,
                               java.util.function.Consumer<LinearLayout> content) {
         Dialog dialog = new Dialog(this, R.style.SkyHereTheme);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
@@ -2371,8 +2376,10 @@ public final class MainActivity extends Activity {
         summary.addView(label(period, 14, muted), new LinearLayout.LayoutParams(0, -2, 1));
         if (Double.isFinite(magnitude)) {
             TextView badge = astronomyBadge("");
-            setMagnitudeBadge(badge, magnitude, coloredMagnitude);
-            if (!coloredMagnitude) badge.setBackground(background(getColor(R.color.sky_subtle), 8));
+            setMagnitudeBadge(badge, magnitude, magnitudeFill);
+            if (magnitudeFill == android.graphics.Color.TRANSPARENT) {
+                badge.setBackground(background(getColor(R.color.sky_subtle), 8));
+            }
             LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
             badgeSize.setMarginStart(dp(8));
             summary.addView(badge, badgeSize);
@@ -2446,7 +2453,7 @@ public final class MainActivity extends Activity {
         return compassDirection(azimuth) + " " + (Math.round(azimuth) % 360) + "°";
     }
 
-    private static int issMagnitudeColor(double magnitude) {
+    private static int magnitudeColor(double magnitude) {
         if (magnitude <= -4) return 0xfff28b92;
         if (magnitude <= -3) return 0xffef9b64;
         if (magnitude <= -2) return 0xffffd277;
