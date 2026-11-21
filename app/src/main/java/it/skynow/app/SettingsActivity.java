@@ -13,6 +13,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.ScrollView;
@@ -123,10 +124,12 @@ public final class SettingsActivity extends Activity {
         LinearLayout row = settingRow(getString(title));
         TextView value = text(values[selected.getAsInt()], 14, R.color.sky_muted);
         row.addView(value);
-        TextView arrow = text("›", 21, R.color.sky_accent);
-        arrow.setPaddingRelative(dp(10), 0, 0, 0);
+        ImageView arrow = new ImageView(this);
+        arrow.setImageResource(R.drawable.ic_expand);
         arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        row.addView(arrow);
+        LinearLayout.LayoutParams arrowSize = new LinearLayout.LayoutParams(dp(20), dp(20));
+        arrowSize.setMarginStart(dp(8));
+        row.addView(arrow, arrowSize);
         row.setOnClickListener(view -> {
             PopupMenu popup = new PopupMenu(this, value, Gravity.END);
             for (int index = 0; index < values.length; index++) popup.getMenu().add(0, index, index, values[index]);
