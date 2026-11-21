@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
+
+import it.meteo.locale.net.HttpText;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -9,8 +11,8 @@ import sgp4.SGP4;
 import sgp4.TLE;
 
 // SGP4 from aholinch/sgp4 (552cb148), with the license in assets/licenses/sgp4.txt.
-final class IssPasses {
-    static final String SOURCE = "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE";
+public final class IssPasses {
+    public static final String SOURCE = "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE";
     private static final double EARTH_RADIUS_KM = 6378.137;
     private static final double EARTH_ECCENTRICITY_SQUARED = 0.00669437999014;
     private static final int STEP = 20;
@@ -19,7 +21,7 @@ final class IssPasses {
     private static String[] cachedLines;
     private static Instant fetchedAt = Instant.EPOCH;
 
-    static List<Pass> upcoming(double latitude, double longitude, double elevationMeters, Instant now) throws IOException {
+    public static List<Pass> upcoming(double latitude, double longitude, double elevationMeters, Instant now) throws IOException {
         TLE orbit = orbit(now);
         Observer observer = new Observer(latitude, longitude, elevationMeters, orbit);
         List<Pass> passes = new ArrayList<>();
@@ -58,7 +60,7 @@ final class IssPasses {
                     track.add(rise);
                     for (long second = rise.time + 5; second < set.time; second += 5) track.add(observer.at(second));
                     track.add(set);
-                    passes.add(new Pass(rise, peak, set, brightest.magnitude, track));
+                    passes.add(new Pass(rise, peak, set, brightest, track));
                 }
                 rise = null;
             }
@@ -69,7 +71,7 @@ final class IssPasses {
 
     private static synchronized TLE orbit(Instant now) throws IOException {
         if (cachedLines == null || Duration.between(fetchedAt, now).compareTo(Duration.ofMinutes(30)) >= 0) {
-            String[] lines = OpenMeteo.readBody(SOURCE).trim().split("\\r?\\n");
+            String[] lines = HttpText.read(SOURCE).trim().split("\\r?\\n");
             if (lines.length < 3 || !lines[1].startsWith("1 25544") || !lines[2].startsWith("2 25544")
                     || lines[1].length() < 69 || lines[2].length() < 69) throw new IOException("Invalid ISS orbital elements");
             cachedLines = lines;
@@ -83,29 +85,27 @@ final class IssPasses {
         return orbit;
     }
 
-    static final class Pass {
-        final Sample rise, peak, set;
-        final double magnitude;
-        final List<Sample> track;
+    public static final class Pass {
+        public final Sample rise, peak, set, brightest;
+        public final double magnitude;
+        public final List<Sample> track;
 
-        Pass(Sample rise, Sample peak, Sample set, double magnitude, List<Sample> track) {
+        Pass(Sample rise, Sample peak, Sample set, Sample brightest, List<Sample> track) {
             this.rise = rise;
             this.peak = peak;
             this.set = set;
-            this.magnitude = magnitude;
+            this.brightest = brightest;
+            this.magnitude = brightest.magnitude;
             this.track = track;
         }
     }
 
-    static final class Sample {
-        final long time;
-        final double azimuth, elevation, magnitude;
+    public static final class Sample extends SkyTrajectory.Point {
+        final double magnitude;
         final boolean visible;
 
         Sample(long time, double azimuth, double elevation, double magnitude) {
-            this.time = time;
-            this.azimuth = azimuth;
-            this.elevation = elevation;
+            super(time, azimuth, elevation);
             this.magnitude = magnitude;
             this.visible = Double.isFinite(magnitude);
         }

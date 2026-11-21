@@ -1,17 +1,19 @@
-package it.meteo.locale;
+package it.meteo.locale.weather.views;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.view.View;
 
-final class UvGauge extends View {
+public final class UvGauge extends View {
     private static final int[] COLORS = {0xff56a984, 0xffd5a43c, 0xffd9803d, 0xffbe595c, 0xff8266a4};
     private static final int[] LEVELS = {0, 3, 6, 8, 11};
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final double index;
 
-    UvGauge(Context context, double index) {
+    public UvGauge(Context context, double index) {
         super(context);
         this.index = index;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);

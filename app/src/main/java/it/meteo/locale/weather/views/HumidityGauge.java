@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.weather.views;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -7,13 +9,13 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.View;
 
-final class HumidityGauge extends View {
+public final class HumidityGauge extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path clip = new Path();
     private final RectF track = new RectF();
     private final double humidity;
 
-    HumidityGauge(Context context, double humidity) {
+    public HumidityGauge(Context context, double humidity) {
         super(context);
         this.humidity = humidity;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);

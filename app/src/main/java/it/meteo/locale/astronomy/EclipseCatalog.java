@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import android.content.Context;
 import android.util.AtomicFile;
@@ -23,22 +23,22 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
-final class EclipseCatalog {
+public final class EclipseCatalog {
     private static final String ENDPOINT = "https://opale.imcce.fr/api/v1/phenomena/eclipses/";
     private static final long CACHE_AGE_MS = Duration.ofDays(30).toMillis();
     private static final double REFRACTION_DEGREES = .57;
 
-    static final class Event {
-        final String type;
-        final Instant start;
-        final Instant maximum;
-        final Instant end;
-        final boolean horizonLimited;
-        final boolean lunar;
-        final boolean penumbral;
-        final boolean estimatedPeak;
-        final double obscuration;
-        final long totalitySeconds;
+    public static final class Event {
+        public final String type;
+        public final Instant start;
+        public final Instant maximum;
+        public final Instant end;
+        public final boolean horizonLimited;
+        public final boolean lunar;
+        public final boolean penumbral;
+        public final boolean estimatedPeak;
+        public final double obscuration;
+        public final long totalitySeconds;
         final double shadowX;
         final double shadowY;
         final double shadowRadius;
@@ -63,7 +63,7 @@ final class EclipseCatalog {
             this.catalogDate = catalogDate;
         }
 
-        String detailsUrl(double latitude, double longitude) {
+        public String detailsUrl(double latitude, double longitude) {
             return localDetailsUrl(catalogDate, latitude, longitude);
         }
     }
@@ -100,11 +100,11 @@ final class EclipseCatalog {
 
     private EclipseCatalog() {}
 
-    static int yearsPerRequest(boolean lunar) {
+    public static int yearsPerRequest(boolean lunar) {
         return lunar ? 3 : 10;
     }
 
-    static List<Event> upcoming(Context context, boolean lunar, int year, double latitude, double longitude,
+    public static List<Event> upcoming(Context context, boolean lunar, int year, double latitude, double longitude,
                                 Instant now) throws Exception {
         String observer = String.format(Locale.US, "%.5f,%.5f", latitude, longitude);
         String path = (lunar ? "301/" : "10/") + year + "?nbd=" + yearsPerRequest(lunar);

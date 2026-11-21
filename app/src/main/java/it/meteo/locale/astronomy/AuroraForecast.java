@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -14,16 +14,16 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 
-final class AuroraForecast {
-    static final String MAP = "https://www.spaceweather.gov/products/aurora-30-minute-forecast";
+public final class AuroraForecast {
+    public static final String MAP = "https://www.spaceweather.gov/products/aurora-30-minute-forecast";
     private static final String FEED = "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json";
     private static final String CURRENT_KP = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json";
     private static final String KP_FEED = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
     private static final double EARTH_RADIUS_KM = 6371;
     private static final double SEARCH_RADIUS_KM = 1000;
 
-    final Instant observationTime;
-    final Instant forecastTime;
+    public final Instant observationTime;
+    public final Instant forecastTime;
     private final JSONArray grid;
 
     private AuroraForecast(JSONObject response) throws Exception {
@@ -32,11 +32,11 @@ final class AuroraForecast {
         grid = response.getJSONArray("coordinates");
     }
 
-    static AuroraForecast load() throws Exception {
+    public static AuroraForecast load() throws Exception {
         return new AuroraForecast(new JSONObject(read(FEED)));
     }
 
-    static KpReading loadCurrentKp() throws Exception {
+    public static KpReading loadCurrentKp() throws Exception {
         JSONArray rows = new JSONArray(read(CURRENT_KP));
         KpReading latest = null;
         for (int i = 0; i < rows.length(); i++) {
@@ -50,9 +50,9 @@ final class AuroraForecast {
         return latest;
     }
 
-    static final class KpReading {
-        final Instant time;
-        final double kp;
+    public static final class KpReading {
+        public final Instant time;
+        public final double kp;
 
         KpReading(Instant time, double kp) {
             this.time = time;
@@ -60,7 +60,7 @@ final class AuroraForecast {
         }
     }
 
-    static List<KpPeriod> loadKp() throws Exception {
+    public static List<KpPeriod> loadKp() throws Exception {
         JSONArray rows = new JSONArray(read(KP_FEED));
         List<KpPeriod> periods = new ArrayList<>();
         for (int i = 0; i < rows.length(); i++) {
@@ -74,16 +74,16 @@ final class AuroraForecast {
         return periods;
     }
 
-    static final class KpPeriod {
-        final Instant start;
-        final double kp;
+    public static final class KpPeriod {
+        public final Instant start;
+        public final double kp;
 
         KpPeriod(Instant start, double kp) {
             this.start = start;
             this.kp = kp;
         }
 
-        Instant end() {
+        public Instant end() {
             return start.plusSeconds(10800);
         }
     }
@@ -104,7 +104,7 @@ final class AuroraForecast {
         }
     }
 
-    String mapGrid() {
+    public String mapGrid() {
         byte[] cells = new byte[360 * 181];
         for (int i = 0; i < grid.length(); i++) {
             JSONArray point = grid.optJSONArray(i);
@@ -120,7 +120,7 @@ final class AuroraForecast {
         return android.util.Base64.encodeToString(cells, android.util.Base64.NO_WRAP);
     }
 
-    double estimatedDirection(double latitude, double longitude) {
+    public double estimatedDirection(double latitude, double longitude) {
         double origin = Math.toRadians(latitude);
         double bestScore = 0;
         double direction = Double.NaN;

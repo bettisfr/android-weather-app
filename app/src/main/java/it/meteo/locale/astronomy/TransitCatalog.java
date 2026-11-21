@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-final class TransitCatalog {
+public final class TransitCatalog {
     // Transit Predictions by Fred Espenak, NASA/GSFC.
     // Catalog date, geocentric contacts I and IV, greatest transit, solar RA, Dec and GST at 0h UT.
     private static final Transit[] CATALOG = {
@@ -75,10 +75,10 @@ final class TransitCatalog {
             new Transit("Venus", "3956-06-23", "17:22", "21:21", "01:21", 6.300, 23.13, 18.184)
     };
 
-    static final class Event {
-        final Transit transit;
-        final Instant visibleStart;
-        final Instant visibleEnd;
+    public static final class Event {
+        public final Transit transit;
+        public final Instant visibleStart;
+        public final Instant visibleEnd;
 
         Event(Transit transit, Instant visibleStart, Instant visibleEnd) {
             this.transit = transit;
@@ -86,7 +86,7 @@ final class TransitCatalog {
             this.visibleEnd = visibleEnd;
         }
 
-        String detailsUrl(double latitude, double longitude) {
+        public String detailsUrl(double latitude, double longitude) {
             // The NASA catalog also covers dates outside Timeanddate's event pages.
             if (transit.date.getYear() > 2125) {
                 return "https://eclipse.gsfc.nasa.gov/transit/catalog/" + transit.planet + "Catalog.html";
@@ -95,8 +95,8 @@ final class TransitCatalog {
         }
     }
 
-    static final class Transit {
-        final String planet;
+    public static final class Transit {
+        public final String planet;
         final LocalDate date;
         final Instant greatest;
         final Instant start;
@@ -133,7 +133,7 @@ final class TransitCatalog {
 
     private TransitCatalog() {}
 
-    static List<Event> upcoming(double latitude, double longitude, Instant now) {
+    public static List<Event> upcoming(double latitude, double longitude, Instant now) {
         List<Event> events = new ArrayList<>();
         for (Transit transit : CATALOG) {
             if (transit.end.isBefore(now)) continue;

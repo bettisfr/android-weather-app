@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -6,12 +6,12 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.view.View;
 
-final class PlanetIcon extends View {
+public final class PlanetIcon extends View {
     private final Planets.Body body;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path disc = new Path();
 
-    PlanetIcon(Context context, Planets.Body body) {
+    public PlanetIcon(Context context, Planets.Body body) {
         super(context);
         this.body = body;
         disc.addCircle(16, 16, body == Planets.Body.SATURN ? 9 : 13, Path.Direction.CW);

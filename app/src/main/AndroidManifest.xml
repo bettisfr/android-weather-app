@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <application android:icon="@mipmap/ic_weather" android:label="SkyHere" android:theme="@style/SkyHereTheme">
-        <activity android:name=".RadarActivity" android:exported="false" />
+        <activity android:name=".maps.RadarActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

@@ -1,10 +1,10 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
-final class LunarPhases {
+public final class LunarPhases {
     private static final double NEW_MOON_EPOCH = 2451550.09766;
     private static final double SYNODIC_MONTH = 29.530588861;
     private static final double UNIX_JULIAN_DATE = 2440587.5;
@@ -13,11 +13,11 @@ final class LunarPhases {
 
     private LunarPhases() {}
 
-    static LocalDate nextDate(LocalDate from, ZoneId zone, boolean fullMoon) {
+    public static LocalDate nextDate(LocalDate from, ZoneId zone, boolean fullMoon) {
         return nextDate(from, zone, fullMoon ? 2 : 0);
     }
 
-    static LocalDate nextDate(LocalDate from, ZoneId zone, int quarter) {
+    public static LocalDate nextDate(LocalDate from, ZoneId zone, int quarter) {
         double start = UNIX_JULIAN_DATE + from.atStartOfDay(zone).toEpochSecond() / SECONDS_PER_DAY;
         double phase = quarter / 4.0;
         double cycle = Math.floor((start - NEW_MOON_EPOCH) / SYNODIC_MONTH - phase) + phase;

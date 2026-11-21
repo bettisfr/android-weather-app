@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.weather;
 
 import android.util.Xml;
 import java.io.InputStream;
@@ -14,12 +14,12 @@ import java.util.List;
 import java.util.Locale;
 import org.xmlpull.v1.XmlPullParser;
 
-final class MeteoAlarm {
+public final class MeteoAlarm {
     private static final String FEED = "https://feeds.meteoalarm.org/feeds/meteoalarm-legacy-atom-italy";
     private static final String ATOM = "http://www.w3.org/2005/Atom";
     private static final String CAP = "urn:oasis:names:tc:emergency:cap:1.2";
 
-    static List<Warning> warnings() throws Exception {
+    public static List<Warning> warnings() throws Exception {
         HttpURLConnection connection = (HttpURLConnection) new URL(FEED).openConnection();
         connection.setConnectTimeout(8000);
         connection.setReadTimeout(8000);
@@ -80,7 +80,7 @@ final class MeteoAlarm {
         }
     }
 
-    static String regionKey(String region) {
+    public static String regionKey(String region) {
         String key = Normalizer.normalize(region.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
                 .replaceAll("[^a-z]", "");
         switch (key) {
@@ -97,9 +97,9 @@ final class MeteoAlarm {
         }
     }
 
-    static final class Warning {
-        final String area, event, code;
-        final Instant start, expires;
+    public static final class Warning {
+        public final String area, event, code;
+        public final Instant start, expires;
 
         Warning(String area, String event, String code, Instant start, Instant expires) {
             this.area = area;
@@ -109,7 +109,7 @@ final class MeteoAlarm {
             this.expires = expires;
         }
 
-        String url() {
+        public String url() {
             return "https://meteoalarm.org/" + (code.isEmpty() ? "?region=IT" : "?geocode=EMMA_ID:" + code);
         }
     }

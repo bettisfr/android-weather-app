@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -6,12 +6,12 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.view.View;
 
-final class EclipseIcon extends View {
+public final class EclipseIcon extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path disk = new Path();
     private final EclipseCatalog.Event event;
 
-    EclipseIcon(Context context, EclipseCatalog.Event event) {
+    public EclipseIcon(Context context, EclipseCatalog.Event event) {
         super(context);
         this.event = event;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);

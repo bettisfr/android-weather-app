@@ -5,7 +5,7 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.view.View;
 
-final class SkyTheme {
+public final class SkyTheme {
     static final int SYSTEM = 0;
     static final int LIGHT = 1;
     static final int DARK = 2;
@@ -21,7 +21,7 @@ final class SkyTheme {
         context.getSharedPreferences("appearance", Context.MODE_PRIVATE).edit().putInt("theme", selection).apply();
     }
 
-    static Context withPreference(Context context) {
+    public static Context withPreference(Context context) {
         int selection = preference(context);
         if (selection == SYSTEM) return context;
         Configuration override = new Configuration();
@@ -30,12 +30,12 @@ final class SkyTheme {
         return context.createConfigurationContext(override);
     }
 
-    static boolean isDark(Context context) {
+    public static boolean isDark(Context context) {
         return (context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
                 == Configuration.UI_MODE_NIGHT_YES;
     }
 
-    static void applySystemBars(Activity activity) {
+    public static void applySystemBars(Activity activity) {
         int background = activity.getColor(R.color.sky_background);
         activity.getWindow().setStatusBarColor(background);
         activity.getWindow().setNavigationBarColor(background);

@@ -1,5 +1,32 @@
 package it.meteo.locale;
 
+import it.meteo.locale.astronomy.AuroraForecast;
+import it.meteo.locale.astronomy.EclipseCatalog;
+import it.meteo.locale.astronomy.EclipseIcon;
+import it.meteo.locale.astronomy.IssPasses;
+import it.meteo.locale.astronomy.LunarPhases;
+import it.meteo.locale.astronomy.MoonPhaseView;
+import it.meteo.locale.astronomy.PlanetIcon;
+import it.meteo.locale.astronomy.Planets;
+import it.meteo.locale.astronomy.SkyPath;
+import it.meteo.locale.astronomy.SkyPosition;
+import it.meteo.locale.astronomy.SkyTrack;
+import it.meteo.locale.astronomy.SkyTrajectory;
+import it.meteo.locale.astronomy.TransitCatalog;
+import it.meteo.locale.maps.RadarActivity;
+import it.meteo.locale.maps.SatelliteImagery;
+import it.meteo.locale.seismic.EarthquakeFeed;
+import it.meteo.locale.weather.AirQualityBand;
+import it.meteo.locale.weather.ForecastCache;
+import it.meteo.locale.weather.MeteoAlarm;
+import it.meteo.locale.weather.OpenMeteo;
+import it.meteo.locale.weather.views.HourlyLineChart;
+import it.meteo.locale.weather.views.HumidityGauge;
+import it.meteo.locale.weather.views.PressureGauge;
+import it.meteo.locale.weather.views.UvGauge;
+import it.meteo.locale.weather.views.WeatherIconSpan;
+import it.meteo.locale.weather.views.WindIndicator;
+
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
@@ -925,12 +952,16 @@ public final class MainActivity extends Activity {
     }
 
     private Button mapButton(int title, Runnable open) {
+        return iconActionButton(title, R.drawable.ic_radar, open);
+    }
+
+    private Button iconActionButton(int title, int icon, Runnable open) {
         Button button = actionButton(getString(title), getColor(R.color.sky_action), 24);
         int foreground = getColor(R.color.sky_on_action);
         button.setTextColor(foreground);
         button.setCompoundDrawableTintList(android.content.res.ColorStateList.valueOf(foreground));
         button.setCompoundDrawablePadding(dp(7));
-        button.setCompoundDrawablesRelativeWithIntrinsicBounds(R.drawable.ic_radar, 0, 0, 0);
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
         button.setOnClickListener(view -> open.run());
         return button;
     }
@@ -1591,7 +1622,7 @@ public final class MainActivity extends Activity {
 
     private void sun(JSONObject daily, int index) {
         LinearLayout tile = card();
-        tile.addView(label(getString(R.string.sun), 16, ink));
+        addSkyTrackHeading(tile, getString(R.string.sun), () -> showDailySkyTrack(getString(R.string.sun), false, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
         LinearLayout readings = row();
@@ -1684,7 +1715,7 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = card();
-        tile.addView(label(getString(R.string.moon), 16, ink));
+        addSkyTrackHeading(tile, getString(R.string.moon), () -> showDailySkyTrack(getString(R.string.moon), true, null));
         TextView eventLabel = label("", 13, muted);
         int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
                 textWidth(eventLabel, getString(R.string.moonrise)),
@@ -1776,12 +1807,13 @@ public final class MainActivity extends Activity {
 
     private static final class PlanetRow {
         final Planets.Body body;
-        final TextView now, position, windows;
+        final TextView now, magnitude, position, windows;
         List<Planets.Window> observingWindows = List.of();
 
-        PlanetRow(Planets.Body body, TextView now, TextView position, TextView windows) {
+        PlanetRow(Planets.Body body, TextView now, TextView magnitude, TextView position, TextView windows) {
             this.body = body;
             this.now = now;
+            this.magnitude = magnitude;
             this.position = position;
             this.windows = windows;
         }
@@ -1803,18 +1835,21 @@ public final class MainActivity extends Activity {
             planetTitle.addView(new PlanetIcon(this, body), iconSize);
             TextView name = label(getString(names[body.ordinal()]), 16, ink);
             name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            planetTitle.addView(name);
+            planetTitle.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+            planetTitle.addView(skyTrackChevron());
             entry.addView(planetTitle);
-            TextView now = label("", 13, accent);
-            now.setPadding(0, dp(4), 0, 0);
-            entry.addView(now);
+            TextView now = astronomyBadge("");
+            addAstronomyBadge(entry, now, 6);
+            TextView magnitude = astronomyBadge("");
+            addAstronomyBadge(entry, magnitude, 4);
             TextView position = label("", 13, ink);
             position.setPadding(0, dp(4), 0, 0);
             entry.addView(position);
             TextView windows = label("", 12, muted);
             windows.setPadding(0, dp(5), 0, 0);
             entry.addView(windows);
-            planetRows.add(new PlanetRow(body, now, position, windows));
+            planetRows.add(new PlanetRow(body, now, magnitude, position, windows));
+            astronomyCardAction(entry, () -> showDailySkyTrack(name.getText().toString(), false, body));
             addSpaced(tile, entry, 7);
         }
         LinearLayout direction = column();
@@ -1856,10 +1891,11 @@ public final class MainActivity extends Activity {
             int status = reading.favorable ? R.string.planet_visible_now
                     : above ? R.string.planet_difficult : R.string.planet_below_horizon;
             row.now.setText(getString(R.string.planet_now_status, getString(status)));
+            setMagnitudeBadge(row.magnitude, reading.magnitude);
             row.position.setVisibility(above ? View.VISIBLE : View.GONE);
             if (above) {
                 row.position.setText(getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
-                        compassDirection(reading.azimuth), Math.round(reading.elevation), number(reading.magnitude, "%.1f")));
+                        compassDirection(reading.azimuth), Math.round(reading.elevation)));
             }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
@@ -1874,7 +1910,8 @@ public final class MainActivity extends Activity {
             }
             boolean observingNow = row.observingWindows.stream()
                     .anyMatch(window -> !now.isBefore(window.start) && now.isBefore(window.end));
-            row.now.setTextColor(observingNow ? getColor(R.color.sky_observing) : accent);
+            row.now.setTextColor(observingNow ? getColor(R.color.sky_observing) : getColor(R.color.sky_on_action));
+            row.now.setBackground(background(getColor(observingNow ? R.color.sky_background : R.color.sky_action), 8));
         }
         planetWindowDate = today;
     }
@@ -2150,16 +2187,13 @@ public final class MainActivity extends Activity {
             LinearLayout heading = row();
             String headingText = dayFormat.format(rise) + " · " + range;
             heading.addView(label(headingText, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
-            TextView chevron = label("›", 20, accent);
-            chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            heading.addView(chevron);
+            heading.addView(skyTrackChevron());
             entry.addView(heading);
             LinearLayout details = row();
             details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
                     Math.round(pass.peak.elevation)), 13, muted), new LinearLayout.LayoutParams(0, -2, 1));
-            TextView magnitude = label(getString(R.string.iss_magnitude, number(pass.magnitude, "%+.1f")), 13, 0xff202735);
-            magnitude.setPaddingRelative(dp(7), dp(3), dp(7), dp(3));
-            magnitude.setBackground(background(issMagnitudeColor(pass.magnitude), 8));
+            TextView magnitude = astronomyBadge("");
+            setMagnitudeBadge(magnitude, pass.magnitude);
             details.addView(magnitude);
             entry.addView(details);
             String appears = issBearing(pass.rise.azimuth);
@@ -2175,29 +2209,94 @@ public final class MainActivity extends Activity {
         more.setVisibility(end < passes.size() ? View.VISIBLE : View.GONE);
     }
 
+    private TextView skyTrackChevron() {
+        TextView chevron = label("›", 20, accent);
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return chevron;
+    }
+
+    private void addSkyTrackHeading(LinearLayout panel, String name, Runnable open) {
+        LinearLayout heading = row();
+        heading.setMinimumHeight(dp(32));
+        heading.addView(label(name, 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        heading.addView(skyTrackChevron());
+        astronomyCardAction(heading, open);
+        panel.addView(heading);
+    }
+
+    private TextView astronomyBadge(String text) {
+        TextView badge = label(text, 13, ink);
+        badge.setPaddingRelative(dp(7), dp(3), dp(7), dp(3));
+        return badge;
+    }
+
+    private void addAstronomyBadge(LinearLayout panel, TextView badge, int topDp) {
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, -2);
+        size.topMargin = dp(topDp);
+        panel.addView(badge, size);
+    }
+
+    private void setMagnitudeBadge(TextView badge, double magnitude) {
+        badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
+        badge.setTextColor(0xff202735);
+        badge.setBackground(background(issMagnitudeColor(magnitude), 8));
+    }
+
     private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
+        showSkyTrack(getString(R.string.iss_track), period, panel -> {
+            TextView magnitude = astronomyBadge("");
+            setMagnitudeBadge(magnitude, pass.magnitude);
+            addAstronomyBadge(panel, magnitude, 6);
+            addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
+            addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.iss_track_brightest, pass.brightest, SkyTrack.BRIGHTEST_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.iss_track_end, pass.set, SkyTrack.END_COLOR, zone);
+
+            Button link = iconActionButton(R.string.iss_open_heavens_above, R.drawable.ic_open_external,
+                    () -> openAstronomyPage(url));
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, -2);
+            size.topMargin = dp(13);
+            size.gravity = Gravity.CENTER_HORIZONTAL;
+            panel.addView(link, size);
+        });
+    }
+
+    private void showDailySkyTrack(String name, boolean moon, Planets.Body planet) {
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        Instant now = Instant.now();
+        SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
+        String date = now.atZone(zone).format(shortDate(true));
+        showSkyTrack(getString(R.string.daily_sky_track, name), date, panel -> {
+            addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
+            if (track.peak.elevation < 0) {
+                panel.addView(label(getString(R.string.sky_track_no_path), 14, muted));
+            }
+            addSkyTrackPoint(panel, R.string.sky_track_rise, track.rise, SkyTrack.START_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.sky_track_set, track.set, SkyTrack.END_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.sky_track_now, track.now, SkyTrack.NOW_COLOR, zone);
+        });
+    }
+
+    private void showSkyTrack(String title, String period, java.util.function.Consumer<LinearLayout> content) {
         Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         ScrollView viewport = new ScrollView(this);
         LinearLayout panel = column();
         panel.setBackground(background(getColor(R.color.sky_card), 20));
-        panel.setPadding(dp(16), dp(12), dp(16), dp(12));
+        panel.setPadding(dp(16), dp(12), dp(16), dp(14));
         viewport.addView(panel);
         dialog.setContentView(viewport);
 
         LinearLayout header = row();
-        header.addView(label(getString(R.string.iss_track), 19, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        header.addView(label(title, 19, ink), new LinearLayout.LayoutParams(0, -2, 1));
         TextView close = button("×", dialog::dismiss);
         close.setContentDescription(getString(android.R.string.cancel));
         header.addView(close);
         panel.addView(header);
         panel.addView(label(period, 14, muted));
-        String[] cardinal = {compassDirection(0), compassDirection(90), compassDirection(180), compassDirection(270)};
-        panel.addView(new IssSkyTrack(this, pass, cardinal), new LinearLayout.LayoutParams(-1, dp(236)));
-        addIssTrackPoint(panel, R.string.iss_track_start, pass.rise, IssSkyTrack.START_COLOR, zone);
-        addIssTrackPoint(panel, R.string.iss_track_peak, pass.peak, IssSkyTrack.MAX_COLOR, zone);
-        addIssTrackPoint(panel, R.string.iss_track_end, pass.set, IssSkyTrack.END_COLOR, zone);
-        addSpaced(panel, button(getString(R.string.iss_open_heavens_above), () -> openAstronomyPage(url)), 8);
+        content.accept(panel);
 
         android.view.Window window = dialog.getWindow();
         window.setBackgroundDrawableResource(android.R.color.transparent);
@@ -2205,16 +2304,26 @@ public final class MainActivity extends Activity {
         window.setLayout(dp(Math.min(440, getResources().getConfiguration().screenWidthDp - 24)), -2);
     }
 
-    private void addIssTrackPoint(LinearLayout panel, int title, IssPasses.Sample sample, int color, ZoneId zone) {
+    private void addSkyTrack(LinearLayout panel, List<? extends SkyTrajectory.Point> points, SkyTrajectory.Point start,
+                             SkyTrajectory.Point peak, SkyTrajectory.Point end, SkyTrajectory.Point now,
+                             SkyTrajectory.Point brightest) {
+        String[] cardinal = {compassDirection(0), compassDirection(90), compassDirection(180), compassDirection(270)};
+        panel.addView(new SkyTrack(this, points, start, peak, end, now, brightest, cardinal),
+                new LinearLayout.LayoutParams(-1, dp(236)));
+    }
+
+    private void addSkyTrackPoint(LinearLayout panel, int title, SkyTrajectory.Point point, int color, ZoneId zone) {
+        if (point == null) return;
         LinearLayout item = row();
         View marker = new View(this);
         marker.setBackground(background(color, 4));
         LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(dp(8), dp(8));
         markerSize.setMarginEnd(dp(8));
         item.addView(marker, markerSize);
-        String time = clockFormat().format(Instant.ofEpochSecond(sample.time).atZone(zone));
-        String details = getString(title) + " · " + time + " · " + issBearing(sample.azimuth)
-                + " · " + Math.round(sample.elevation) + "°";
+        String time = clockFormat().format(Instant.ofEpochSecond(point.time).atZone(zone));
+        String position = point.elevation >= 0 ? issBearing(point.azimuth) + " · " + Math.round(point.elevation) + "°"
+                : getString(R.string.planet_below_horizon);
+        String details = getString(title) + " · " + time + " · " + position;
         item.addView(label(details, 14, ink), new LinearLayout.LayoutParams(0, -2, 1));
         addSpaced(panel, item, 6);
     }

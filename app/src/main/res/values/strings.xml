@@ -34,6 +34,12 @@
     <string name="iss_loading">Calculating ISS passes…</string>
     <string name="iss_empty">No visible passes in the next 7 days</string>
     <string name="iss_unavailable">ISS orbital data unavailable</string>
+    <string name="iss_track_brightest">Peak brightness</string>
+    <string name="daily_sky_track">Sky track · %1$s</string>
+    <string name="sky_track_rise">Rise</string>
+    <string name="sky_track_set">Set</string>
+    <string name="sky_track_now">Now</string>
+    <string name="sky_track_no_path">Below the horizon all day</string>
     <string name="iss_track">ISS sky track</string>
     <string name="iss_track_start">Start</string>
     <string name="iss_track_peak">Max</string>
@@ -177,7 +183,7 @@
     <string name="planet_below_horizon">Below the horizon</string>
     <string name="planet_today_windows">Observable today · %1$s</string>
     <string name="planet_no_window">No favorable viewing window today</string>
-    <string name="planet_position">Azimuth %1$d° %2$s · Elevation %3$d° · Magnitude %4$s</string>
+    <string name="planet_position">Azimuth %1$d° %2$s · Elevation %3$d°</string>
     <string name="planets_clear_sky">Viewing times are estimates for clear skies and an unobstructed horizon.</string>
     <string name="visible_range">Visible %1$s</string>
     <string name="estimated_visible_range">Approx. visible %1$s</string>

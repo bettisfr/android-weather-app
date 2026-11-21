@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.weather.views;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -7,7 +9,7 @@ import android.graphics.RectF;
 import android.view.View;
 import java.util.function.DoubleFunction;
 
-final class PressureGauge extends View {
+public final class PressureGauge extends View {
     private static final int MIN_HPA = 950;
     private static final int MAX_HPA = 1050;
     private static final float START_ANGLE = 135;
@@ -20,7 +22,7 @@ final class PressureGauge extends View {
     private final String minimumLabel;
     private final String maximumLabel;
 
-    PressureGauge(Context context, double pressure, DoubleFunction<String> format) {
+    public PressureGauge(Context context, double pressure, DoubleFunction<String> format) {
         super(context);
         this.pressure = pressure;
         double center = (MIN_HPA + MAX_HPA) / 2.0;

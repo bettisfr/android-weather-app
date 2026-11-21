@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.maps;
+
+import it.meteo.locale.net.HttpText;
 
 import android.util.Xml;
 import org.xmlpull.v1.XmlPullParser;
@@ -18,20 +20,20 @@ import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-final class SatelliteImagery {
-    static final String SOURCE = "https://www.ospo.noaa.gov/products/imagery/gmgsi/";
+public final class SatelliteImagery {
+    public static final String SOURCE = "https://www.ospo.noaa.gov/products/imagery/gmgsi/";
     private static final String BASE = "https://www.ospo.noaa.gov/Visualization01/cData/Atmosphere/Imagery/GMGSI/";
     private static final Pattern FRAME = Pattern.compile("GLOBCOMPLIR_v[0-9]+r[0-9]+_blend_s([0-9]{12})[0-9]+_e[0-9]+_c[0-9]+");
     private static final DateTimeFormatter FRAME_TIME = DateTimeFormatter.ofPattern("uuuuMMddHHmm");
 
-    static final String EUMETSAT = "https://view.eumetsat.int/";
+    public static final String EUMETSAT = "https://view.eumetsat.int/";
     private static final String GEOCOLOUR_LAYER = "mtg_fd:rgb_geocolour";
-    static final String GEOCOLOUR_SOURCE = EUMETSAT + "productviewer/productDetails/" + GEOCOLOUR_LAYER;
+    public static final String GEOCOLOUR_SOURCE = EUMETSAT + "productviewer/productDetails/" + GEOCOLOUR_LAYER;
     private static String cachedWorkspace;
     private static JSONObject cachedProducts;
     private static long cachedAt;
 
-    static synchronized JSONObject regionalFrames(double latitude, double longitude) throws Exception {
+    public static synchronized JSONObject regionalFrames(double latitude, double longitude) throws Exception {
         boolean indianOcean = longitude > 35;
         double center = indianOcean ? 41.5 : 0;
         double distance = Math.acos(Math.cos(Math.toRadians(latitude)) * Math.cos(Math.toRadians(longitude - center)));
@@ -41,7 +43,7 @@ final class SatelliteImagery {
             return cachedProducts;
         }
         String infraredLayer = workspace + (indianOcean ? ":ir108" : ":ir105_hrfi");
-        String capabilities = OpenMeteo.readBody(EUMETSAT + "geoserver/" + workspace
+        String capabilities = HttpText.read(EUMETSAT + "geoserver/" + workspace
                 + "/wms?service=WMS&request=GetCapabilities&version=1.3.0");
         XmlPullParser xml = Xml.newPullParser();
         xml.setInput(new StringReader(capabilities));
@@ -100,7 +102,7 @@ final class SatelliteImagery {
             String date = today.minusDays(day).format(DateTimeFormatter.BASIC_ISO_DATE);
             String index;
             try {
-                index = OpenMeteo.readBody(BASE + "assets/" + date + "_GMGSI_filelist.js");
+                index = HttpText.read(BASE + "assets/" + date + "_GMGSI_filelist.js");
             } catch (IOException unavailable) {
                 continue;
             }

@@ -1,14 +1,14 @@
-package it.meteo.locale;
+package it.meteo.locale.weather.views;
 
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.text.style.ReplacementSpan;
 
-final class WeatherIconSpan extends ReplacementSpan {
+public final class WeatherIconSpan extends ReplacementSpan {
     private final Drawable icon;
 
-    WeatherIconSpan(Drawable icon) {
+    public WeatherIconSpan(Drawable icon) {
         this.icon = icon;
     }
 

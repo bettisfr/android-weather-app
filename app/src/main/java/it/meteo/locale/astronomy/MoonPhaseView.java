@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -7,20 +7,20 @@ import android.graphics.Path;
 import android.graphics.RectF;
 import android.view.View;
 
-final class MoonPhaseView extends View {
+public final class MoonPhaseView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path lit = new Path();
     private final RectF disk = new RectF();
     private final double phase;
     private final boolean southern;
 
-    MoonPhaseView(Context context, double phase, boolean southern) {
+    public MoonPhaseView(Context context, double phase, boolean southern) {
         super(context);
         this.phase = phase;
         this.southern = southern;
     }
 
-    static double illumination(double phase) {
+    public static double illumination(double phase) {
         return (1 - Math.cos(2 * Math.PI * phase)) / 2;
     }
 

@@ -1,13 +1,13 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
-final class SkyPosition {
+public final class SkyPosition {
     private static final double EPOCH_SECONDS = Instant.parse("1999-12-31T00:00:00Z").getEpochSecond();
-    final double azimuth;
-    final double zenith;
+    public final double azimuth;
+    public final double zenith;
 
     private SkyPosition(double azimuth, double zenith) {
         this.azimuth = azimuth;
@@ -16,7 +16,7 @@ final class SkyPosition {
 
     // Low-precision orbital elements and lunar perturbations from Paul Schlyter.
     // https://www.stjarnhimlen.se/comp/ppcomp.html
-    static SkyPosition at(Instant now, double latitude, double longitude, boolean moon) {
+    public static SkyPosition at(Instant now, double latitude, double longitude, boolean moon) {
         double days = daysSinceEpoch(now);
         double sunAnomaly = Math.toRadians(normalize(356.0470 + 0.9856002585 * days));
         double sunPerihelion = Math.toRadians(282.9404 + 4.70935e-5 * days);
@@ -88,7 +88,7 @@ final class SkyPosition {
         return eccentric;
     }
 
-    static double maximumSolarElevation(LocalDate date, ZoneId zone, double latitude, double longitude) {
+    public static double maximumSolarElevation(LocalDate date, ZoneId zone, double latitude, double longitude) {
         long start = date.atStartOfDay(zone).toEpochSecond();
         long end = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - 1;
         double minimumZenith = at(Instant.ofEpochSecond(start), latitude, longitude, false).zenith;

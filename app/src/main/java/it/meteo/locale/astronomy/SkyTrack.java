@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -6,20 +8,32 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.view.View;
 
-final class IssSkyTrack extends View {
-    static final int START_COLOR = 0xff228465;
-    static final int MAX_COLOR = 0xffbf751b;
-    static final int END_COLOR = 0xffb14d74;
-    private final IssPasses.Pass pass;
+import java.util.List;
+
+public final class SkyTrack extends View {
+    public static final int START_COLOR = 0xff228465;
+    public static final int MAX_COLOR = 0xffbf751b;
+    public static final int END_COLOR = 0xffb14d74;
+    public static final int BRIGHTEST_COLOR = 0xff8061ba;
+    public static final int NOW_COLOR = 0xff536ab4;
+    private final List<? extends SkyTrajectory.Point> points;
+    private final SkyTrajectory.Point start, peak, end, now, brightest;
     private final String[] compass;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final float density;
     private float centerX, centerY, radius;
 
-    IssSkyTrack(Context context, IssPasses.Pass pass, String[] compass) {
+    public SkyTrack(Context context, List<? extends SkyTrajectory.Point> points,
+                    SkyTrajectory.Point start, SkyTrajectory.Point peak, SkyTrajectory.Point end,
+                    SkyTrajectory.Point now, SkyTrajectory.Point brightest, String[] compass) {
         super(context);
-        this.pass = pass;
+        this.points = points;
+        this.start = start;
+        this.peak = peak;
+        this.end = end;
+        this.now = now;
+        this.brightest = brightest;
         this.compass = compass;
         density = getResources().getDisplayMetrics().density;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -59,7 +73,11 @@ final class IssSkyTrack extends View {
 
         path.rewind();
         boolean first = true;
-        for (IssPasses.Sample sample : pass.track) {
+        for (SkyTrajectory.Point sample : points) {
+            if (sample.elevation < 0) {
+                first = true;
+                continue;
+            }
             if (first) path.moveTo(x(sample), y(sample));
             else path.lineTo(x(sample), y(sample));
             first = false;
@@ -71,24 +89,27 @@ final class IssSkyTrack extends View {
         paint.setStrokeWidth(3 * density);
         canvas.drawPath(path, paint);
         paint.setStyle(Paint.Style.FILL);
-        marker(canvas, pass.rise, START_COLOR, 4.5f);
-        marker(canvas, pass.peak, MAX_COLOR, 6.5f);
-        marker(canvas, pass.set, END_COLOR, 4.5f);
+        marker(canvas, brightest, BRIGHTEST_COLOR, 8.5f);
+        marker(canvas, start, START_COLOR, 4.5f);
+        marker(canvas, peak, MAX_COLOR, 6.5f);
+        marker(canvas, end, END_COLOR, 4.5f);
+        marker(canvas, now, NOW_COLOR, 4.5f);
     }
 
-    private float x(IssPasses.Sample sample) {
+    private float x(SkyTrajectory.Point sample) {
         return centerX + distance(sample) * (float) Math.sin(Math.toRadians(sample.azimuth));
     }
 
-    private float y(IssPasses.Sample sample) {
+    private float y(SkyTrajectory.Point sample) {
         return centerY - distance(sample) * (float) Math.cos(Math.toRadians(sample.azimuth));
     }
 
-    private float distance(IssPasses.Sample sample) {
+    private float distance(SkyTrajectory.Point sample) {
         return radius * (float) Math.max(0, 1 - sample.elevation / 90);
     }
 
-    private void marker(Canvas canvas, IssPasses.Sample sample, int color, float size) {
+    private void marker(Canvas canvas, SkyTrajectory.Point sample, int color, float size) {
+        if (sample == null || sample.elevation < 0) return;
         paint.setColor(color);
         canvas.drawCircle(x(sample), y(sample), size * density, paint);
     }

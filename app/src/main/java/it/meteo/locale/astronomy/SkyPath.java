@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -9,7 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
 
-final class SkyPath extends View {
+public final class SkyPath extends View {
     private static final float MINUTES_PER_DAY = 24 * 60;
     // Mean interval between successive lunar transits.
     private static final float LUNAR_CYCLE_MINUTES = 24 * 60 + 50;
@@ -21,17 +23,17 @@ final class SkyPath extends View {
     private final float cycleMinutes;
     private final float polarHorizon;
 
-    SkyPath(Context context, LocalTime sunrise, LocalTime sunset, LocalTime time) {
+    public SkyPath(Context context, LocalTime sunrise, LocalTime sunset, LocalTime time) {
         this(context, minutes(sunrise), minutes(sunset), time == null ? Float.NaN : minutes(time), MINUTES_PER_DAY, Float.NaN);
     }
 
-    static SkyPath moon(Context context, long rise, long set, long now) {
+    public static SkyPath moon(Context context, long rise, long set, long now) {
         float nextSet = set > rise ? set : set + LUNAR_CYCLE_MINUTES;
         if (nextSet <= rise || nextSet - rise >= LUNAR_CYCLE_MINUTES) return null;
         return new SkyPath(context, rise, nextSet, now, LUNAR_CYCLE_MINUTES, Float.NaN);
     }
 
-    static SkyPath polarSun(Context context, LocalTime noon, LocalTime time, boolean daylight,
+    public static SkyPath polarSun(Context context, LocalTime noon, LocalTime time, boolean daylight,
                             double noonElevation, double midnightElevation) {
         double center = (noonElevation + midnightElevation) / 2;
         double amplitude = Math.max(0.1, (noonElevation - midnightElevation) / 2);
@@ -123,7 +125,7 @@ final class SkyPath extends View {
         return center - amplitude * (float) elevation;
     }
 
-    static int civilTwilightMinutes(LocalDate date, double latitude) {
+    public static int civilTwilightMinutes(LocalDate date, double latitude) {
         // NOAA general solar position equations, evaluated near local solar noon.
         double yearAngle = yearAngle(date);
         double declination = 0.006918 - 0.399912 * Math.cos(yearAngle) + 0.070257 * Math.sin(yearAngle)
@@ -138,7 +140,7 @@ final class SkyPath extends View {
         return Double.isFinite(duration) ? (int) Math.round(duration) : -1;
     }
 
-    static LocalTime solarNoon(LocalDate date, double longitude, ZoneId zone) {
+    public static LocalTime solarNoon(LocalDate date, double longitude, ZoneId zone) {
         double angle = yearAngle(date);
         double equationOfTime = 229.18 * (0.000075 + 0.001868 * Math.cos(angle)
                 - 0.032077 * Math.sin(angle) - 0.014615 * Math.cos(2 * angle)

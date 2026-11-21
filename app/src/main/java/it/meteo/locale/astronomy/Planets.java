@@ -1,4 +1,4 @@
-package it.meteo.locale;
+package it.meteo.locale.astronomy;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -6,10 +6,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
-final class Planets {
+public final class Planets {
     // Orbital elements, perturbations and photometry from Paul Schlyter's low-precision model.
     // https://www.stjarnhimlen.se/comp/ppcomp.html
-    enum Body {
+    public enum Body {
         MERCURY(48.3313, 3.24587e-5, 7.0047, 5e-8, 29.1241, 1.01444e-5, .387098, .205635, 5.59e-10, 168.6562, 4.0923344368),
         VENUS(76.6799, 2.46590e-5, 3.3946, 2.75e-8, 54.8910, 1.38374e-5, .723330, .006773, -1.302e-9, 48.0052, 1.6021302244),
         MARS(49.5574, 2.11081e-5, 1.8497, -1.78e-8, 286.5016, 2.92961e-5, 1.523688, .093405, 2.516e-9, 18.6021, .5240207766),
@@ -40,9 +40,9 @@ final class Planets {
         }
     }
 
-    static final class Reading {
-        final double azimuth, elevation, magnitude;
-        final boolean favorable;
+    public static final class Reading {
+        public final double azimuth, elevation, magnitude;
+        public final boolean favorable;
 
         Reading(SkyPosition sky, double magnitude, double elongation, double sunElevation) {
             azimuth = sky.azimuth;
@@ -54,8 +54,8 @@ final class Planets {
         }
     }
 
-    static final class Window {
-        final Instant start, end;
+    public static final class Window {
+        public final Instant start, end;
 
         Window(long start, long end) {
             this.start = Instant.ofEpochSecond(start);
@@ -65,7 +65,7 @@ final class Planets {
 
     private Planets() { }
 
-    static Reading at(Body body, Instant now, double latitude, double longitude) {
+    public static Reading at(Body body, Instant now, double latitude, double longitude) {
         double days = SkyPosition.daysSinceEpoch(now);
         double sunAnomaly = Math.toRadians((356.0470 + .9856002585 * days) % 360);
         double sunPerihelion = Math.toRadians(282.9404 + 4.70935e-5 * days);
@@ -122,7 +122,7 @@ final class Planets {
         return new Reading(sky, magnitude, elongation, 90 - sun.zenith);
     }
 
-    static List<Window> windows(Body body, LocalDate date, ZoneId zone, double latitude, double longitude) {
+    public static List<Window> windows(Body body, LocalDate date, ZoneId zone, double latitude, double longitude) {
         long start = date.atStartOfDay(zone).toEpochSecond();
         long end = date.plusDays(1).atStartOfDay(zone).toEpochSecond();
         List<Window> windows = new ArrayList<>();

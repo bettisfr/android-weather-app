@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.weather.views;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -6,12 +8,12 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.view.View;
 
-final class WindIndicator extends View {
+public final class WindIndicator extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path pointer = new Path();
     private final double degrees;
 
-    WindIndicator(Context context, double degrees) {
+    public WindIndicator(Context context, double degrees) {
         super(context);
         this.degrees = degrees;
         pointer.moveTo(0, -0.69f);

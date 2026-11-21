@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.weather.views;
+
+import it.meteo.locale.R;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -11,7 +13,7 @@ import android.util.TypedValue;
 import android.view.View;
 import java.util.Locale;
 
-final class HourlyLineChart extends View {
+public final class HourlyLineChart extends View {
     private final int primary;
     private final int secondary;
     private final int grid;
@@ -33,7 +35,7 @@ final class HourlyLineChart extends View {
     private final Locale locale;
     private final int decimals;
 
-    HourlyLineChart(Context context, double[] first, double[] second, int hourWidth, boolean precipitation, boolean humidity, boolean wind, int decimals) {
+    public HourlyLineChart(Context context, double[] first, double[] second, int hourWidth, boolean precipitation, boolean humidity, boolean wind, int decimals) {
         super(context);
         primary = context.getColor(R.color.sky_accent);
         secondary = context.getColor(R.color.sky_chart_secondary);
@@ -117,7 +119,7 @@ final class HourlyLineChart extends View {
         drawReadings(canvas);
     }
 
-    View scale(boolean right) {
+    public View scale(boolean right) {
         View scale = new View(getContext()) {
             private final Paint labels = new Paint(Paint.ANTI_ALIAS_FLAG);
             @Override protected void onDraw(Canvas canvas) {

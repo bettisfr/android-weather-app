@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.seismic;
+
+import it.meteo.locale.net.HttpText;
 
 import android.os.SystemClock;
 import java.time.DateTimeException;
@@ -13,10 +15,10 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-final class EarthquakeFeed {
-    static final String SOURCE = "https://terremoti.ingv.it/";
-    static final int DEFAULT_RADIUS = 50;
-    static final int MAX_RADIUS = 500;
+public final class EarthquakeFeed {
+    public static final String SOURCE = "https://terremoti.ingv.it/";
+    public static final int DEFAULT_RADIUS = 50;
+    public static final int MAX_RADIUS = 500;
     private static final String API = "https://webservices.ingv.it/fdsnws/event/1/query";
     private static final int PAGE_SIZE = 1000;
     private static final DateTimeFormatter API_TIME = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
@@ -33,12 +35,12 @@ final class EarthquakeFeed {
             new MagnitudeBand(Double.POSITIVE_INFINITY, "≥ 5", 12, 0xffd84b53)
     };
 
-    static int magnitudeColor(double magnitude) {
+    public static int magnitudeColor(double magnitude) {
         for (MagnitudeBand band : BANDS) if (magnitude < band.limit) return band.color;
         return BANDS[BANDS.length - 1].color;
     }
 
-    static JSONArray magnitudeBands() throws JSONException {
+    public static JSONArray magnitudeBands() throws JSONException {
         JSONArray bands = new JSONArray();
         for (MagnitudeBand band : BANDS) {
             JSONObject item = new JSONObject().put("label", band.label).put("radius", band.radius)
@@ -62,7 +64,7 @@ final class EarthquakeFeed {
         }
     }
 
-    static synchronized List<Event> recent(double lat, double lon, int radius) throws Exception {
+    public static synchronized List<Event> recent(double lat, double lon, int radius) throws Exception {
         if (cachedEvents != null && cachedLatitude == lat && cachedLongitude == lon && cachedRadius == radius
                 && SystemClock.elapsedRealtime() - cacheTime < 5 * 60_000) return cachedEvents;
 
@@ -72,7 +74,7 @@ final class EarthquakeFeed {
                 + "&maxradiuskm=" + radius + "&limit=" + PAGE_SIZE;
         List<Event> events = new ArrayList<>();
         for (int offset = 1; ; offset += PAGE_SIZE) {
-            String body = OpenMeteo.readBody(query + "&offset=" + offset);
+            String body = HttpText.read(query + "&offset=" + offset);
             int rows = 0;
             for (String line : body.split("\\r?\\n")) {
                 if (line.isEmpty() || line.startsWith("#")) continue;
@@ -98,10 +100,10 @@ final class EarthquakeFeed {
         return events;
     }
 
-    static final class Event {
-        final String id, zone, magnitudeType;
-        final Instant time;
-        final double latitude, longitude, depth, magnitude;
+    public static final class Event {
+        public final String id, zone, magnitudeType;
+        public final Instant time;
+        public final double latitude, longitude, depth, magnitude;
 
         Event(String[] fields) {
             id = fields[0];
@@ -114,11 +116,11 @@ final class EarthquakeFeed {
             zone = fields[12];
         }
 
-        String url() { return SOURCE + "event/" + id; }
+        public String url() { return SOURCE + "event/" + id; }
 
-        boolean matchesMagnitude(int minimum) { return minimum == 0 || magnitude >= minimum; }
+        public boolean matchesMagnitude(int minimum) { return minimum == 0 || magnitude >= minimum; }
 
-        JSONObject mapData() throws JSONException {
+        public JSONObject mapData() throws JSONException {
             return new JSONObject().put("time", time.toEpochMilli()).put("lat", latitude).put("lon", longitude)
                     .put("depth", depth).put("magnitude", magnitude).put("magnitudeType", magnitudeType)
                     .put("zone", zone).put("url", url());

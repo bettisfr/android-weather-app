@@ -1,4 +1,10 @@
-package it.meteo.locale;
+package it.meteo.locale.maps;
+
+import it.meteo.locale.R;
+import it.meteo.locale.SkyTheme;
+import it.meteo.locale.astronomy.AuroraForecast;
+import it.meteo.locale.seismic.EarthquakeFeed;
+import it.meteo.locale.weather.AirQualityBand;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -26,7 +32,7 @@ import org.json.JSONObject;
 
 public final class RadarActivity extends Activity {
     private static final String ASSET_ORIGIN = "https://appassets.androidplatform.net";
-    enum Layer {
+    public enum Layer {
         RADAR("index", R.string.radar_title), AURORA("aurora", R.string.aurora_map_title),
         AIR_QUALITY("aurora", R.string.air_quality_map_title), SATELLITE("satellite", R.string.satellite_title),
         EARTHQUAKES("earthquakes", R.string.earthquake_map_title);

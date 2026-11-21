@@ -1,6 +1,8 @@
-package it.meteo.locale;
+package it.meteo.locale.weather;
 
-enum AirQualityBand {
+import it.meteo.locale.R;
+
+public enum AirQualityBand {
     GOOD(20, 0xff48c8bf, R.string.aqi_good),
     FAIR(40, 0xff65b878, R.string.aqi_fair),
     MODERATE(60, 0xffe6c646, R.string.aqi_moderate),
@@ -9,9 +11,9 @@ enum AirQualityBand {
     EXTREME(Integer.MAX_VALUE, 0xff8550a0, R.string.aqi_extreme);
 
     private static final AirQualityBand[] BANDS = values();
-    final int upper;
-    final int color;
-    final int label;
+    public final int upper;
+    public final int color;
+    public final int label;
 
     AirQualityBand(int upper, int color, int label) {
         this.upper = upper;
@@ -19,7 +21,7 @@ enum AirQualityBand {
         this.label = label;
     }
 
-    static AirQualityBand forIndex(long index) {
+    public static AirQualityBand forIndex(long index) {
         for (AirQualityBand band : BANDS) {
             if (index <= band.upper) return band;
         }

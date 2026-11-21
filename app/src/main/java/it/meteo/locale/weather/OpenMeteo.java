@@ -1,4 +1,6 @@
-package it.meteo.locale;
+package it.meteo.locale.weather;
+
+import it.meteo.locale.net.HttpText;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -7,24 +9,20 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
-final class OpenMeteo {
-    static final int UPCOMING_ASTRONOMY_DAYS = 15;
+public final class OpenMeteo {
+    public static final int UPCOMING_ASTRONOMY_DAYS = 15;
     private static final String CURRENT = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,is_day";
     private static final String HOURLY = "temperature_2m,apparent_temperature,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,dew_point_2m,uv_index,is_day,cloud_cover";
     private static final String DAILY = "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,moonrise,moonset,moon_phase,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,relative_humidity_2m_mean";
     private static final DateTimeFormatter WEATHER_TIME = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm", java.util.Locale.ROOT);
 
-    static JSONObject forecast(double latitude, double longitude) throws Exception {
+    public static JSONObject forecast(double latitude, double longitude) throws Exception {
         // The regional model covers Italy and surrounding land, and only provides three days.
         boolean nearItaly = latitude >= 35.4 && latitude <= 47.2 && longitude >= 6.5 && longitude <= 19.0;
         CompletableFuture<JSONObject> best = request(latitude, longitude, "best_match", UPCOMING_ASTRONOMY_DAYS + 1);
@@ -117,34 +115,19 @@ final class OpenMeteo {
         }
     }
 
-    static JSONObject search(String query, String language) throws Exception {
+    public static JSONObject search(String query, String language) throws Exception {
         return read("https://geocoding-api.open-meteo.com/v1/search?count=12&language=" + language + "&name="
                 + URLEncoder.encode(query, "UTF-8"));
     }
 
     private static final String AIR_QUALITY = "https://air-quality-api.open-meteo.com/v1/air-quality?";
 
-    static JSONObject airQuality(double latitude, double longitude) throws Exception {
+    public static JSONObject airQuality(double latitude, double longitude) throws Exception {
         return read(AIR_QUALITY + "latitude=" + latitude + "&longitude=" + longitude
                 + "&current=european_aqi,pm2_5,pm10,ozone,nitrogen_dioxide").getJSONObject("current");
     }
 
     private static JSONObject read(String address) throws Exception {
-        return new JSONObject(readBody(address));
-    }
-
-    static String readBody(String address) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
-        connection.setConnectTimeout(10000);
-        connection.setReadTimeout(10000);
-        try (InputStream stream = connection.getInputStream()) {
-            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
-            byte[] buffer = new byte[8192];
-            int count;
-            while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
-            return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
-        } finally {
-            connection.disconnect();
-        }
+        return new JSONObject(HttpText.read(address));
     }
 }
