@@ -2159,8 +2159,12 @@ public final class MainActivity extends Activity {
             magnitude.setBackground(background(issMagnitudeColor(pass.magnitude), 8));
             details.addView(magnitude);
             entry.addView(details);
-            entry.addView(label(getString(R.string.iss_directions, issBearing(pass.rise.azimuth),
-                    issBearing(pass.peak.azimuth), issBearing(pass.set.azimuth)), 13, muted));
+            String appears = issBearing(pass.rise.azimuth);
+            String culminates = issBearing(pass.peak.azimuth);
+            String disappears = issBearing(pass.set.azimuth);
+            TextView directions = label(appears + " → " + culminates + " → " + disappears, 13, muted);
+            directions.setContentDescription(getString(R.string.iss_directions, appears, culminates, disappears));
+            entry.addView(directions);
             linkAstronomyCard(entry, issPassUrl(pass, zone));
             addSpaced(rows, entry, 6);
         }
