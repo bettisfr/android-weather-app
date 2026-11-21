@@ -5,7 +5,8 @@ const source = document.getElementById('source');
 const steps = document.getElementById('steps');
 const play = document.getElementById('play');
 const modes = document.getElementById('modes');
-const modeButtons = [...modes.querySelectorAll('button')];
+const autoButton = document.getElementById('auto');
+const infraredButton = document.getElementById('infrared');
 const frameBlobs = new Map();
 const frameCacheSize = 12;
 let config;
@@ -39,7 +40,8 @@ function initialize(parameters) {
     steps.setAttribute('aria-label', config.timelineLabel);
     play.setAttribute('aria-label', config.play);
     modes.setAttribute('aria-label', config.modeLabel);
-    for (const button of modeButtons) button.textContent = config[button.id === 'infrared' ? 'observed' : button.id];
+    autoButton.textContent = config.auto;
+    infraredButton.textContent = config.observed;
     times = new Intl.DateTimeFormat(config.language, {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
         hourCycle: config.clock24 ? 'h23' : 'h12', timeZone: config.timeZone,
@@ -60,9 +62,8 @@ function initialize(parameters) {
 
 function setProducts(available) {
     products = available;
-    for (const button of modeButtons) button.hidden = !available[button.id];
-    modes.hidden = Object.keys(available).length < 2;
-    selectMode(available.auto ? 'auto' : available.rapid ? 'rapid' : 'infrared');
+    modes.hidden = !available.auto || !available.infrared;
+    selectMode(available.auto ? 'auto' : 'infrared');
 }
 
 function selectMode(nextMode) {
@@ -72,18 +73,19 @@ function selectMode(nextMode) {
     setPlaying(false);
     mode = nextMode;
     regionalLayer = product.layer;
-    for (const button of modeButtons) button.setAttribute('aria-pressed', mode === button.id);
+    autoButton.setAttribute('aria-pressed', mode === 'auto');
+    infraredButton.setAttribute('aria-pressed', mode === 'infrared');
     status(config.loading);
     frames = [...product.frames].reverse();
     steps.max = frames.length - 1;
     steps.disabled = frames.length < 2;
     play.disabled = frames.length < 2;
-    const matchingFrame = mode === 'rapid' ? -1 : frames.findIndex(frame => frame.time >= previousTime);
+    const matchingFrame = frames.findIndex(frame => frame.time >= previousTime);
     preloadVersion++;
     showFrame(matchingFrame >= 0 ? matchingFrame : frames.length - 1, true);
 }
 
-function regionalFrame(frame) {
+function regionalFrame(time) {
     const coordinates = map.options.crs;
     const bounds = map.getBounds();
     const sw = coordinates.project(bounds.getSouthWest());
@@ -91,12 +93,12 @@ function regionalFrame(frame) {
     const size = map.getSize();
     const scale = Math.min(2, 1536 / Math.max(size.x, size.y));
     const params = new URLSearchParams({
-        service: 'WMS', version: '1.1.1', request: 'GetMap', layers: frame.layer || regionalLayer,
+        service: 'WMS', version: '1.1.1', request: 'GetMap', layers: regionalLayer,
         styles: '', format: 'image/vnd.jpeg-png', transparent: 'true', srs: 'EPSG:3857',
         interpolations: 'bilinear', bbox: [sw.x, sw.y, ne.x, ne.y].join(','),
         width: Math.max(1, Math.round(size.x * scale)),
         height: Math.max(1, Math.round(size.y * scale)),
-        time: new Date(frame.time).toISOString(),
+        time: new Date(time).toISOString(),
     });
     return {bounds, url: config.regionalSource + 'geoserver/wms?' + params};
 }
@@ -141,7 +143,7 @@ async function loadRegionalImage(url, request) {
 function preloadFrames(index) {
     const version = ++preloadVersion;
     const urls = frames.map((_, offset) => frames[(index + 1 + offset) % frames.length])
-        .slice(0, -1).map(frame => regionalFrame(frame).url);
+        .slice(0, -1).map(frame => regionalFrame(frame.time).url);
     let next = 0;
     async function preload() {
         while (version === preloadVersion && next < urls.length) {
@@ -168,7 +170,7 @@ function showFrame(index, preload = false) {
     clearTimeout(renderTimer);
     steps.value = index;
     const data = frames[index];
-    const regional = regionalLayer ? regionalFrame(data) : null;
+    const regional = regionalLayer ? regionalFrame(data.time) : null;
     const request = {};
     requestedFrame = request;
     const pendingImage = regional ? loadRegionalImage(regional.url, request)
@@ -187,11 +189,9 @@ function showFrame(index, preload = false) {
             globalOverlay.setImage(image);
         }
         const geocolour = mode === 'auto';
-        const name = geocolour ? 'GeoColour' : mode === 'rapid' ? config.rapid : config.observed;
-        output.textContent = name + ' · ' + times.format(data.time);
+        output.textContent = (geocolour ? 'GeoColour' : config.observed) + ' · ' + times.format(data.time);
         showMapUpdate(config, receivedAt);
-        source.href = mode === 'rapid' ? config.regionalSource + 'productviewer/productDetails/' + data.layer
-            : geocolour ? config.geocolourSource : regional ? config.regionalSource : config.globalSource;
+        source.href = geocolour ? config.geocolourSource : regional ? config.regionalSource : config.globalSource;
         source.textContent = geocolour ? 'EUMETSAT · NASA' : regional ? 'EUMETSAT' : 'NOAA NESDIS';
         source.hidden = false;
         status(!regional && Math.abs(config.lat) > 60 ? config.coverage : '');
@@ -210,7 +210,7 @@ function scheduleFrame() {
     if (!playing) return;
     const index = (Number(steps.value) + 1) % frames.length;
     const next = frames[index];
-    if (regionalLayer) loadRegionalBlob(regionalFrame(next).url).catch(() => {});
+    if (regionalLayer) loadRegionalBlob(regionalFrame(next.time).url).catch(() => {});
     timer = setTimeout(() => showFrame(index), 1400);
 }
 
@@ -223,4 +223,5 @@ function setPlaying(active) {
 
 steps.addEventListener('input', () => { setPlaying(false); queueFrame(Number(steps.value)); });
 play.addEventListener('click', () => setPlaying(!playing));
-for (const button of modeButtons) button.addEventListener('click', () => selectMode(button.id));
+autoButton.addEventListener('click', () => selectMode('auto'));
+infraredButton.addEventListener('click', () => selectMode('infrared'));

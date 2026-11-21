@@ -26,8 +26,6 @@ final class SatelliteImagery {
 
     static final String EUMETSAT = "https://view.eumetsat.int/";
     private static final String GEOCOLOUR_LAYER = "mtg_fd:rgb_geocolour";
-    private static final String RAPID_DAY_LAYER = "msg_rss:rgb_naturalenhncd_nrt";
-    private static final String RAPID_NIGHT_LAYER = "msg_rss:rgb_microphysics_nrt";
     static final String GEOCOLOUR_SOURCE = EUMETSAT + "productviewer/productDetails/" + GEOCOLOUR_LAYER;
     private static String cachedWorkspace;
     private static JSONObject cachedProducts;
@@ -40,36 +38,14 @@ final class SatelliteImagery {
         if (distance > Math.toRadians(65)) return null;
         String workspace = indianOcean ? "msg_iodc" : "mtg_fd";
         if (workspace.equals(cachedWorkspace) && android.os.SystemClock.elapsedRealtime() - cachedAt < 60_000) {
-            return productsForLocation(cachedProducts, latitude, longitude);
+            return cachedProducts;
         }
         String infraredLayer = workspace + (indianOcean ? ":ir108" : ":ir105_hrfi");
-        JSONObject products = new JSONObject();
-        if (!indianOcean) {
-            try {
-                readProducts("msg_rss", RAPID_DAY_LAYER, "rapidDay", RAPID_NIGHT_LAYER, "rapidNight", products);
-            } catch (Exception error) {
-                android.util.Log.w("SkyHere", "Meteosat Rapid Scan unavailable", error);
-            }
-        }
-        try {
-            readProducts(workspace, infraredLayer, "infrared", GEOCOLOUR_LAYER, "auto", products);
-        } catch (Exception error) {
-            if (products.length() == 0) throw error;
-            android.util.Log.w("SkyHere", "Meteosat primary imagery unavailable", error);
-        }
-        if (products.length() == 0) return null;
-        cachedWorkspace = workspace;
-        cachedProducts = products;
-        cachedAt = android.os.SystemClock.elapsedRealtime();
-        return productsForLocation(products, latitude, longitude);
-    }
-
-    private static void readProducts(String workspace, String first, String firstMode,
-                                     String second, String secondMode, JSONObject products) throws Exception {
         String capabilities = OpenMeteo.readBody(EUMETSAT + "geoserver/" + workspace
                 + "/wms?service=WMS&request=GetCapabilities&version=1.3.0");
         XmlPullParser xml = Xml.newPullParser();
         xml.setInput(new StringReader(capabilities));
+        JSONObject products = new JSONObject();
         Instant cutoff = Instant.now().minus(Duration.ofHours(3));
         String name = "";
         while (xml.next() != XmlPullParser.END_DOCUMENT) {
@@ -79,41 +55,21 @@ final class SatelliteImagery {
                 if (!name.contains(":")) name = workspace + ":" + name;
             } else if ("Dimension".equals(xml.getName())
                     && "time".equals(xml.getAttributeValue(null, "name"))) {
-                String mode = first.equals(name) ? firstMode : second.equals(name) ? secondMode : null;
-                if (mode == null) continue;
+                boolean geocolour = !indianOcean && GEOCOLOUR_LAYER.equals(name);
+                if (!geocolour && !infraredLayer.equals(name)) continue;
                 String defaultTime = xml.getAttributeValue(null, "default");
                 JSONArray frames = regionalTimeline(xml.nextText(), defaultTime, cutoff);
                 if (frames.length() > 0) {
-                    products.put(mode, new JSONObject().put("layer", name).put("frames", frames));
+                    products.put(geocolour ? "auto" : "infrared", new JSONObject().put("layer", name).put("frames", frames));
                 }
-                if (products.has(firstMode) && products.has(secondMode)) break;
+                if (products.length() == (indianOcean ? 1 : 2)) break;
             }
         }
-    }
-
-    private static JSONObject productsForLocation(JSONObject products, double lat, double lon) throws JSONException {
-        JSONObject visible = new JSONObject();
-        visible.put("auto", products.optJSONObject("auto"));
-        visible.put("infrared", products.optJSONObject("infrared"));
-        TreeMap<Long, JSONObject> rapid = new TreeMap<>();
-        for (String mode : new String[]{"rapidDay", "rapidNight"}) {
-            JSONObject product = products.optJSONObject(mode);
-            if (product == null) continue;
-            JSONArray frames = product.getJSONArray("frames");
-            for (int i = 0; i < frames.length(); i++) {
-                long time = frames.getJSONObject(i).getLong("time");
-                boolean daylight = SkyPosition.at(Instant.ofEpochMilli(time), lat, lon, false).zenith < 90;
-                if (daylight == "rapidDay".equals(mode)) {
-                    rapid.put(time, new JSONObject().put("time", time).put("layer", product.getString("layer")));
-                }
-            }
-        }
-        if (!rapid.isEmpty()) {
-            JSONArray frames = new JSONArray();
-            while (!rapid.isEmpty() && frames.length() < 8) frames.put(rapid.pollLastEntry().getValue());
-            visible.put("rapid", new JSONObject().put("layer", frames.getJSONObject(0).getString("layer")).put("frames", frames));
-        }
-        return visible.length() == 0 ? null : visible;
+        if (products.length() == 0) return null;
+        cachedWorkspace = workspace;
+        cachedProducts = products;
+        cachedAt = android.os.SystemClock.elapsedRealtime();
+        return products;
     }
 
     private static JSONArray regionalTimeline(String extent, String defaultTime, Instant cutoff) throws JSONException {
