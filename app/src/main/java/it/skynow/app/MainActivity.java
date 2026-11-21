@@ -2687,6 +2687,7 @@ public final class MainActivity extends Activity {
         return new android.content.Intent(this, RadarActivity.class)
                 .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
                 .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
+                .putExtra("clock24", clock24)
                 .putExtra("eventDate", date.toString()).putExtra("detailsUrl", url)
                 .putStringArrayListExtra("localDetails", localDetails);
     }

@@ -370,7 +370,7 @@ public final class RadarActivity extends Activity {
             JSONArray lines;
             try {
                 lines = VisibilityPointDetails.lookup(this, options.getStringExtra("visibilityKind"), date, latitude,
-                        longitude, zone.join(), options.getBooleanExtra("clock24", true));
+                        longitude, zone::join, options.getBooleanExtra("clock24", true));
             } catch (Exception error) {
                 android.util.Log.w("SkyHere", "Map point details unavailable", error);
                 lines = new JSONArray().put(getString(R.string.visibility_point_unavailable));

@@ -8,6 +8,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import java.util.function.Supplier;
 
 import org.json.JSONArray;
 
@@ -19,18 +20,23 @@ final class VisibilityPointDetails {
     private VisibilityPointDetails() {}
 
     static JSONArray lookup(Context context, String kind, LocalDate date, double latitude, double longitude,
-                            ZoneId zone, boolean clock24) throws Exception {
+                            Supplier<ZoneId> timeZone, boolean clock24) throws Exception {
         Locale locale = Locale.forLanguageTag(context.getString(R.string.app_language_tag));
-        DateTimeFormatter clock = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h:mm a", locale).withZone(zone);
+        DateTimeFormatter clock = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h:mm a", locale);
         JSONArray lines = new JSONArray();
+        ZoneId zone;
         if ("transit".equals(kind)) {
             TransitCatalog.Event event = TransitCatalog.atDate(date, latitude, longitude);
             if (event == null) return lines.put(context.getString(R.string.visibility_point_hidden));
+            zone = timeZone.get();
+            clock = clock.withZone(zone);
             lines.put(context.getString(R.string.estimated_visible_range,
                     range(context, event.visibleStart, event.visibleEnd, zone, clock)));
         } else {
             EclipseCatalog.Event event = EclipseCatalog.atDate(context, date, "lunar".equals(kind), latitude, longitude);
             if (event == null) return lines.put(context.getString(R.string.visibility_point_hidden));
+            zone = timeZone.get();
+            clock = clock.withZone(zone);
             lines.put(EclipseCatalog.typeLabel(context, event.type));
             lines.put(context.getString(R.string.visible_range, range(context, event.start, event.end, zone, clock)));
             lines.put(context.getString(event.estimatedPeak ? R.string.best_visible : R.string.peak_time,
