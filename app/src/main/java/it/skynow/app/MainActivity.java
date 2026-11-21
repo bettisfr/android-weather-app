@@ -156,6 +156,8 @@ public final class MainActivity extends Activity {
     private TextView phoneDirection;
     private TextView skyTrackDirection;
     private SkyTrack aimedSkyTrack;
+    private int phoneOrientationDelay = -1;
+    private long lastPhoneReadingNanos;
     private final float[] phoneRotation = new float[9];
     private final SensorEventListener phoneOrientation = new SensorEventListener() {
         @Override public void onSensorChanged(SensorEvent event) {
@@ -166,12 +168,18 @@ public final class MainActivity extends Activity {
             double north = -phoneRotation[5];
             double horizontal = Math.hypot(east, north);
             double altitudeAngle = Math.toDegrees(Math.atan2(-phoneRotation[8], horizontal));
-            long elevation = Math.round(altitudeAngle);
             double heading = Math.toDegrees(Math.atan2(east, north));
             boolean trueNorth = Double.isFinite(magneticDeclination);
             if (trueNorth) heading += magneticDeclination;
-            long azimuth = Math.floorMod(Math.round(heading), 360);
             boolean unreliable = event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE;
+            if (aimedSkyTrack != null) {
+                boolean aligned = trueNorth && !unreliable;
+                aimedSkyTrack.setAim(aligned ? heading : Double.NaN, aligned ? altitudeAngle : Double.NaN);
+            }
+            if (lastPhoneReadingNanos != 0 && event.timestamp - lastPhoneReadingNanos < 100_000_000L) return;
+            lastPhoneReadingNanos = event.timestamp;
+            long elevation = Math.round(altitudeAngle);
+            long azimuth = Math.floorMod(Math.round(heading), 360);
             boolean lowAccuracy = unreliable || event.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_LOW;
             String direction = unreliable || Math.abs(elevation) == 90 ? "—" : azimuth + "° " + compassDirection(azimuth);
             String reading = getString(trueNorth ? R.string.phone_direction_reading : R.string.phone_direction_magnetic,
@@ -179,10 +187,6 @@ public final class MainActivity extends Activity {
             if (lowAccuracy) reading += "\n" + getString(R.string.phone_compass_low_accuracy);
             setPhoneReading(phoneDirection, reading);
             setPhoneReading(skyTrackDirection, reading);
-            if (aimedSkyTrack != null) {
-                boolean aligned = trueNorth && !unreliable;
-                aimedSkyTrack.setAim(aligned ? heading : Double.NaN, aligned ? altitudeAngle : Double.NaN);
-            }
         }
 
         @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
@@ -524,7 +528,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onPause() {
         resumed = false;
-        getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
+        stopPhoneOrientation();
         main.removeCallbacks(updateSkyCoordinates);
         super.onPause();
     }
@@ -668,7 +672,7 @@ public final class MainActivity extends Activity {
         moonTrackHeading = null;
         if (phoneDirection != null) {
             phoneDirection = null;
-            if (skyTrackDirection == null) getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
+            if (skyTrackDirection == null) stopPhoneOrientation();
         }
         planetRows.clear();
         planetWindowDate = null;
@@ -1911,14 +1915,25 @@ public final class MainActivity extends Activity {
 
     private void startPhoneOrientation() {
         if (!resumed || (phoneDirection == null && skyTrackDirection == null)) return;
+        int delay = skyTrackDirection == null ? SensorManager.SENSOR_DELAY_NORMAL : SensorManager.SENSOR_DELAY_GAME;
+        if (phoneOrientationDelay == delay) return;
+        stopPhoneOrientation();
         SensorManager manager = getSystemService(SensorManager.class);
         Sensor sensor = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         if (sensor == null) sensor = manager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
-        if (sensor == null || !manager.registerListener(phoneOrientation, sensor, SensorManager.SENSOR_DELAY_NORMAL)) {
+        if (sensor != null && manager.registerListener(phoneOrientation, sensor, delay, 0)) {
+            phoneOrientationDelay = delay;
+        } else {
             String unavailable = getString(R.string.phone_direction_unavailable);
             setPhoneReading(phoneDirection, unavailable);
             setPhoneReading(skyTrackDirection, unavailable);
         }
+    }
+
+    private void stopPhoneOrientation() {
+        if (phoneOrientationDelay != -1) getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
+        phoneOrientationDelay = -1;
+        lastPhoneReadingNanos = 0;
     }
 
     private void setPhoneReading(TextView direction, String reading) {
@@ -2366,7 +2381,8 @@ public final class MainActivity extends Activity {
         dialog.setOnDismissListener(ignored -> {
             aimedSkyTrack = null;
             skyTrackDirection = null;
-            if (phoneDirection == null) getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
+            if (phoneDirection == null) stopPhoneOrientation();
+            else startPhoneOrientation();
         });
 
         android.view.Window window = dialog.getWindow();
