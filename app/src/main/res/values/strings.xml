@@ -38,6 +38,7 @@
     <string name="daily_sky_track">Sky track · %1$s</string>
     <string name="sky_track_rise">Rise</string>
     <string name="sky_track_set">Set</string>
+    <string name="sky_track_back">Back to astronomy</string>
     <string name="sky_track_now">Now</string>
     <string name="sky_track_no_path">Below the horizon all day</string>
     <string name="iss_track">ISS sky track</string>

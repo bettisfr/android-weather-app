@@ -23,6 +23,8 @@ public final class SkyTrack extends View {
     private final Path path = new Path();
     private final float density;
     private float centerX, centerY, radius;
+    private double aimAzimuth = Double.NaN;
+    private double aimElevation = Double.NaN;
 
     public SkyTrack(Context context, List<? extends SkyTrajectory.Point> points,
                     SkyTrajectory.Point start, SkyTrajectory.Point peak, SkyTrajectory.Point end,
@@ -37,6 +39,13 @@ public final class SkyTrack extends View {
         this.compass = compass;
         density = getResources().getDisplayMetrics().density;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+    }
+
+    public void setAim(double azimuth, double elevation) {
+        if (Double.compare(aimAzimuth, azimuth) == 0 && Double.compare(aimElevation, elevation) == 0) return;
+        aimAzimuth = azimuth;
+        aimElevation = elevation;
+        postInvalidateOnAnimation();
     }
 
     @Override protected void onDraw(Canvas canvas) {
@@ -95,6 +104,33 @@ public final class SkyTrack extends View {
         marker(canvas, end, END_COLOR, 4.5f);
         marker(canvas, now, NOW_COLOR, 4.5f);
         drawDirection(canvas, accent);
+        drawAim(canvas);
+    }
+
+    private void drawAim(Canvas canvas) {
+        if (!Double.isFinite(aimAzimuth) || !Double.isFinite(aimElevation) || aimElevation < 0) return;
+        double angle = Math.toRadians(aimAzimuth);
+        float distance = radius * (float) Math.max(0, 1 - aimElevation / 90);
+        canvas.save();
+        canvas.translate(centerX + distance * (float) Math.sin(angle), centerY - distance * (float) Math.cos(angle));
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(4 * density);
+        paint.setColor(getContext().getColor(R.color.sky_card));
+        drawReticle(canvas);
+        paint.setStrokeWidth(1.8f * density);
+        paint.setColor(getContext().getColor(R.color.sky_text));
+        drawReticle(canvas);
+        canvas.restore();
+    }
+
+    private void drawReticle(Canvas canvas) {
+        float inner = 4 * density;
+        float outer = 12 * density;
+        canvas.drawCircle(0, 0, 8 * density, paint);
+        canvas.drawLine(-outer, 0, -inner, 0, paint);
+        canvas.drawLine(inner, 0, outer, 0, paint);
+        canvas.drawLine(0, -outer, 0, -inner, paint);
+        canvas.drawLine(0, inner, 0, outer, paint);
     }
 
     private void drawDirection(Canvas canvas, int accent) {

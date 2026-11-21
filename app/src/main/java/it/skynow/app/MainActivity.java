@@ -154,16 +154,19 @@ public final class MainActivity extends Activity {
     private double magneticDeclination = Double.NaN;
     private boolean resumed;
     private TextView phoneDirection;
+    private TextView skyTrackDirection;
+    private SkyTrack aimedSkyTrack;
     private final float[] phoneRotation = new float[9];
     private final SensorEventListener phoneOrientation = new SensorEventListener() {
         @Override public void onSensorChanged(SensorEvent event) {
-            if (phoneDirection == null) return;
+            if (phoneDirection == null && skyTrackDirection == null) return;
             SensorManager.getRotationMatrixFromVector(phoneRotation, event.values);
             // The rear camera points along the negative device Z axis.
             double east = -phoneRotation[2];
             double north = -phoneRotation[5];
             double horizontal = Math.hypot(east, north);
-            long elevation = Math.round(Math.toDegrees(Math.atan2(-phoneRotation[8], horizontal)));
+            double altitudeAngle = Math.toDegrees(Math.atan2(-phoneRotation[8], horizontal));
+            long elevation = Math.round(altitudeAngle);
             double heading = Math.toDegrees(Math.atan2(east, north));
             boolean trueNorth = Double.isFinite(magneticDeclination);
             if (trueNorth) heading += magneticDeclination;
@@ -174,7 +177,12 @@ public final class MainActivity extends Activity {
             String reading = getString(trueNorth ? R.string.phone_direction_reading : R.string.phone_direction_magnetic,
                     direction, elevation);
             if (lowAccuracy) reading += "\n" + getString(R.string.phone_compass_low_accuracy);
-            if (!reading.contentEquals(phoneDirection.getText())) phoneDirection.setText(reading);
+            setPhoneReading(phoneDirection, reading);
+            setPhoneReading(skyTrackDirection, reading);
+            if (aimedSkyTrack != null) {
+                boolean aligned = trueNorth && !unreliable;
+                aimedSkyTrack.setAim(aligned ? heading : Double.NaN, aligned ? altitudeAngle : Double.NaN);
+            }
         }
 
         @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
@@ -659,8 +667,8 @@ public final class MainActivity extends Activity {
         sunTrackHeading = null;
         moonTrackHeading = null;
         if (phoneDirection != null) {
-            getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
             phoneDirection = null;
+            if (skyTrackDirection == null) getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
         }
         planetRows.clear();
         planetWindowDate = null;
@@ -1902,13 +1910,19 @@ public final class MainActivity extends Activity {
     }
 
     private void startPhoneOrientation() {
-        if (!resumed || phoneDirection == null) return;
+        if (!resumed || (phoneDirection == null && skyTrackDirection == null)) return;
         SensorManager manager = getSystemService(SensorManager.class);
         Sensor sensor = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         if (sensor == null) sensor = manager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
         if (sensor == null || !manager.registerListener(phoneOrientation, sensor, SensorManager.SENSOR_DELAY_NORMAL)) {
-            phoneDirection.setText(R.string.phone_direction_unavailable);
+            String unavailable = getString(R.string.phone_direction_unavailable);
+            setPhoneReading(phoneDirection, unavailable);
+            setPhoneReading(skyTrackDirection, unavailable);
         }
+    }
+
+    private void setPhoneReading(TextView direction, String reading) {
+        if (direction != null && !reading.contentEquals(direction.getText())) direction.setText(reading);
     }
 
     private void updatePlanets(Instant now) {
@@ -2321,36 +2335,68 @@ public final class MainActivity extends Activity {
     }
 
     private void showSkyTrack(String title, String period, java.util.function.Consumer<LinearLayout> content) {
-        Dialog dialog = new Dialog(this);
+        Dialog dialog = new Dialog(this, R.style.SkyHereTheme);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        ScrollView viewport = new ScrollView(this);
-        LinearLayout panel = column();
-        panel.setBackground(background(getColor(R.color.sky_card), 20));
-        panel.setPadding(dp(16), dp(12), dp(16), dp(14));
-        viewport.addView(panel);
-        dialog.setContentView(viewport);
-
+        LinearLayout screen = column();
+        screen.setBackgroundColor(surfaceColor);
         LinearLayout header = row();
-        header.addView(label(title, 19, ink), new LinearLayout.LayoutParams(0, -2, 1));
-        TextView close = button("×", dialog::dismiss);
-        close.setContentDescription(getString(android.R.string.cancel));
-        header.addView(close);
-        panel.addView(header);
+        TextView back = label("‹", 28, ink);
+        back.setGravity(Gravity.CENTER);
+        back.setContentDescription(getString(R.string.sky_track_back));
+        back.setOnClickListener(v -> dialog.dismiss());
+        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        TextView titleView = label(title, 19, ink);
+        titleView.setPaddingRelative(0, dp(7), dp(12), dp(7));
+        header.addView(titleView, new LinearLayout.LayoutParams(0, -2, 1));
+        screen.addView(header);
+
+        ScrollView viewport = new ScrollView(this);
+        viewport.setFillViewport(true);
+        LinearLayout body = column();
+        body.setPadding(dp(12), dp(4), dp(12), dp(12));
+        LinearLayout panel = column();
+        panel.setBackground(background(getColor(R.color.sky_card), 16));
+        panel.setPadding(dp(14), dp(12), dp(14), dp(14));
         panel.addView(label(period, 14, muted));
         content.accept(panel);
+        body.addView(panel);
+        viewport.addView(body);
+        screen.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
+        dialog.setContentView(screen);
+        dialog.setOnDismissListener(ignored -> {
+            aimedSkyTrack = null;
+            skyTrackDirection = null;
+            if (phoneDirection == null) getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
+        });
 
         android.view.Window window = dialog.getWindow();
-        window.setBackgroundDrawableResource(android.R.color.transparent);
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+        window.setStatusBarColor(surfaceColor);
+        window.setNavigationBarColor(surfaceColor);
+        window.getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility());
         dialog.show();
-        window.setLayout(dp(Math.min(440, getResources().getConfiguration().screenWidthDp - 24)), -2);
+        window.setLayout(-1, -1);
+        startPhoneOrientation();
     }
 
     private void addSkyTrack(LinearLayout panel, List<? extends SkyTrajectory.Point> points, SkyTrajectory.Point start,
                              SkyTrajectory.Point peak, SkyTrajectory.Point end, SkyTrajectory.Point now,
                              SkyTrajectory.Point brightest) {
         String[] cardinal = {compassDirection(0), compassDirection(90), compassDirection(180), compassDirection(270)};
-        panel.addView(new SkyTrack(this, points, start, peak, end, now, brightest, cardinal),
-                new LinearLayout.LayoutParams(-1, dp(236)));
+        aimedSkyTrack = new SkyTrack(this, points, start, peak, end, now, brightest, cardinal);
+        int chartSize = Math.min(380, getResources().getConfiguration().screenWidthDp - 52);
+        panel.addView(aimedSkyTrack, new LinearLayout.LayoutParams(-1, dp(chartSize)));
+        LinearLayout direction = column();
+        direction.setBackground(background(getColor(R.color.sky_subtle), 12));
+        direction.setPadding(dp(11), dp(9), dp(11), dp(9));
+        direction.addView(label(getString(R.string.phone_direction), 14, ink));
+        skyTrackDirection = label(getString(R.string.phone_direction_waiting), 17, ink);
+        addSpaced(direction, skyTrackDirection, 5);
+        addSpaced(direction, label(getString(R.string.phone_direction_hint), 12, muted), 5);
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);
+        size.bottomMargin = dp(9);
+        panel.addView(direction, size);
     }
 
     private void addSkyTrackPoint(LinearLayout panel, int title, SkyTrajectory.Point point, int color,
