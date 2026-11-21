@@ -40,6 +40,7 @@
     <string name="sky_track_set">Set</string>
     <string name="sky_track_back">Back to astronomy</string>
     <string name="sky_track_now">Now</string>
+    <string name="sky_track_no_night_path">No part of this track is visible while the Sun is below the horizon</string>
     <string name="sky_track_no_path">Below the horizon all day</string>
     <string name="iss_track">ISS sky track</string>
     <string name="iss_track_start">Start</string>

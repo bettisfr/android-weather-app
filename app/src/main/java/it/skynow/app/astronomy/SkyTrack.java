@@ -83,7 +83,7 @@ public final class SkyTrack extends View {
         path.rewind();
         boolean first = true;
         for (SkyTrajectory.Point sample : points) {
-            if (sample.elevation < 0) {
+            if (!sample.plotted) {
                 first = true;
                 continue;
             }
@@ -134,8 +134,8 @@ public final class SkyTrack extends View {
     }
 
     private void drawDirection(Canvas canvas, int accent) {
-        if (points.size() < 2 || (now != null && now.elevation < 0)) return;
-        boolean issPass = now == null;
+        boolean issPass = brightest != null;
+        if (points.size() < 2 || (!issPass && now == null)) return;
         int next = issPass ? points.size() / 2 : 1;
         if (!issPass) {
             while (next < points.size() - 1 && points.get(next).time < now.time) next++;

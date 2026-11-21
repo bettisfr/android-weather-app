@@ -2330,22 +2330,26 @@ public final class MainActivity extends Activity {
         double magnitude = planet != null ? Planets.at(planet, now, latitude, longitude).magnitude
                 : moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74;
         SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
+        boolean nightOnly = moon || planet != null;
         ZonedDateTime localNow = now.atZone(zone);
         LocalDate date = localNow.toLocalDate();
         String period = localNow.format(shortDate(true));
-        if (track.rise != null && track.set != null && track.rise.time <= track.set.time) {
+        if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
             period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
         }
         int fill = planet == null ? EXTREME_MAGNITUDE_COLOR
                 : sun.zenith >= 90 ? magnitudeColor(magnitude) : android.graphics.Color.TRANSPARENT;
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
             addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
-            if (track.peak.elevation < 0) {
-                panel.addView(label(getString(R.string.sky_track_no_path), 14, muted));
+            if (track.peak == null) {
+                int message = nightOnly ? R.string.sky_track_no_night_path : R.string.sky_track_no_path;
+                panel.addView(label(getString(message), 14, muted));
             }
-            addSkyTrackPoint(panel, R.string.sky_track_rise, track.rise, SkyTrack.START_COLOR, zone, date);
+            addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_start : R.string.sky_track_rise,
+                    track.rise, SkyTrack.START_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone, date);
-            addSkyTrackPoint(panel, R.string.sky_track_set, track.set, SkyTrack.END_COLOR, zone, date);
+            addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_end : R.string.sky_track_set,
+                    track.set, SkyTrack.END_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.sky_track_now, track.now, SkyTrack.NOW_COLOR, zone, date);
         });
     }

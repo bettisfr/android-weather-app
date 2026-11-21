@@ -40,6 +40,7 @@
     <string name="sky_track_set">Tramonto</string>
     <string name="sky_track_back">Torna ad astronomia</string>
     <string name="sky_track_now">Ora</string>
+    <string name="sky_track_no_night_path">Nessun tratto visibile con il Sole sotto l’orizzonte</string>
     <string name="sky_track_no_path">Sotto l’orizzonte per tutto il giorno</string>
     <string name="iss_track">Traiettoria ISS</string>
     <string name="iss_track_start">Inizio</string>

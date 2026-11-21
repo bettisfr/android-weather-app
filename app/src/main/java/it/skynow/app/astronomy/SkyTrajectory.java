@@ -6,6 +6,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.LongFunction;
+import java.util.function.Predicate;
 
 public final class SkyTrajectory {
     private static final int STEP_SECONDS = 120;
@@ -14,23 +15,31 @@ public final class SkyTrajectory {
     public static class Point {
         public final long time;
         public final double azimuth, elevation;
+        final boolean plotted;
 
         Point(long time, double azimuth, double elevation) {
+            this(time, azimuth, elevation, elevation >= 0);
+        }
+
+        private Point(long time, double azimuth, double elevation, boolean plotted) {
             this.time = time;
             this.azimuth = azimuth;
             this.elevation = elevation;
+            this.plotted = plotted;
         }
     }
 
     public final List<Point> points;
     public final Point rise, peak, set, now;
+    public final boolean continuous;
 
-    private SkyTrajectory(List<Point> points, Point rise, Point peak, Point set, Point now) {
+    private SkyTrajectory(List<Point> points, Point rise, Point peak, Point set, Point now, boolean continuous) {
         this.points = points;
         this.rise = rise;
         this.peak = peak;
         this.set = set;
         this.now = now;
+        this.continuous = continuous;
     }
 
     public static SkyTrajectory today(Instant now, ZoneId zone, double latitude, double longitude,
@@ -50,36 +59,72 @@ public final class SkyTrajectory {
         Point current = sample.apply(now.getEpochSecond());
         Point rise = null;
         Point set = null;
-        if ((moon || planet != null) && current.elevation >= 0) {
+        boolean nightOnly = moon || planet != null;
+        if (nightOnly && current.elevation >= 0) {
             rise = findHorizon(sample, current, -STEP_SECONDS);
             set = findHorizon(sample, current, STEP_SECONDS);
             if (rise != null) start = rise.time;
             if (set != null) end = set.time;
         }
 
+        Predicate<Point> visible = point -> point.elevation >= 0 && (!nightOnly
+                || SkyPosition.at(Instant.ofEpochSecond(point.time), latitude, longitude, false).zenith > 90);
         List<Point> points = new ArrayList<>();
         Point previous = rise == null ? sample.apply(start) : rise;
-        Point peak = previous;
-        points.add(previous);
+        boolean previousVisible = visible.test(previous);
+        Point firstVisible = previousVisible ? previous : null;
+        Point lastVisible = firstVisible;
+        Point peak = firstVisible;
+        int segments = previousVisible ? 1 : 0;
+        points.add(rendered(previous, previousVisible));
         while (previous.time < end) {
             long time = Math.min(end, previous.time + STEP_SECONDS);
             Point next = set != null && time == set.time ? set : sample.apply(time);
-            if ((previous.elevation >= 0) != (next.elevation >= 0)) {
-                Point crossing = horizon(sample, previous, next);
+            boolean nextVisible = visible.test(next);
+            if (previousVisible != nextVisible) {
+                Point crossing = boundary(sample, visible, previous, next, previousVisible);
                 points.add(crossing);
-                if (next.elevation >= 0) rise = crossing;
-                else set = crossing;
+                if (peak == null || crossing.elevation > peak.elevation) peak = crossing;
+                if (nextVisible) {
+                    if (firstVisible == null) firstVisible = crossing;
+                    segments++;
+                    if (!nightOnly) rise = crossing;
+                } else {
+                    lastVisible = crossing;
+                    if (!nightOnly) set = crossing;
+                }
             }
-            points.add(next);
-            if (next.elevation > peak.elevation) peak = next;
+            points.add(rendered(next, nextVisible));
+            if (nextVisible) {
+                lastVisible = next;
+                if (peak == null || next.elevation > peak.elevation) peak = next;
+            }
             previous = next;
+            previousVisible = nextVisible;
         }
-        long peakTime = peak.time;
-        for (long t = Math.max(start, peakTime - 119); t <= Math.min(end, peakTime + 119); t += 5) {
-            Point candidate = sample.apply(t);
-            if (candidate.elevation > peak.elevation) peak = candidate;
+        if (peak != null) {
+            long peakTime = peak.time;
+            for (long t = Math.max(start, peakTime - 119); t <= Math.min(end, peakTime + 119); t += 5) {
+                Point candidate = sample.apply(t);
+                if (candidate.elevation > peak.elevation && visible.test(candidate)) peak = candidate;
+            }
         }
-        return new SkyTrajectory(points, rise, peak, set, current);
+        return new SkyTrajectory(points, nightOnly ? firstVisible : rise, peak, nightOnly ? lastVisible : set,
+                visible.test(current) ? current : null, segments == 1);
+    }
+
+    private static Point rendered(Point point, boolean visible) {
+        return visible == point.plotted ? point : new Point(point.time, point.azimuth, point.elevation, visible);
+    }
+
+    private static Point boundary(LongFunction<Point> sample, Predicate<Point> visible,
+                                  Point low, Point high, boolean lowVisible) {
+        while (high.time - low.time > 1) {
+            Point mid = sample.apply((low.time + high.time) / 2);
+            if (visible.test(mid) == lowVisible) low = mid;
+            else high = mid;
+        }
+        return lowVisible ? low : high;
     }
 
     private static Point findHorizon(LongFunction<Point> sample, Point current, int step) {
@@ -87,21 +132,13 @@ public final class SkyTrajectory {
         for (int i = 0; i < HORIZON_SEARCH_STEPS; i++) {
             Point next = sample.apply(above.time + step);
             if (next.elevation < 0) {
-                return step < 0 ? horizon(sample, next, above) : horizon(sample, above, next);
+                Predicate<Point> aboveHorizon = p -> p.elevation >= 0;
+                return step < 0 ? boundary(sample, aboveHorizon, next, above, false)
+                        : boundary(sample, aboveHorizon, above, next, true);
             }
             above = next;
         }
         return null;
     }
 
-    private static Point horizon(LongFunction<Point> sample, Point low, Point high) {
-        boolean descending = low.elevation >= 0;
-        while (high.time - low.time > 1) {
-            Point mid = sample.apply((low.time + high.time) / 2);
-            if ((mid.elevation >= 0) == descending) low = mid;
-            else high = mid;
-        }
-        Point closest = descending ? low : high;
-        return new Point(closest.time, closest.azimuth, 0);
-    }
 }
