@@ -148,6 +148,7 @@ public final class MainActivity extends Activity {
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView sunCoordinates;
     private TextView moonCoordinates;
+    private LinearLayout sunTrackHeading, moonTrackHeading;
     private final List<PlanetRow> planetRows = new ArrayList<>();
     private LocalDate planetWindowDate;
     private double magneticDeclination = Double.NaN;
@@ -655,6 +656,8 @@ public final class MainActivity extends Activity {
         earthquakeTabButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
+        sunTrackHeading = null;
+        moonTrackHeading = null;
         if (phoneDirection != null) {
             getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
             phoneDirection = null;
@@ -1612,21 +1615,23 @@ public final class MainActivity extends Activity {
 
     private void setSkyCoordinates(TextView reading, Instant now, boolean moon) {
         SkyPosition position = SkyPosition.at(now, latitude, longitude, moon);
-        if (position.zenith >= 0 && position.zenith <= 90) {
+        boolean above = position.zenith < 90;
+        reading.setVisibility(above ? View.VISIBLE : View.GONE);
+        if (above) {
             reading.setText(getString(R.string.sky_coordinates, Math.round(position.azimuth) % 360,
                     compassDirection(position.azimuth), Math.round(90 - position.zenith)));
-        } else {
-            reading.setText(R.string.sky_coordinates_below_horizon);
         }
+        LinearLayout heading = moon ? moonTrackHeading : sunTrackHeading;
+        setSkyTrackAvailable(heading, heading.getChildAt(heading.getChildCount() - 1), above);
     }
 
     private void sun(JSONObject daily, int index) {
         LinearLayout tile = card();
-        addSkyTrackHeading(tile, getString(R.string.sun), () -> showDailySkyTrack(getString(R.string.sun), false, null));
+        sunTrackHeading = addSkyTrackHeading(tile, getString(R.string.sun), () -> showDailySkyTrack(getString(R.string.sun), false, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
         LinearLayout readings = row();
-        readings.setGravity(Gravity.BOTTOM);
+        readings.setGravity(Gravity.BOTTOM | Gravity.END);
         sunCoordinates = skyCoordinates(false);
         readings.addView(sunCoordinates, new LinearLayout.LayoutParams(0, -2, 1));
         LocalDate date = LocalDate.parse(at(daily, "time", index));
@@ -1715,7 +1720,7 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = card();
-        addSkyTrackHeading(tile, getString(R.string.moon), () -> showDailySkyTrack(getString(R.string.moon), true, null));
+        moonTrackHeading = addSkyTrackHeading(tile, getString(R.string.moon), () -> showDailySkyTrack(getString(R.string.moon), true, null));
         TextView eventLabel = label("", 13, muted);
         int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
                 textWidth(eventLabel, getString(R.string.moonrise)),
@@ -1807,15 +1812,23 @@ public final class MainActivity extends Activity {
 
     private static final class PlanetRow {
         final Planets.Body body;
+        final View entry, chevron;
         final TextView now, magnitude, position, windows;
         List<Planets.Window> observingWindows = List.of();
 
-        PlanetRow(Planets.Body body, TextView now, TextView magnitude, TextView position, TextView windows) {
+        PlanetRow(Planets.Body body, View entry, View chevron, TextView now, TextView magnitude,
+                  TextView position, TextView windows) {
             this.body = body;
+            this.entry = entry;
+            this.chevron = chevron;
             this.now = now;
             this.magnitude = magnitude;
             this.position = position;
             this.windows = windows;
+        }
+
+        boolean observesAt(Instant now) {
+            return observingWindows.stream().anyMatch(window -> !now.isBefore(window.start) && now.isBefore(window.end));
         }
     }
 
@@ -1836,7 +1849,8 @@ public final class MainActivity extends Activity {
             TextView name = label(getString(names[body.ordinal()]), 16, ink);
             name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             planetTitle.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
-            planetTitle.addView(skyTrackChevron());
+            TextView chevron = skyTrackChevron();
+            planetTitle.addView(chevron);
             entry.addView(planetTitle);
             TextView now = astronomyBadge("");
             addAstronomyBadge(entry, now, 6);
@@ -1848,8 +1862,11 @@ public final class MainActivity extends Activity {
             TextView windows = label("", 12, muted);
             windows.setPadding(0, dp(5), 0, 0);
             entry.addView(windows);
-            planetRows.add(new PlanetRow(body, now, magnitude, position, windows));
-            astronomyCardAction(entry, () -> showDailySkyTrack(name.getText().toString(), false, body));
+            PlanetRow planet = new PlanetRow(body, entry, chevron, now, magnitude, position, windows);
+            planetRows.add(planet);
+            astronomyCardAction(entry, () -> {
+                if (planet.observesAt(Instant.now())) showDailySkyTrack(name.getText().toString(), false, body);
+            });
             addSpaced(tile, entry, 7);
         }
         LinearLayout direction = column();
@@ -1892,11 +1909,6 @@ public final class MainActivity extends Activity {
                     : above ? R.string.planet_difficult : R.string.planet_below_horizon;
             row.now.setText(getString(R.string.planet_now_status, getString(status)));
             setMagnitudeBadge(row.magnitude, reading.magnitude);
-            row.position.setVisibility(above ? View.VISIBLE : View.GONE);
-            if (above) {
-                row.position.setText(getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
-                        compassDirection(reading.azimuth), Math.round(reading.elevation)));
-            }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
                 row.observingWindows = Planets.windows(row.body, today, zone, latitude, longitude);
@@ -1908,8 +1920,13 @@ public final class MainActivity extends Activity {
                 row.windows.setText(hours.isEmpty() ? getString(R.string.planet_no_window)
                         : getString(R.string.planet_today_windows, android.text.TextUtils.join(" · ", hours)));
             }
-            boolean observingNow = row.observingWindows.stream()
-                    .anyMatch(window -> !now.isBefore(window.start) && now.isBefore(window.end));
+            boolean observingNow = row.observesAt(now);
+            setSkyTrackAvailable(row.entry, row.chevron, observingNow);
+            row.position.setVisibility(observingNow ? View.VISIBLE : View.GONE);
+            if (observingNow) {
+                row.position.setText(getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
+                        compassDirection(reading.azimuth), Math.round(reading.elevation)));
+            }
             row.now.setTextColor(observingNow ? getColor(R.color.sky_observing) : getColor(R.color.sky_on_action));
             row.now.setBackground(background(getColor(observingNow ? R.color.sky_background : R.color.sky_action), 8));
         }
@@ -2215,13 +2232,20 @@ public final class MainActivity extends Activity {
         return chevron;
     }
 
-    private void addSkyTrackHeading(LinearLayout panel, String name, Runnable open) {
+    private LinearLayout addSkyTrackHeading(LinearLayout panel, String name, Runnable open) {
         LinearLayout heading = row();
         heading.setMinimumHeight(dp(32));
         heading.addView(label(name, 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
         heading.addView(skyTrackChevron());
         astronomyCardAction(heading, open);
         panel.addView(heading);
+        return heading;
+    }
+
+    private void setSkyTrackAvailable(View target, View chevron, boolean available) {
+        target.setClickable(available);
+        target.setFocusable(available);
+        chevron.setVisibility(available ? View.VISIBLE : View.GONE);
     }
 
     private TextView astronomyBadge(String text) {
@@ -2265,6 +2289,7 @@ public final class MainActivity extends Activity {
     private void showDailySkyTrack(String name, boolean moon, Planets.Body planet) {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         Instant now = Instant.now();
+        if (planet == null && SkyPosition.at(now, latitude, longitude, moon).zenith >= 90) return;
         SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
         String date = now.atZone(zone).format(shortDate(true));
         showSkyTrack(getString(R.string.daily_sky_track, name), date, panel -> {
