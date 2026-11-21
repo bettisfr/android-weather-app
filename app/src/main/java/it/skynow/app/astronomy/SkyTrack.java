@@ -6,6 +6,9 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.view.GestureDetector;
+import android.view.MotionEvent;
+import android.view.ScaleGestureDetector;
 import android.view.View;
 
 import java.util.List;
@@ -16,6 +19,7 @@ public final class SkyTrack extends View {
     public static final int END_COLOR = 0xffb14d74;
     public static final int BRIGHTEST_COLOR = 0xff8061ba;
     public static final int NOW_COLOR = 0xff536ab4;
+    private static final float MAX_ZOOM = 4;
     private final List<? extends SkyTrajectory.Point> points;
     private final SkyTrajectory.Point start, peak, end, brightest;
     private SkyTrajectory.Point now;
@@ -23,7 +27,12 @@ public final class SkyTrack extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final float density;
+    private final ScaleGestureDetector scaling;
+    private final GestureDetector taps;
     private float centerX, centerY, radius;
+    private float zoom = 1;
+    private float offsetX, offsetY;
+    private float touchX, touchY;
     private double aimAzimuth = Double.NaN;
     private double aimElevation = Double.NaN;
 
@@ -40,6 +49,72 @@ public final class SkyTrack extends View {
         this.compass = compass;
         density = getResources().getDisplayMetrics().density;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        scaling = new ScaleGestureDetector(context, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            private float lastFocusX, lastFocusY;
+
+            @Override public boolean onScaleBegin(ScaleGestureDetector detector) {
+                lastFocusX = detector.getFocusX();
+                lastFocusY = detector.getFocusY();
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+
+            @Override public boolean onScale(ScaleGestureDetector detector) {
+                float nextZoom = Math.max(1, Math.min(MAX_ZOOM, zoom * detector.getScaleFactor()));
+                float ratio = nextZoom / zoom;
+                zoom = nextZoom;
+                offsetX = detector.getFocusX() - (lastFocusX - offsetX) * ratio;
+                offsetY = detector.getFocusY() - (lastFocusY - offsetY) * ratio;
+                lastFocusX = detector.getFocusX();
+                lastFocusY = detector.getFocusY();
+                updateViewport();
+                return true;
+            }
+        });
+        scaling.setQuickScaleEnabled(false);
+        taps = new GestureDetector(context, new GestureDetector.SimpleOnGestureListener() {
+            @Override public boolean onDown(MotionEvent event) { return true; }
+
+            @Override public boolean onDoubleTap(MotionEvent event) {
+                zoom = 1;
+                updateViewport();
+                return true;
+            }
+        });
+        taps.setIsLongpressEnabled(false);
+    }
+
+    @Override public boolean onTouchEvent(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            touchX = event.getX();
+            touchY = event.getY();
+            getParent().requestDisallowInterceptTouchEvent(zoom > 1);
+        } else if (action == MotionEvent.ACTION_POINTER_DOWN) {
+            getParent().requestDisallowInterceptTouchEvent(true);
+        }
+        scaling.onTouchEvent(event);
+        taps.onTouchEvent(event);
+        if (action == MotionEvent.ACTION_MOVE && event.getPointerCount() == 1 && zoom > 1) {
+            offsetX += event.getX() - touchX;
+            offsetY += event.getY() - touchY;
+            touchX = event.getX();
+            touchY = event.getY();
+            updateViewport();
+        } else if (action == MotionEvent.ACTION_POINTER_UP && event.getPointerCount() == 2) {
+            int remaining = event.getActionIndex() == 0 ? 1 : 0;
+            touchX = event.getX(remaining);
+            touchY = event.getY(remaining);
+        } else if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+            getParent().requestDisallowInterceptTouchEvent(false);
+        }
+        return true;
+    }
+
+    private void updateViewport() {
+        offsetX = Math.max(getWidth() * (1 - zoom), Math.min(0, offsetX));
+        offsetY = Math.max(getHeight() * (1 - zoom), Math.min(0, offsetY));
+        postInvalidateOnAnimation();
     }
 
     public void setAim(double azimuth, double elevation) {
@@ -61,6 +136,10 @@ public final class SkyTrack extends View {
         centerY = getHeight() / 2f;
         radius = Math.min(centerX, centerY) - 27 * density;
         if (radius <= 0) return;
+        canvas.save();
+        canvas.clipRect(0, 0, getWidth(), getHeight());
+        canvas.translate(offsetX, offsetY);
+        canvas.scale(zoom, zoom);
         int accent = getContext().getColor(R.color.sky_accent);
         int muted = getContext().getColor(R.color.sky_muted);
         paint.setStyle(Paint.Style.FILL);
@@ -114,6 +193,7 @@ public final class SkyTrack extends View {
         if (brightest != null) marker(canvas, now, getContext().getColor(R.color.sky_card), 7);
         marker(canvas, now, NOW_COLOR, brightest == null ? 4.5f : 5.5f);
         drawAim(canvas);
+        canvas.restore();
     }
 
     private void drawAim(Canvas canvas) {
