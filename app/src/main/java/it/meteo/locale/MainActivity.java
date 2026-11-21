@@ -2168,7 +2168,7 @@ public final class MainActivity extends Activity {
     private String issPassUrl(IssPasses.Pass pass, ZoneId zone) {
         double altitude = data.optDouble("elevation", 0);
         double modifiedJulianDate = 40587 + pass.peak.time / 86400.0;
-        return android.net.Uri.parse("https://www.heavens-above.com/passdetails.aspx").buildUpon()
+        return android.net.Uri.parse("https://heavens-above.com/passdetails.aspx").buildUpon()
                 .appendQueryParameter("satid", "25544")
                 .appendQueryParameter("mjd", String.format(Locale.ROOT, "%.8f", modifiedJulianDate))
                 .appendQueryParameter("type", "V")
