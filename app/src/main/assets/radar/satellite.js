@@ -7,7 +7,7 @@ const play = document.getElementById('play');
 const modes = document.getElementById('modes');
 const autoButton = document.getElementById('auto');
 const infraredButton = document.getElementById('infrared');
-const frameImages = new Map();
+const frameBlobs = new Map();
 const frameCacheSize = 12;
 let config;
 let times;
@@ -16,6 +16,7 @@ let mode;
 let frames = [];
 let timer = null;
 let renderTimer;
+let preloadVersion = 0;
 let requestedFrame;
 let map;
 let globalOverlay;
@@ -46,13 +47,14 @@ function initialize(parameters) {
         hourCycle: config.clock24 ? 'h23' : 'h12', timeZone: config.timeZone,
     });
     document.getElementById('map').setAttribute('aria-label', config.timelineLabel);
-    map = createWeatherMap('map', [Math.max(-85, Math.min(85, config.lat)), config.lon], 8, {worldCopyJump: true});
+    map = createWeatherMap('map', [Math.max(-85, Math.min(85, config.lat)), config.lon], 9, {worldCopyJump: true});
     const city = map.createPane('cityMarker');
     city.style.zIndex = 450;
     L.circleMarker([config.lat, config.lon], {
         pane: 'cityMarker', radius: 7, color: '#fff', weight: 3, fillColor: '#273b6a', fillOpacity: 1, interactive: false,
     }).addTo(map);
     map.on('moveend', () => {
+        preloadVersion++;
         if (regionalLayer) queueFrame(Number(steps.value));
     });
     status(config.loading);
@@ -79,12 +81,13 @@ function selectMode(nextMode) {
     steps.disabled = frames.length < 2;
     play.disabled = frames.length < 2;
     const matchingFrame = frames.findIndex(frame => frame.time >= previousTime);
-    showFrame(matchingFrame >= 0 ? matchingFrame : frames.length - 1);
+    preloadVersion++;
+    showFrame(matchingFrame >= 0 ? matchingFrame : frames.length - 1, true);
 }
 
 function regionalFrame(time) {
-    const bounds = map.getBounds();
     const coordinates = map.options.crs;
+    const bounds = map.getBounds();
     const sw = coordinates.project(bounds.getSouthWest());
     const ne = coordinates.project(bounds.getNorthEast());
     const size = map.getSize();
@@ -92,7 +95,7 @@ function regionalFrame(time) {
     const params = new URLSearchParams({
         service: 'WMS', version: '1.1.1', request: 'GetMap', layers: regionalLayer,
         styles: '', format: 'image/vnd.jpeg-png', transparent: 'true', srs: 'EPSG:3857',
-        bbox: [sw.x, sw.y, ne.x, ne.y].join(','),
+        interpolations: 'bilinear', bbox: [sw.x, sw.y, ne.x, ne.y].join(','),
         width: Math.max(1, Math.round(size.x * scale)),
         height: Math.max(1, Math.round(size.y * scale)),
         time: new Date(time).toISOString(),
@@ -100,24 +103,60 @@ function regionalFrame(time) {
     return {bounds, url: config.regionalSource + 'geoserver/wms?' + params};
 }
 
-function loadFrameImage(url) {
-    let cached = frameImages.get(url);
-    frameImages.delete(url);
+function loadRegionalBlob(url) {
+    let cached = frameBlobs.get(url);
+    frameBlobs.delete(url);
     if (!cached) {
-        cached = new Promise((resolve, reject) => {
-            const image = new Image();
-            image.alt = '';
-            image.onload = () => resolve(image);
-            image.onerror = reject;
-            image.src = url;
+        cached = fetch(url).then(response => {
+            if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) {
+                throw new Error('Satellite image unavailable');
+            }
+            return response.blob();
         }).catch(error => {
-            if (frameImages.get(url) === cached) frameImages.delete(url);
+            if (frameBlobs.get(url) === cached) frameBlobs.delete(url);
             throw error;
         });
     }
-    frameImages.set(url, cached);
-    if (frameImages.size > frameCacheSize) frameImages.delete(frameImages.keys().next().value);
+    frameBlobs.set(url, cached);
+    if (frameBlobs.size > frameCacheSize) frameBlobs.delete(frameBlobs.keys().next().value);
     return cached;
+}
+
+function loadImage(url) {
+    const image = new Image();
+    image.alt = '';
+    image.src = url;
+    return image.decode().then(() => image);
+}
+
+async function loadRegionalImage(url, request) {
+    const blob = await loadRegionalBlob(url);
+    if (requestedFrame !== request) return null;
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        return await loadImage(objectUrl);
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
+function preloadFrames(index) {
+    const version = ++preloadVersion;
+    const urls = frames.map((_, offset) => frames[(index + 1 + offset) % frames.length])
+        .slice(0, -1).map(frame => regionalFrame(frame.time).url);
+    let next = 0;
+    async function preload() {
+        while (version === preloadVersion && next < urls.length) {
+            const url = urls[next++];
+            try {
+                await loadRegionalBlob(url);
+            } catch {
+                if (version === preloadVersion) await loadRegionalBlob(url).catch(() => {});
+            }
+        }
+    }
+    preload();
+    preload();
 }
 
 function queueFrame(index) {
@@ -127,14 +166,15 @@ function queueFrame(index) {
     renderTimer = setTimeout(() => showFrame(index), 120);
 }
 
-function showFrame(index) {
+function showFrame(index, preload = false) {
     clearTimeout(renderTimer);
     steps.value = index;
     const data = frames[index];
     const regional = regionalLayer ? regionalFrame(data.time) : null;
     const request = {};
     requestedFrame = request;
-    loadFrameImage(regional ? regional.url : data.url).then(image => {
+    const pendingImage = regional ? loadRegionalImage(regional.url, request) : loadImage(data.url);
+    pendingImage.then(image => {
         if (requestedFrame !== request) return;
         if (regional) {
             if (regionalOverlay) regionalOverlay.remove();
@@ -152,6 +192,7 @@ function showFrame(index) {
         source.textContent = geocolour ? 'EUMETSAT · NASA' : regional ? 'EUMETSAT' : 'NOAA NESDIS';
         source.hidden = false;
         status(!regional && Math.abs(config.lat) > 60 ? config.coverage : '');
+        if (regional && preload) preloadFrames(index);
         scheduleFrame();
     }, () => {
         if (requestedFrame === request) {
@@ -166,7 +207,7 @@ function scheduleFrame() {
     if (!playing) return;
     const index = (Number(steps.value) + 1) % frames.length;
     const next = frames[index];
-    loadFrameImage(regionalLayer ? regionalFrame(next.time).url : next.url).catch(() => {});
+    if (regionalLayer) loadRegionalBlob(regionalFrame(next.time).url).catch(() => {});
     timer = setTimeout(() => showFrame(index), 1400);
 }
 

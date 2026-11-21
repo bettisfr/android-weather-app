@@ -89,7 +89,7 @@ function initialize(config) {
         legend.append(entry);
     }
 
-    map = createWeatherMap(mapElement, [config.lat, config.lon], 8);
+    map = createWeatherMap(mapElement, [config.lat, config.lon], 9);
     map.attributionControl.addAttribution('<a href="https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/">Radar-DPC</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>');
     L.circleMarker([config.lat, config.lon], {
         radius: 7, color: '#fff', weight: 3, fillColor: '#273b6a', fillOpacity: 1,

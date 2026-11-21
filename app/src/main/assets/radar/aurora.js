@@ -40,7 +40,7 @@ function initialize(config) {
     });
     status(config.loading);
     map = createWeatherMap('map', [Math.max(-limit, Math.min(limit, config.lat)), config.lon],
-        config.airQuality ? 8 : 3, {worldCopyJump: true});
+        config.airQuality ? 9 : 3, {worldCopyJump: true});
     const cityPane = map.createPane('cityMarker');
     cityPane.style.zIndex = 450;
     const pin = L.circleMarker([config.lat, config.lon], {

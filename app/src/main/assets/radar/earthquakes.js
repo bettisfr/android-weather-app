@@ -43,7 +43,8 @@ function initialize(parameters) {
         radius: config.radiusKm * 1000, color: '#546eaa', dashArray: '6 5', weight: 2,
         fillOpacity: .05, interactive: false,
     }).addTo(map);
-    map.fitBounds(coverage.getBounds(), {padding: [20, 20], maxZoom: 15});
+    const fittedZoom = map.getBoundsZoom(coverage.getBounds(), false, [40, 40]);
+    map.setZoom(Math.min(15, fittedZoom + 1), {animate: false});
     L.circleMarker(center, {radius: 6, color: 'white', weight: 2, fillColor: '#435e94', fillOpacity: 1, interactive: false})
         .addTo(map);
     markers = L.layerGroup().addTo(map);

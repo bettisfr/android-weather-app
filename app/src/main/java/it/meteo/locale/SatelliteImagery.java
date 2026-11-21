@@ -27,13 +27,19 @@ final class SatelliteImagery {
     static final String EUMETSAT = "https://view.eumetsat.int/";
     private static final String GEOCOLOUR_LAYER = "mtg_fd:rgb_geocolour";
     static final String GEOCOLOUR_SOURCE = EUMETSAT + "productviewer/productDetails/" + GEOCOLOUR_LAYER;
+    private static String cachedWorkspace;
+    private static JSONObject cachedProducts;
+    private static long cachedAt;
 
-    static JSONObject regionalFrames(double latitude, double longitude) throws Exception {
+    static synchronized JSONObject regionalFrames(double latitude, double longitude) throws Exception {
         boolean indianOcean = longitude > 35;
         double center = indianOcean ? 41.5 : 0;
         double distance = Math.acos(Math.cos(Math.toRadians(latitude)) * Math.cos(Math.toRadians(longitude - center)));
         if (distance > Math.toRadians(65)) return null;
         String workspace = indianOcean ? "msg_iodc" : "mtg_fd";
+        if (workspace.equals(cachedWorkspace) && android.os.SystemClock.elapsedRealtime() - cachedAt < 60_000) {
+            return cachedProducts;
+        }
         String infraredLayer = workspace + (indianOcean ? ":ir108" : ":ir105_hrfi");
         String capabilities = OpenMeteo.readBody(EUMETSAT + "geoserver/" + workspace
                 + "/wms?service=WMS&request=GetCapabilities&version=1.3.0");
@@ -59,7 +65,11 @@ final class SatelliteImagery {
                 if (products.length() == (indianOcean ? 1 : 2)) break;
             }
         }
-        return products.length() == 0 ? null : products;
+        if (products.length() == 0) return null;
+        cachedWorkspace = workspace;
+        cachedProducts = products;
+        cachedAt = android.os.SystemClock.elapsedRealtime();
+        return products;
     }
 
     private static JSONArray regionalTimeline(String extent, String defaultTime, Instant cutoff) throws JSONException {
