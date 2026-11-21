@@ -17,7 +17,8 @@ public final class SkyTrack extends View {
     public static final int BRIGHTEST_COLOR = 0xff8061ba;
     public static final int NOW_COLOR = 0xff536ab4;
     private final List<? extends SkyTrajectory.Point> points;
-    private final SkyTrajectory.Point start, peak, end, now, brightest;
+    private final SkyTrajectory.Point start, peak, end, brightest;
+    private SkyTrajectory.Point now;
     private final String[] compass;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
@@ -45,6 +46,12 @@ public final class SkyTrack extends View {
         if (Double.compare(aimAzimuth, azimuth) == 0 && Double.compare(aimElevation, elevation) == 0) return;
         aimAzimuth = azimuth;
         aimElevation = elevation;
+        postInvalidateOnAnimation();
+    }
+
+    public void setCurrentPosition(SkyTrajectory.Point position) {
+        if (now == position || (now != null && position != null && now.time == position.time)) return;
+        now = position;
         postInvalidateOnAnimation();
     }
 
@@ -102,8 +109,10 @@ public final class SkyTrack extends View {
         marker(canvas, start, START_COLOR, 4.5f);
         marker(canvas, peak, MAX_COLOR, 6.5f);
         marker(canvas, end, END_COLOR, 4.5f);
-        marker(canvas, now, NOW_COLOR, 4.5f);
         drawDirection(canvas, accent);
+        paint.setStyle(Paint.Style.FILL);
+        if (brightest != null) marker(canvas, now, getContext().getColor(R.color.sky_card), 7);
+        marker(canvas, now, NOW_COLOR, brightest == null ? 4.5f : 5.5f);
         drawAim(canvas);
     }
 

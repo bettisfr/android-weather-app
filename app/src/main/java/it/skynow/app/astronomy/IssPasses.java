@@ -26,10 +26,21 @@ public final class IssPasses {
         long start = now.getEpochSecond();
         long end = start + Duration.ofDays(7).getSeconds();
         Sample previous = observer.at(start);
+        // Recover the start and the full track when the app opens mid-pass.
+        if (previous.visible) {
+            for (long time = start - STEP; time >= start - 20 * 60; time -= STEP) {
+                Sample before = observer.at(time);
+                if (!before.visible) {
+                    previous = observer.boundary(before, previous);
+                    break;
+                }
+                previous = before;
+            }
+        }
         Sample rise = previous.visible ? previous : null;
         Sample peak = rise;
         Sample brightest = rise;
-        for (long time = start + STEP; time <= end; time += STEP) {
+        for (long time = previous.time + STEP; time <= end; time += STEP) {
             Sample current = observer.at(time);
             if (current.visible) {
                 if (rise == null) {
@@ -79,6 +90,24 @@ public final class IssPasses {
             this.brightest = brightest;
             this.magnitude = brightest.magnitude;
             this.track = track;
+        }
+
+        public boolean visibleAt(long second) {
+            return second >= rise.time && second <= set.time;
+        }
+
+        public SkyTrajectory.Point positionAt(long second) {
+            if (!visibleAt(second)) return null;
+            for (int i = 1; i < track.size(); i++) {
+                Sample after = track.get(i);
+                if (after.time < second) continue;
+                Sample before = track.get(i - 1);
+                double fraction = (double) (second - before.time) / (after.time - before.time);
+                double azimuth = before.azimuth + Math.IEEEremainder(after.azimuth - before.azimuth, 360) * fraction;
+                double elevation = before.elevation + (after.elevation - before.elevation) * fraction;
+                return new SkyTrajectory.Point(second, (azimuth + 360) % 360, elevation);
+            }
+            return null;
         }
     }
 
