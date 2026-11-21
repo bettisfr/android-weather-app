@@ -94,6 +94,34 @@ public final class SkyTrack extends View {
         marker(canvas, peak, MAX_COLOR, 6.5f);
         marker(canvas, end, END_COLOR, 4.5f);
         marker(canvas, now, NOW_COLOR, 4.5f);
+        drawCurrentDirection(canvas);
+    }
+
+    private void drawCurrentDirection(Canvas canvas) {
+        if (now == null || now.elevation < 0 || points.size() < 2) return;
+        int next = 1;
+        while (next < points.size() - 1 && points.get(next).time < now.time) next++;
+        SkyTrajectory.Point before = points.get(next - 1);
+        SkyTrajectory.Point after = points.get(next);
+        float dx = x(after) - x(before);
+        float dy = y(after) - y(before);
+        if (Math.hypot(dx, dy) < 0.01) return;
+
+        canvas.save();
+        canvas.translate(x(now), y(now));
+        canvas.rotate((float) Math.toDegrees(Math.atan2(dy, dx)));
+        path.rewind();
+        path.moveTo(8 * density, -4 * density);
+        path.lineTo(13 * density, 0);
+        path.lineTo(8 * density, 4 * density);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setColor(getContext().getColor(R.color.sky_subtle));
+        paint.setStrokeWidth(4.5f * density);
+        canvas.drawPath(path, paint);
+        paint.setColor(NOW_COLOR);
+        paint.setStrokeWidth(2.3f * density);
+        canvas.drawPath(path, paint);
+        canvas.restore();
     }
 
     private float x(SkyTrajectory.Point sample) {
