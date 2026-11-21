@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://tile.openstreetmap.org data:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://tile.openstreetmap.org data:">
 <link rel="stylesheet" href="leaflet.css">
 <style>
   :root { color-scheme:light; --page:#fafafa; --ink:#242d40; --accent:#435e94; --button:#dbe4f2; }
@@ -13,7 +13,9 @@
   .dark .leaflet-basemap-pane { filter:invert(1) hue-rotate(180deg) saturate(.65) brightness(.86); }
   footer { padding:10px 16px; display:grid; gap:5px; overflow:auto; }
   #legend { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; }
-  #band::before { content:''; display:inline-block; width:14px; height:8px; margin-inline-end:6px; background:#8958bd; border-radius:2px; }
+  #bands { display:flex; flex-wrap:wrap; gap:4px 12px; }
+  #coverage-status, #coverage-note { font-size:12px; }
+  .band::before { content:''; display:inline-block; width:14px; height:8px; margin-inline-end:6px; background:var(--band-color); border-radius:2px; }
   #local { display:grid; gap:3px; }
   a { color:var(--accent); }
   #details { justify-self:center; background:var(--button); padding:8px 14px; border-radius:24px; text-decoration:none; font-weight:600; }
@@ -22,7 +24,9 @@
 <body>
 <div id="map" role="region"></div>
 <footer>
-  <div id="legend"><span id="band"></span><a id="source">NASA / GSFC ↗</a></div>
+  <div id="legend"><div id="bands"></div><a id="source"></a></div>
+  <div id="coverage-status" role="status" hidden></div>
+  <div id="coverage-note" hidden></div>
   <div id="local"></div>
   <a id="details"></a>
 </footer>

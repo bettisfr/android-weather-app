@@ -2615,7 +2615,6 @@ public final class MainActivity extends Activity {
         LinearLayout entry = column();
         entry.setPadding(dp(11), dp(10), dp(11), dp(10));
         entry.setBackground(background(getColor(R.color.sky_subtle), 12));
-        boolean hasMap = !event.lunar && LocalDate.of(2027, 8, 2).equals(event.catalogDate());
         String eventUrl = event.detailsUrl(latitude, longitude);
         ArrayList<String> localDetails = new ArrayList<>();
         LinearLayout heading = row();
@@ -2626,7 +2625,7 @@ public final class MainActivity extends Activity {
         LinearLayout title = column();
         title.addView(label(eclipseTypeLabel(event.type), 15, ink));
         heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        heading.addView(hasMap ? skyTrackChevron() : astronomyLinkIcon());
+        heading.addView(skyTrackChevron());
         entry.addView(heading);
         ZonedDateTime start = event.start.atZone(zone);
         ZonedDateTime end = event.end.atZone(zone);
@@ -2670,15 +2669,21 @@ public final class MainActivity extends Activity {
             coverage.setPadding(0, dp(3), 0, 0);
             entry.addView(coverage);
         }
-        if (hasMap) {
-            astronomyCardAction(entry, () -> startActivity(new android.content.Intent(this, RadarActivity.class)
+        astronomyCardAction(entry, () -> openEclipseMap(event, eventUrl, localDetails));
+        addSpaced(parent, entry, 7);
+    }
+
+    private void openEclipseMap(EclipseCatalog.Event event, String url, ArrayList<String> localDetails) {
+        try {
+            startActivity(new android.content.Intent(this, RadarActivity.class)
                     .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
                     .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
-                    .putExtra("detailsUrl", eventUrl).putStringArrayListExtra("localDetails", localDetails)));
-        } else {
-            linkAstronomyCard(entry, eventUrl);
+                    .putExtra("eclipseDate", event.catalogDate().toString()).putExtra("lunarEclipse", event.lunar)
+                    .putExtra("lunarSamples", event.lunarVisibilitySamples().toString())
+                    .putExtra("detailsUrl", url).putStringArrayListExtra("localDetails", localDetails));
+        } catch (org.json.JSONException error) {
+            openAstronomyPage(url);
         }
-        addSpaced(parent, entry, 7);
     }
 
     private void addTransit(LinearLayout parent, TransitCatalog.Event event, ZoneId zone) {

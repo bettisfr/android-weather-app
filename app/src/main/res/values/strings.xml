@@ -298,6 +298,15 @@
     <string name="seismic_activity">Seismic activity</string>
     <string name="eclipse_map">Eclipse map</string>
     <string name="eclipse_map_title">Solar eclipse · %1$s</string>
+    <string name="lunar_eclipse_map_title">Lunar eclipse · %1$s</string>
+    <string name="eclipse_annularity_band">Path of annularity</string>
+    <string name="eclipse_mixed_band">Path of totality and annularity</string>
+    <string name="eclipse_partial_lunar_band">Part of the eclipse visible</string>
+    <string name="eclipse_partial_solar_band">Partial eclipse visible</string>
+    <string name="eclipse_whole_lunar_band">Entire eclipse visible</string>
+    <string name="eclipse_map_loading">Calculating approximate coverage…</string>
+    <string name="eclipse_map_approximate">Approximate visibility boundaries</string>
+    <string name="eclipse_map_unavailable">Coverage unavailable</string>
     <string name="eclipse_totality_band">Path of totality</string>
     <string name="eclipse_open_timeanddate">Open on Timeanddate</string>
     <string name="earthquake_map">Earthquake map</string>

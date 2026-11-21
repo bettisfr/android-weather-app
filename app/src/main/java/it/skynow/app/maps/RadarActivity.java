@@ -81,7 +81,9 @@ public final class RadarActivity extends Activity {
         back.setOnClickListener(view -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
         TextView title = new TextView(this);
-        title.setText(getString(layer.title, getIntent().getStringExtra("place")));
+        int titleResource = layer == Layer.ECLIPSE && getIntent().getBooleanExtra("lunarEclipse", false)
+                ? R.string.lunar_eclipse_map_title : layer.title;
+        title.setText(getString(titleResource, getIntent().getStringExtra("place")));
         title.setTextColor(ink);
         title.setTextSize(19);
         title.setPadding(0, dp(7), dp(12), dp(7));
@@ -91,6 +93,7 @@ public final class RadarActivity extends Activity {
         web = new WebView(this);
         web.setBackgroundColor(surface);
         web.getSettings().setJavaScriptEnabled(true);
+        if (layer == Layer.ECLIPSE) web.getSettings().setDomStorageEnabled(true);
         web.getSettings().setAllowFileAccess(false);
         web.getSettings().setAllowContentAccess(false);
         web.getSettings().setUserAgentString(web.getSettings().getUserAgentString() + " " + userAgent());
@@ -106,7 +109,8 @@ public final class RadarActivity extends Activity {
                 else if ("/radar/leaflet.js".equals(path) || "/radar/map.js".equals(path) || "/radar/radar.js".equals(path)
                         || "/radar/aurora.js".equals(path) || "/radar/satellite.js".equals(path)
                         || "/radar/earthquakes.js".equals(path) || "/radar/eclipse.js".equals(path)
-                        || "/radar/eclipse-path-2027.js".equals(path)) type = "application/javascript";
+                        || "/radar/eclipse-path-2027.js".equals(path) || "/radar/eclipse-geometry.js".equals(path)
+                        || "/radar/eclipse-elements.js".equals(path)) type = "application/javascript";
                 else return null;
                 try {
                     return new WebResourceResponse(type, "UTF-8", getAssets().open(path.substring(1)));
@@ -157,11 +161,22 @@ public final class RadarActivity extends Activity {
             result.put("language", getString(R.string.app_language_tag));
             result.put("updated", getString(R.string.map_updated));
             if (layer == Layer.ECLIPSE) {
+                boolean lunar = options.getBooleanExtra("lunarEclipse", false);
+                result.put("date", options.getStringExtra("eclipseDate"));
+                result.put("lunar", lunar);
+                result.put("contacts", new org.json.JSONArray(options.getStringExtra("lunarSamples")));
                 result.put("place", options.getStringExtra("place"));
                 result.put("detailsUrl", options.getStringExtra("detailsUrl"));
                 result.put("localDetails", new org.json.JSONArray(options.getStringArrayListExtra("localDetails")));
                 result.put("mapLabel", getString(R.string.eclipse_map));
-                result.put("band", getString(R.string.eclipse_totality_band));
+                result.put("totality", getString(R.string.eclipse_totality_band));
+                result.put("annularity", getString(R.string.eclipse_annularity_band));
+                result.put("mixed", getString(R.string.eclipse_mixed_band));
+                result.put("partial", getString(lunar ? R.string.eclipse_partial_lunar_band : R.string.eclipse_partial_solar_band));
+                result.put("whole", getString(R.string.eclipse_whole_lunar_band));
+                result.put("loading", getString(R.string.eclipse_map_loading));
+                result.put("approximate", getString(R.string.eclipse_map_approximate));
+                result.put("unavailable", getString(R.string.eclipse_map_unavailable));
                 result.put("openDetails", getString(R.string.eclipse_open_timeanddate));
                 return result;
             }

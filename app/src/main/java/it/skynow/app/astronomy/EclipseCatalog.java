@@ -43,10 +43,11 @@ public final class EclipseCatalog {
         final double shadowY;
         final double shadowRadius;
         final LocalDate catalogDate;
+        private final List<Contact> contacts;
 
         Event(String type, long start, long bestVisible, long end, boolean horizonLimited,
               boolean lunar, boolean penumbral, boolean estimatedPeak, double obscuration, long totalitySeconds,
-              double shadowX, double shadowY, double shadowRadius, LocalDate catalogDate) {
+              double shadowX, double shadowY, double shadowRadius, LocalDate catalogDate, List<Contact> contacts) {
             this.type = type;
             this.start = Instant.ofEpochSecond(start);
             this.maximum = Instant.ofEpochSecond(bestVisible);
@@ -61,6 +62,7 @@ public final class EclipseCatalog {
             this.shadowY = shadowY;
             this.shadowRadius = shadowRadius;
             this.catalogDate = catalogDate;
+            this.contacts = lunar ? new ArrayList<>(contacts) : java.util.Collections.emptyList();
         }
 
         public String detailsUrl(double latitude, double longitude) {
@@ -69,6 +71,24 @@ public final class EclipseCatalog {
 
         public LocalDate catalogDate() {
             return catalogDate;
+        }
+
+        public JSONArray lunarVisibilitySamples() throws org.json.JSONException {
+            JSONArray samples = new JSONArray();
+            if (contacts.isEmpty()) return samples;
+            long start = contacts.get(0).time;
+            long end = contacts.get(contacts.size() - 1).time;
+            int segment = 0;
+            for (long time = start; ; time = Math.min(end, time + 300)) {
+                while (segment + 1 < contacts.size() - 1 && contacts.get(segment + 1).time <= time) segment++;
+                Contact first = contacts.get(segment);
+                Contact last = contacts.get(segment + 1);
+                double step = last.time == first.time ? 0 : (double) (time - first.time) / (last.time - first.time);
+                double longitude = first.longitude + Math.IEEEremainder(last.longitude - first.longitude, 360) * step;
+                samples.put(new JSONArray().put(interpolate(first.latitude, last.latitude, step)).put(longitude)
+                        .put(interpolate(first.horizon, last.horizon, step)));
+                if (time == end) return samples;
+            }
         }
     }
 
@@ -262,7 +282,7 @@ public final class EclipseCatalog {
                 ? Instant.ofEpochSecond(peak.time).atOffset(ZoneOffset.UTC).toLocalDate() : LocalDate.parse(date);
         return new Event(type, visibleStart, bestVisible, visibleEnd, visibleStart > start.time || visibleEnd < end.time,
                 lunar, penumbral, estimatedPeak, obscuration, totalitySeconds, x / diskRadius, y / diskRadius,
-                shadowRadius / diskRadius, catalogDate);
+                shadowRadius / diskRadius, catalogDate, contacts);
     }
 
     private static Contact contact(JSONObject event, boolean lunar, double latitude, double longitude) throws org.json.JSONException {

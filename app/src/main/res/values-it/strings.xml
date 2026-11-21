@@ -297,6 +297,15 @@
     <string name="seismic_activity">Attività sismica</string>
     <string name="eclipse_map">Mappa dell’eclissi</string>
     <string name="eclipse_map_title">Eclissi solare · %1$s</string>
+    <string name="lunar_eclipse_map_title">Eclissi lunare · %1$s</string>
+    <string name="eclipse_annularity_band">Fascia di anularità</string>
+    <string name="eclipse_mixed_band">Fascia di totalità e anularità</string>
+    <string name="eclipse_partial_lunar_band">Visibile per parte dell’eclissi</string>
+    <string name="eclipse_partial_solar_band">Eclissi parziale visibile</string>
+    <string name="eclipse_whole_lunar_band">Visibile per tutta l’eclissi</string>
+    <string name="eclipse_map_loading">Calcolo dell’area di visibilità approssimativa…</string>
+    <string name="eclipse_map_approximate">Limiti di visibilità approssimativi</string>
+    <string name="eclipse_map_unavailable">Area di visibilità non disponibile</string>
     <string name="eclipse_totality_band">Fascia di totalità</string>
     <string name="eclipse_open_timeanddate">Apri su Timeanddate</string>
     <string name="earthquake_map">Mappa dei terremoti</string>
