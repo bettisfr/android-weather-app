@@ -706,6 +706,7 @@ public final class MainActivity extends Activity {
                 sun(daily, 0);
                 moon(daily, 0);
                 planets();
+                issPasses();
                 aurora();
                 eclipsesAndTransits();
                 return;
@@ -2096,6 +2097,70 @@ public final class MainActivity extends Activity {
         return Double.NaN;
     }
 
+    private void issPasses() {
+        LinearLayout tile = card();
+        tile.addView(label(getString(R.string.iss_passes), 16, ink));
+        TextView note = label(getString(R.string.iss_scope), 13, muted);
+        addSpaced(tile, note, 8);
+        TextView status = label(getString(R.string.iss_loading), 13, muted);
+        tile.addView(status);
+        addSpaced(page, tile, 9);
+        double lat = latitude;
+        double lon = longitude;
+        double height = data.optDouble("elevation");
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return IssPasses.upcoming(lat, lon, height, Instant.now());
+            } catch (Exception error) {
+                android.util.Log.w("SkyHere", "ISS predictions unavailable", error);
+                return null;
+            }
+        }).thenAccept(passes -> main.post(() -> {
+            if (isDestroyed() || !tile.isAttachedToWindow()) return;
+            if (passes == null || passes.isEmpty()) {
+                status.setText(passes == null ? R.string.iss_unavailable : R.string.iss_empty);
+                return;
+            }
+            tile.removeView(status);
+            LinearLayout rows = column();
+            tile.addView(rows);
+            Button more = moreButton();
+            tile.addView(more);
+            more.setOnClickListener(v -> appendIssPasses(rows, more, passes, zone));
+            appendIssPasses(rows, more, passes, zone);
+        }));
+    }
+
+    private void appendIssPasses(LinearLayout rows, Button more, List<IssPasses.Pass> passes, ZoneId zone) {
+        int start = rows.getChildCount();
+        int end = Math.min(start + ASTRONOMY_PAGE_SIZE, passes.size());
+        DateTimeFormatter dayFormat = shortDate(true);
+        DateTimeFormatter timeFormat = clockFormat();
+        for (int i = start; i < end; i++) {
+            IssPasses.Pass pass = passes.get(i);
+            ZonedDateTime rise = Instant.ofEpochSecond(pass.rise.time).atZone(zone);
+            ZonedDateTime set = Instant.ofEpochSecond(pass.set.time).atZone(zone);
+            String range = timeFormat.format(rise) + " – " + timeFormat.format(set);
+            if (!rise.toLocalDate().equals(set.toLocalDate())) range += getString(R.string.next_day_suffix);
+            long duration = pass.set.time - pass.rise.time;
+            LinearLayout entry = column();
+            entry.setPadding(dp(12), dp(8), dp(12), dp(8));
+            entry.setBackground(background(getColor(R.color.sky_subtle), 12));
+            entry.addView(label(dayFormat.format(rise) + " · " + range, 15, ink));
+            entry.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
+                    Math.round(pass.peak.elevation)), 13, muted));
+            entry.addView(label(getString(R.string.iss_directions, issBearing(pass.rise.azimuth),
+                    issBearing(pass.peak.azimuth), issBearing(pass.set.azimuth)), 13, muted));
+            addSpaced(rows, entry, 6);
+        }
+        more.setVisibility(end < passes.size() ? View.VISIBLE : View.GONE);
+    }
+
+    private String issBearing(double azimuth) {
+        return compassDirection(azimuth) + " " + (Math.round(azimuth) % 360) + "°";
+    }
+
     private void eclipsesAndTransits() {
         LinearLayout card = card();
         LinearLayout content = column();
@@ -2557,6 +2622,7 @@ public final class MainActivity extends Activity {
         addCredit(sources, R.string.satellite_credit, SatelliteImagery.EUMETSAT);
         addCredit(sources, R.string.satellite_mosaic_credit, SatelliteImagery.SOURCE);
         addCredit(sources, R.string.earthquake_credit, EarthquakeFeed.SOURCE);
+        addCredit(sources, R.string.iss_credit, "https://celestrak.org/NORAD/documentation/gp-data-formats.php");
         addCredit(sources, R.string.eclipse_data, "https://opale.imcce.fr/");
         addCredit(sources, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
     }
