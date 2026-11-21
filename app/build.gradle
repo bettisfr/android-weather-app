@@ -8,7 +8,7 @@ def gitBuild = rootProject.file('.git').exists() ? providers.exec {
 def buildDate = java.time.LocalDate.now().toString()
 
 android {
-    namespace 'it.meteo.locale'
+    namespace 'it.skynow.app'
     compileSdk 34
     defaultConfig {
         applicationId 'it.meteo.locale'
