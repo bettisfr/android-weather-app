@@ -2151,8 +2151,14 @@ public final class MainActivity extends Activity {
             heading.addView(label(dayFormat.format(rise) + " · " + range, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
             heading.addView(astronomyLinkIcon());
             entry.addView(heading);
-            entry.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
-                    Math.round(pass.peak.elevation), number(pass.magnitude, "%+.1f")), 13, muted));
+            LinearLayout details = row();
+            details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
+                    Math.round(pass.peak.elevation)), 13, muted), new LinearLayout.LayoutParams(0, -2, 1));
+            TextView magnitude = label(getString(R.string.iss_magnitude, number(pass.magnitude, "%+.1f")), 13, 0xff202735);
+            magnitude.setPaddingRelative(dp(7), dp(3), dp(7), dp(3));
+            magnitude.setBackground(background(issMagnitudeColor(pass.magnitude), 8));
+            details.addView(magnitude);
+            entry.addView(details);
             entry.addView(label(getString(R.string.iss_directions, issBearing(pass.rise.azimuth),
                     issBearing(pass.peak.azimuth), issBearing(pass.set.azimuth)), 13, muted));
             linkAstronomyCard(entry, issPassUrl(pass, zone));
@@ -2163,6 +2169,13 @@ public final class MainActivity extends Activity {
 
     private String issBearing(double azimuth) {
         return compassDirection(azimuth) + " " + (Math.round(azimuth) % 360) + "°";
+    }
+
+    private static int issMagnitudeColor(double magnitude) {
+        if (magnitude <= -3) return 0xffef9b64;
+        if (magnitude <= -2) return 0xffffd277;
+        if (magnitude <= -1) return 0xffb6cef1;
+        return 0xffe2e8f2;
     }
 
     private String issPassUrl(IssPasses.Pass pass, ZoneId zone) {

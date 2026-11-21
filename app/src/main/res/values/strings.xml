@@ -34,7 +34,8 @@
     <string name="iss_loading">Calculating ISS passes…</string>
     <string name="iss_empty">No visible passes in the next 7 days</string>
     <string name="iss_unavailable">ISS orbital data unavailable</string>
-    <string name="iss_details">%1$d min %2$02d s · Max elevation %3$d° · Peak mag. %4$s</string>
+    <string name="iss_details">%1$d min %2$02d s · Max elevation %3$d°</string>
+    <string name="iss_magnitude">Peak mag. %1$s</string>
     <string name="iss_directions">Appears %1$s · Peak %2$s · Disappears %3$s</string>
     <string name="iss_credit">ISS orbital data · CelesTrak</string>
     <string name="tab_weather">Weather</string>

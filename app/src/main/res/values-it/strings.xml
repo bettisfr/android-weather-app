@@ -34,7 +34,8 @@
     <string name="iss_loading">Calcolo dei passaggi della ISS…</string>
     <string name="iss_empty">Nessun passaggio visibile nei prossimi 7 giorni</string>
     <string name="iss_unavailable">Dati orbitali della ISS non disponibili</string>
-    <string name="iss_details">%1$d min %2$02d s · Elevazione max %3$d° · Mag. al picco %4$s</string>
+    <string name="iss_details">%1$d min %2$02d s · Elevazione max %3$d°</string>
+    <string name="iss_magnitude">Mag. al picco %1$s</string>
     <string name="iss_directions">Compare %1$s · Culmina %2$s · Scompare %3$s</string>
     <string name="iss_credit">Dati orbitali ISS · CelesTrak</string>
     <string name="tab_weather">Meteo</string>
