@@ -1853,9 +1853,22 @@ public final class MainActivity extends Activity {
             planetTitle.addView(chevron);
             entry.addView(planetTitle);
             TextView now = astronomyBadge("");
-            addAstronomyBadge(entry, now, 6);
             TextView magnitude = astronomyBadge("");
-            addAstronomyBadge(entry, magnitude, 4);
+            LinearLayout badges = largeText() ? column() : row();
+            if (largeText()) {
+                badges.addView(now, new LinearLayout.LayoutParams(-2, -2));
+                LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(-2, -2);
+                right.gravity = Gravity.END;
+                right.topMargin = dp(4);
+                badges.addView(magnitude, right);
+            } else {
+                badges.addView(now, new LinearLayout.LayoutParams(-2, -2));
+                badges.addView(new View(this), new LinearLayout.LayoutParams(0, dp(1), 1));
+                LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(-2, -2);
+                right.setMarginStart(dp(6));
+                badges.addView(magnitude, right);
+            }
+            addSpaced(entry, badges, 6);
             TextView position = label("", 13, ink);
             position.setPadding(0, dp(4), 0, 0);
             entry.addView(position);
@@ -2267,15 +2280,16 @@ public final class MainActivity extends Activity {
     }
 
     private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
+        LocalDate date = Instant.ofEpochSecond(pass.rise.time).atZone(zone).toLocalDate();
         showSkyTrack(getString(R.string.iss_track), period, panel -> {
             TextView magnitude = astronomyBadge("");
             setMagnitudeBadge(magnitude, pass.magnitude);
             addAstronomyBadge(panel, magnitude, 6);
             addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
-            addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone);
-            addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone);
-            addSkyTrackPoint(panel, R.string.iss_track_brightest, pass.brightest, SkyTrack.BRIGHTEST_COLOR, zone);
-            addSkyTrackPoint(panel, R.string.iss_track_end, pass.set, SkyTrack.END_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
+            addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
+            addSkyTrackPoint(panel, R.string.iss_track_brightest, pass.brightest, SkyTrack.BRIGHTEST_COLOR, zone, date);
+            addSkyTrackPoint(panel, R.string.iss_track_end, pass.set, SkyTrack.END_COLOR, zone, date);
 
             Button link = iconActionButton(R.string.iss_open_heavens_above, R.drawable.ic_open_external,
                     () -> openAstronomyPage(url));
@@ -2291,16 +2305,17 @@ public final class MainActivity extends Activity {
         Instant now = Instant.now();
         if (planet == null && SkyPosition.at(now, latitude, longitude, moon).zenith >= 90) return;
         SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
-        String date = now.atZone(zone).format(shortDate(true));
-        showSkyTrack(getString(R.string.daily_sky_track, name), date, panel -> {
+        ZonedDateTime localNow = now.atZone(zone);
+        LocalDate date = localNow.toLocalDate();
+        showSkyTrack(getString(R.string.daily_sky_track, name), localNow.format(shortDate(true)), panel -> {
             addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
             if (track.peak.elevation < 0) {
                 panel.addView(label(getString(R.string.sky_track_no_path), 14, muted));
             }
-            addSkyTrackPoint(panel, R.string.sky_track_rise, track.rise, SkyTrack.START_COLOR, zone);
-            addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone);
-            addSkyTrackPoint(panel, R.string.sky_track_set, track.set, SkyTrack.END_COLOR, zone);
-            addSkyTrackPoint(panel, R.string.sky_track_now, track.now, SkyTrack.NOW_COLOR, zone);
+            addSkyTrackPoint(panel, R.string.sky_track_rise, track.rise, SkyTrack.START_COLOR, zone, date);
+            addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone, date);
+            addSkyTrackPoint(panel, R.string.sky_track_set, track.set, SkyTrack.END_COLOR, zone, date);
+            addSkyTrackPoint(panel, R.string.sky_track_now, track.now, SkyTrack.NOW_COLOR, zone, date);
         });
     }
 
@@ -2337,7 +2352,8 @@ public final class MainActivity extends Activity {
                 new LinearLayout.LayoutParams(-1, dp(236)));
     }
 
-    private void addSkyTrackPoint(LinearLayout panel, int title, SkyTrajectory.Point point, int color, ZoneId zone) {
+    private void addSkyTrackPoint(LinearLayout panel, int title, SkyTrajectory.Point point, int color,
+                                  ZoneId zone, LocalDate date) {
         if (point == null) return;
         LinearLayout item = row();
         View marker = new View(this);
@@ -2345,7 +2361,9 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(dp(8), dp(8));
         markerSize.setMarginEnd(dp(8));
         item.addView(marker, markerSize);
-        String time = clockFormat().format(Instant.ofEpochSecond(point.time).atZone(zone));
+        ZonedDateTime localTime = Instant.ofEpochSecond(point.time).atZone(zone);
+        String time = localTime.format(clockFormat());
+        if (!localTime.toLocalDate().equals(date)) time = localTime.format(shortDate(false)) + " " + time;
         String position = point.elevation >= 0 ? issBearing(point.azimuth) + " · " + Math.round(point.elevation) + "°"
                 : getString(R.string.planet_below_horizon);
         String details = getString(title) + " · " + time + " · " + position;
