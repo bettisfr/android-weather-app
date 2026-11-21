@@ -29,6 +29,8 @@
     <string name="now">Adesso</string>
     <string name="current_conditions">Condizioni attuali</string>
     <string name="astronomy">Astronomia</string>
+    <string name="tab_weather">Meteo</string>
+    <string name="tab_earthquakes">Terremoti</string>
     <string name="weather_data">Dati meteo · Open-Meteo</string>
     <string name="today">Oggi</string>
     <string name="daily_conditions">Condizioni del giorno</string>

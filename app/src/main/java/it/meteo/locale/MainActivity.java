@@ -112,6 +112,10 @@ public final class MainActivity extends Activity {
     private static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
     private static final double[] PRESSURE_FACTORS = {1, 1, 0.029529983, 0.750061683};
     private int day = -1;
+    private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
+    private DashboardTab dashboardTab = DashboardTab.WEATHER;
+    private final int[] dashboardOffsets = new int[DashboardTab.values().length];
+    private Button earthquakeTabButton;
     private int homeScroll;
     private boolean choosingLocation;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -213,6 +217,11 @@ public final class MainActivity extends Activity {
             deviceLatitude = state.getDouble("deviceLatitude", Double.NaN);
             deviceLongitude = state.getDouble("deviceLongitude", Double.NaN);
             deviceCountry = state.getString("deviceCountry", "");
+            dashboardTab = DashboardTab.values()[state.getInt("dashboardTab", 0)];
+            int[] offsets = state.getIntArray("dashboardOffsets");
+            if (offsets != null && offsets.length == dashboardOffsets.length) {
+                System.arraycopy(offsets, 0, dashboardOffsets, 0, offsets.length);
+            }
             load();
         } else {
             currentLocation(!prefs.getBoolean("askedForLocation", false));
@@ -231,6 +240,9 @@ public final class MainActivity extends Activity {
         state.putDouble("deviceLatitude", deviceLatitude);
         state.putDouble("deviceLongitude", deviceLongitude);
         state.putString("deviceCountry", deviceCountry);
+        if (day < 0 && !choosingLocation) dashboardOffsets[dashboardTab.ordinal()] = scroll.getScrollY();
+        state.putInt("dashboardTab", dashboardTab.ordinal());
+        state.putIntArray("dashboardOffsets", dashboardOffsets);
     }
 
     private void currentLocation(boolean askPermission) {
@@ -551,7 +563,7 @@ public final class MainActivity extends Activity {
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                canPullToRefresh = refreshIndicator != null && !forecastLoading && locationListener == null
+                canPullToRefresh = dashboardTab == DashboardTab.WEATHER && refreshIndicator != null && !forecastLoading && locationListener == null
                         && !scroll.canScrollVertically(-1);
                 pullStartX = event.getX();
                 pullStartY = event.getY();
@@ -608,6 +620,7 @@ public final class MainActivity extends Activity {
         airQualityMapButton = null;
         earthquakeTitle = null;
         earthquakePanel = null;
+        earthquakeTabButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
         if (phoneDirection != null) {
@@ -653,6 +666,21 @@ public final class MainActivity extends Activity {
             screen.addView(toolbar);
             screen.addView(forecastView, new LinearLayout.LayoutParams(-1, 0, 1));
             setContentView(screen);
+        } else if (data != null && !choosingLocation) {
+            LinearLayout screen = column();
+            screen.setBackgroundColor(surfaceColor);
+            LinearLayout top = row();
+            top.setPadding(dp(16), dp(6), dp(16), dp(4));
+            top.addView(placeTitle(), new LinearLayout.LayoutParams(0, -2, 1));
+            TextView settings = button("⋮", this::settings);
+            settings.setTextSize(24);
+            settings.setMinWidth(dp(46));
+            settings.setContentDescription(getString(R.string.settings));
+            top.addView(settings);
+            screen.addView(top);
+            screen.addView(forecastView, new LinearLayout.LayoutParams(-1, 0, 1));
+            screen.addView(dashboardNavigation());
+            setContentView(screen);
         } else {
             setContentView(forecastView);
         }
@@ -660,10 +688,31 @@ public final class MainActivity extends Activity {
 
     private void render() {
         choosingLocation = false;
+        if (dashboardTab == DashboardTab.EARTHQUAKES && !showsEarthquakeTab()) dashboardTab = DashboardTab.WEATHER;
         layout();
         JSONObject current = data.optJSONObject("current");
         JSONObject hourly = data.optJSONObject("hourly");
         JSONObject daily = data.optJSONObject("daily");
+        if (day < 0) {
+            ScrollView target = scroll;
+            int offset = dashboardOffsets[dashboardTab.ordinal()];
+            target.post(() -> target.scrollTo(0, offset));
+            if (dashboardTab == DashboardTab.ASTRONOMY) {
+                sun(daily, 0);
+                moon(daily, 0);
+                planets();
+                aurora();
+                eclipsesAndTransits();
+                return;
+            }
+            if (dashboardTab == DashboardTab.EARTHQUAKES) {
+                earthquakeTitle = title(getString(R.string.seismic_activity));
+                earthquakePanel = card();
+                page.addView(earthquakePanel);
+                renderEarthquakes();
+                return;
+            }
+        }
         int todayHour = currentHour(current, hourly);
         String today = at(daily, "time", 0);
         double rainRemaining = remainingMaximum(hourly, "precipitation_probability", todayHour, today);
@@ -676,14 +725,6 @@ public final class MainActivity extends Activity {
             summaries[index] = summarizeWeather(hourly, index == 0 ? todayHour : 0, date, fallback);
         }
         if (day < 0) {
-            LinearLayout top = row();
-            top.addView(placeTitle(), new LinearLayout.LayoutParams(0, -2, 1));
-            TextView settings = button("⋮", this::settings);
-            settings.setTextSize(24);
-            settings.setMinWidth(dp(46));
-            settings.setContentDescription(getString(R.string.settings));
-            top.addView(settings);
-            page.addView(top);
             if (locationNotice != null) page.addView(label(locationNotice, 13, muted));
             if (cachedForecastAt != null) {
                 ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
@@ -780,16 +821,6 @@ public final class MainActivity extends Activity {
             airQuality();
             updateItalianMaps();
             details(hourly, daily, 0, todayHour, todayHour + 24, true);
-            title(getString(R.string.astronomy));
-            sun(daily, 0);
-            moon(daily, 0);
-            planets();
-            aurora();
-            eclipsesAndTransits();
-            earthquakeTitle = title(getString(R.string.seismic_activity));
-            earthquakePanel = card();
-            page.addView(earthquakePanel);
-            renderEarthquakes();
         } else {
             LinearLayout dates = carousel(page);
             View selectedChip = null;
@@ -902,6 +933,44 @@ public final class MainActivity extends Activity {
         int visibility = inItaly() ? View.VISIBLE : View.GONE;
         if (forecastMaps != null) forecastMaps.setVisibility(visibility);
         if (airQualityMapButton != null) airQualityMapButton.setVisibility(visibility);
+        if (earthquakeTabButton != null) earthquakeTabButton.setVisibility(showsEarthquakeTab() ? View.VISIBLE : View.GONE);
+    }
+
+    private boolean showsEarthquakeTab() {
+        return inItaly() && (deviceCountry.isEmpty() || "IT".equalsIgnoreCase(deviceCountry));
+    }
+
+    private LinearLayout dashboardNavigation() {
+        LinearLayout navigation = row();
+        navigation.setBackgroundColor(getColor(R.color.sky_card));
+        navigation.setPadding(dp(8), dp(6), dp(8), dp(6));
+        for (DashboardTab tab : DashboardTab.values()) {
+            int label;
+            switch (tab) {
+                case ASTRONOMY: label = R.string.astronomy; break;
+                case EARTHQUAKES: label = R.string.tab_earthquakes; break;
+                default: label = R.string.tab_weather;
+            }
+            boolean selected = tab == dashboardTab;
+            Button item = actionButton(getString(label), getColor(selected ? R.color.sky_selected : R.color.sky_card), 12);
+            item.setSelected(selected);
+            item.setMinHeight(dp(48));
+            item.setPadding(dp(3), dp(6), dp(3), dp(6));
+            item.setOnClickListener(v -> switchDashboardTab(tab));
+            if (tab == DashboardTab.EARTHQUAKES) {
+                earthquakeTabButton = item;
+                item.setVisibility(showsEarthquakeTab() ? View.VISIBLE : View.GONE);
+            }
+            navigation.addView(item, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        return navigation;
+    }
+
+    private void switchDashboardTab(DashboardTab tab) {
+        if (tab == dashboardTab) return;
+        dashboardOffsets[dashboardTab.ordinal()] = scroll.getScrollY();
+        dashboardTab = tab;
+        render();
     }
 
     private void openItalianMap(RadarActivity.Layer layer) {
@@ -918,7 +987,7 @@ public final class MainActivity extends Activity {
     private void renderEarthquakes() {
         LinearLayout panel = earthquakePanel;
         if (panel == null) return;
-        boolean show = inItaly() && (deviceCountry.isEmpty() || "IT".equalsIgnoreCase(deviceCountry));
+        boolean show = showsEarthquakeTab();
         earthquakeTitle.setVisibility(show ? View.VISIBLE : View.GONE);
         panel.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
@@ -2606,6 +2675,7 @@ public final class MainActivity extends Activity {
     }
 
     private void locations() {
+        if (data != null && day < 0 && !choosingLocation) dashboardOffsets[dashboardTab.ordinal()] = scroll.getScrollY();
         stopLocating();
         choosingLocation = true;
         layout();
@@ -2794,16 +2864,20 @@ public final class MainActivity extends Activity {
     }
 
     private void home() {
+        boolean returningFromDay = day >= 0;
         day = -1;
         choosingLocation = false;
         if (data == null) { load(); return; }
         render();
-        ScrollView view = scroll;
-        view.post(() -> view.scrollTo(0, homeScroll));
+        if (returningFromDay) {
+            ScrollView view = scroll;
+            view.post(() -> view.scrollTo(0, homeScroll));
+        }
     }
 
     @Override public void onBackPressed() {
         if (day >= 0 || choosingLocation) home();
+        else if (data != null && dashboardTab != DashboardTab.WEATHER) switchDashboardTab(DashboardTab.WEATHER);
         else super.onBackPressed();
     }
 
