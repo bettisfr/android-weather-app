@@ -1633,9 +1633,7 @@ public final class MainActivity extends Activity {
 
     private void sun(JSONObject daily, int index) {
         LinearLayout tile = card();
-        android.widget.ImageView sunIcon = new android.widget.ImageView(this);
-        sunIcon.setImageResource(R.drawable.ic_sun_astronomy);
-        sunTrackHeading = addSkyTrackHeading(tile, sunIcon, getString(R.string.sun),
+        sunTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_sun_astronomy), getString(R.string.sun),
                 () -> showDailySkyTrack(getString(R.string.sun), false, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
@@ -1967,7 +1965,7 @@ public final class MainActivity extends Activity {
         heading.setBaselineAligned(false);
         LinearLayout summary = column();
         summary.setPaddingRelative(0, 0, dp(8), 0);
-        summary.addView(label(getString(R.string.aurora), 16, ink));
+        summary.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), getString(R.string.aurora)));
         auroraStatus = label("", 15, ink);
         auroraStatus.setPadding(0, dp(10), 0, 0);
         summary.addView(auroraStatus);
@@ -2173,7 +2171,7 @@ public final class MainActivity extends Activity {
 
     private void issPasses() {
         LinearLayout tile = card();
-        tile.addView(label(getString(R.string.iss_passes), 16, ink));
+        tile.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_iss_astronomy), getString(R.string.iss_passes)));
         TextView note = label(getString(R.string.iss_scope), 13, muted);
         addSpaced(tile, note, 8);
         TextView status = label(getString(R.string.iss_loading), 13, muted);
@@ -2259,11 +2257,22 @@ public final class MainActivity extends Activity {
         heading.addView(icon, iconSize);
     }
 
-    private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
+    private View astronomyTitleIcon(int drawable) {
+        android.widget.ImageView icon = new android.widget.ImageView(this);
+        icon.setImageResource(drawable);
+        return icon;
+    }
+
+    private LinearLayout astronomyTitle(View icon, String name) {
         LinearLayout heading = row();
-        heading.setMinimumHeight(dp(32));
         addCelestialTitleIcon(heading, icon);
         heading.addView(label(name, 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        return heading;
+    }
+
+    private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
+        LinearLayout heading = astronomyTitle(icon, name);
+        heading.setMinimumHeight(dp(32));
         heading.addView(skyTrackChevron());
         astronomyCardAction(heading, open);
         panel.addView(heading);
