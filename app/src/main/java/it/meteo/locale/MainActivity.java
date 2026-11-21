@@ -2162,7 +2162,7 @@ public final class MainActivity extends Activity {
             String appears = issBearing(pass.rise.azimuth);
             String culminates = issBearing(pass.peak.azimuth);
             String disappears = issBearing(pass.set.azimuth);
-            TextView directions = label(appears + " → " + culminates + " → " + disappears, 13, muted);
+            TextView directions = label(getString(R.string.iss_directions_short, appears, culminates, disappears), 13, muted);
             directions.setContentDescription(getString(R.string.iss_directions, appears, culminates, disappears));
             entry.addView(directions);
             linkAstronomyCard(entry, issPassUrl(pass, zone));

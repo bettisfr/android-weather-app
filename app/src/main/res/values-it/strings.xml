@@ -37,6 +37,7 @@
     <string name="iss_details">%1$d min %2$02d s · Elevazione max %3$d°</string>
     <string name="iss_magnitude">Magnitudine %1$s</string>
     <string name="iss_directions">Compare %1$s · Culmina %2$s · Scompare %3$s</string>
+    <string name="iss_directions_short">Da %1$s · Max %2$s · A %3$s</string>
     <string name="iss_credit">Dati orbitali ISS · CelesTrak</string>
     <string name="tab_weather">Meteo</string>
     <string name="tab_earthquakes">Terremoti</string>
