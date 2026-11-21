@@ -16,6 +16,7 @@ import it.skynow.app.astronomy.TransitCatalog;
 import it.skynow.app.maps.RadarActivity;
 import it.skynow.app.maps.SatelliteImagery;
 import it.skynow.app.seismic.EarthquakeFeed;
+import it.skynow.app.ui.SignalColors;
 import it.skynow.app.weather.AirQualityBand;
 import it.skynow.app.weather.ForecastCache;
 import it.skynow.app.weather.MeteoAlarm;
@@ -138,7 +139,6 @@ public final class MainActivity extends Activity {
     private static final double[] WIND_FACTORS = {1, 0.621371, 1.0 / 3.6, 1.0 / 1.852};
     private static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
     private static final double[] PRESSURE_FACTORS = {1, 1, 0.029529983, 0.750061683};
-    private static final int EXTREME_MAGNITUDE_COLOR = 0xffd6bef3;
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
     private DashboardTab dashboardTab = DashboardTab.WEATHER;
@@ -1136,9 +1136,9 @@ public final class MainActivity extends Activity {
             entry.setBackground(background(surfaceColor, 12));
             LinearLayout heading = row();
             heading.setGravity(Gravity.TOP);
-            TextView magnitude = label(event.magnitudeType + " " + number(event.magnitude, "%.1f"), 13, 0xff000000);
+            TextView magnitude = label(event.magnitudeType + " " + number(event.magnitude, "%.1f"), 13, ink);
             magnitude.setPadding(dp(5), dp(2), dp(5), dp(2));
-            magnitude.setBackground(background(EarthquakeFeed.magnitudeColor(event.magnitude), 6));
+            magnitude.setBackground(background(SignalColors.tint(EarthquakeFeed.magnitudeColor(event.magnitude)), 6));
             heading.addView(magnitude);
             TextView zone = label(event.zone, 15, ink);
             LinearLayout.LayoutParams zoneSize = new LinearLayout.LayoutParams(0, -2, 1);
@@ -1202,14 +1202,14 @@ public final class MainActivity extends Activity {
             }
             LinearLayout banner = card();
             String event = warning.event.toLowerCase(Locale.ROOT);
-            int color = event.startsWith("red ") ? getColor(R.color.alert_red)
-                    : event.startsWith("orange ") ? getColor(R.color.alert_orange) : getColor(R.color.alert_yellow);
-            banner.setBackground(background(color, 12));
-            TextView heading = label(warningTitle(warning.event), 16, 0xff322414);
+            int color = event.startsWith("red ") ? SignalColors.RED
+                    : event.startsWith("orange ") ? SignalColors.ORANGE : SignalColors.YELLOW;
+            banner.setBackground(background(SignalColors.tint(color), 12));
+            TextView heading = label(warningTitle(warning.event), 16, ink);
             heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             banner.addView(heading);
             TextView details = label(getString(R.string.regional_warning_validity, warning.area,
-                    validity.format(warning.start), validity.format(warning.expires)), 13, 0xff322414);
+                    validity.format(warning.start), validity.format(warning.expires)), 13, ink);
             details.setPadding(0, dp(4), 0, 0);
             banner.addView(details);
             banner.setOnClickListener(v -> startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
@@ -1476,7 +1476,7 @@ public final class MainActivity extends Activity {
             marker.setBounds(0, 0, dp(10), dp(10));
             index.setCompoundDrawablesRelative(marker, null, null, null);
             index.setCompoundDrawablePadding(dp(7));
-            index.setBackground(background((band.color & 0x00ffffff) | 0x30000000, 9));
+            index.setBackground(background(SignalColors.tint(band.color), 9));
             index.setPaddingRelative(dp(9), dp(4), dp(9), dp(4));
             particles.setText(getString(R.string.air_quality_particles, number(result.optDouble("pm2_5"), "%.1f"),
                     number(result.optDouble("pm10"), "%.1f")));
@@ -1885,9 +1885,7 @@ public final class MainActivity extends Activity {
             chevronSize.setMarginStart(dp(5));
             planetTitle.addView(chevron, chevronSize);
             entry.addView(planetTitle);
-            TextView now = astronomyBadge(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
-            now.setTextColor(getColor(R.color.sky_observing));
-            now.setBackground(background(getColor(R.color.sky_background), 8));
+            TextView now = observingBadge(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
             LinearLayout.LayoutParams nowSize = new LinearLayout.LayoutParams(-2, -2);
             nowSize.topMargin = dp(5);
             entry.addView(now, nowSize);
@@ -2085,7 +2083,7 @@ public final class MainActivity extends Activity {
         View bar = new View(this);
         android.graphics.drawable.ClipDrawable fill = new android.graphics.drawable.ClipDrawable(
                 new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                        new int[]{0xff41a872, 0xffe6b83b, 0xffdf5745}),
+                        new int[]{SignalColors.GREEN, SignalColors.YELLOW, SignalColors.RED}),
                 Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
         bar.setBackground(new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{
                 background(getColor(R.color.sky_selected), 3), fill}));
@@ -2286,9 +2284,7 @@ public final class MainActivity extends Activity {
     }
 
     private TextView issVisibilityBadge() {
-        TextView badge = astronomyBadge(getString(R.string.iss_visible_now));
-        badge.setTextColor(getColor(R.color.sky_observing));
-        badge.setBackground(background(getColor(R.color.sky_background), 8));
+        TextView badge = observingBadge(getString(R.string.iss_visible_now));
         badge.setVisibility(View.GONE);
         return badge;
     }
@@ -2356,11 +2352,16 @@ public final class MainActivity extends Activity {
         return badge;
     }
 
+    private TextView observingBadge(String text) {
+        TextView badge = astronomyBadge(text);
+        badge.setTextColor(getColor(R.color.sky_observing));
+        badge.setBackground(background(SignalColors.tint(SignalColors.GREEN), 8));
+        return badge;
+    }
+
     private void setMagnitudeBadge(TextView badge, double magnitude, int fill) {
         badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
-        boolean colored = fill != android.graphics.Color.TRANSPARENT;
-        badge.setTextColor(colored ? 0xff202735 : muted);
-        badge.setBackground(colored ? background(fill, 8) : null);
+        badge.setBackground(background(SignalColors.tint(fill), 8));
     }
 
     private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
@@ -2408,7 +2409,7 @@ public final class MainActivity extends Activity {
         if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
             period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
         }
-        int fill = planet == null ? EXTREME_MAGNITUDE_COLOR : magnitudeColor(magnitude);
+        int fill = planet == null ? SignalColors.PURPLE : magnitudeColor(magnitude);
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
             if (observingWindows != null) {
                 addSpaced(panel, label(observingWindows.toString(), 13, accent), 6);
@@ -2457,9 +2458,6 @@ public final class MainActivity extends Activity {
         if (Double.isFinite(magnitude)) {
             TextView badge = astronomyBadge("");
             setMagnitudeBadge(badge, magnitude, magnitudeFill);
-            if (magnitudeFill == android.graphics.Color.TRANSPARENT) {
-                badge.setBackground(background(getColor(R.color.sky_subtle), 8));
-            }
             LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
             badgeSize.setMarginStart(dp(8));
             summary.addView(badge, badgeSize);
@@ -2536,11 +2534,11 @@ public final class MainActivity extends Activity {
     }
 
     private static int magnitudeColor(double magnitude) {
-        if (magnitude <= -4) return 0xfff28b92;
-        if (magnitude <= -3) return 0xffef9b64;
-        if (magnitude <= -2) return 0xffffd277;
-        if (magnitude <= -1) return 0xffb6cef1;
-        return 0xffe2e8f2;
+        if (magnitude <= -4) return SignalColors.RED;
+        if (magnitude <= -3) return SignalColors.ORANGE;
+        if (magnitude <= -2) return SignalColors.YELLOW;
+        if (magnitude <= -1) return SignalColors.BLUE;
+        return SignalColors.GRAY;
     }
 
     private String issPassUrl(IssPasses.Pass pass, ZoneId zone) {

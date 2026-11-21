@@ -1,5 +1,6 @@
 package it.skynow.app.seismic;
 
+import it.skynow.app.ui.SignalColors;
 import it.skynow.app.net.HttpText;
 
 import android.os.SystemClock;
@@ -28,11 +29,11 @@ public final class EarthquakeFeed {
     private static long cacheTime;
     private static List<Event> cachedEvents;
     private static final MagnitudeBand[] BANDS = {
-            new MagnitudeBand(2, "< 2", 4, 0xff2ca764),
-            new MagnitudeBand(3, "2–<3", 6, 0xff83b83f),
-            new MagnitudeBand(4, "3–<4", 8, 0xffe5bd36),
-            new MagnitudeBand(5, "4–<5", 10, 0xffe8872d),
-            new MagnitudeBand(Double.POSITIVE_INFINITY, "≥ 5", 12, 0xffd84b53)
+            new MagnitudeBand(2, "< 2", 4, SignalColors.GREEN),
+            new MagnitudeBand(3, "2–<3", 6, SignalColors.LIME),
+            new MagnitudeBand(4, "3–<4", 8, SignalColors.YELLOW),
+            new MagnitudeBand(5, "4–<5", 10, SignalColors.ORANGE),
+            new MagnitudeBand(Double.POSITIVE_INFINITY, "≥ 5", 12, SignalColors.RED)
     };
 
     public static int magnitudeColor(double magnitude) {

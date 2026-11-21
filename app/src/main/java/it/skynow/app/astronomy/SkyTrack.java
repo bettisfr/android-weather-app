@@ -1,6 +1,7 @@
 package it.skynow.app.astronomy;
 
 import it.skynow.app.R;
+import it.skynow.app.ui.SignalColors;
 
 import android.content.Context;
 import android.graphics.Canvas;
@@ -14,11 +15,11 @@ import android.view.View;
 import java.util.List;
 
 public final class SkyTrack extends View {
-    public static final int START_COLOR = 0xff228465;
-    public static final int MAX_COLOR = 0xffbf751b;
-    public static final int END_COLOR = 0xffb14d74;
-    public static final int BRIGHTEST_COLOR = 0xff8061ba;
-    public static final int NOW_COLOR = 0xff536ab4;
+    public static final int START_COLOR = SignalColors.GREEN;
+    public static final int MAX_COLOR = SignalColors.ORANGE;
+    public static final int END_COLOR = SignalColors.DEEP_RED;
+    public static final int BRIGHTEST_COLOR = SignalColors.PURPLE;
+    public static final int NOW_COLOR = SignalColors.BLUE;
     private static final float MAX_ZOOM = 4;
     private final List<? extends SkyTrajectory.Point> points;
     private final SkyTrajectory.Point start, peak, end, brightest;
