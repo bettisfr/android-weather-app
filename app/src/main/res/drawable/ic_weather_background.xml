@@ -5,8 +5,8 @@
     <path android:pathData="M0,0H108V108H0Z">
         <aapt:attr name="android:fillColor">
             <gradient android:type="linear" android:startX="18" android:startY="8"
-                android:endX="92" android:endY="104" android:startColor="#244b85"
-                android:endColor="#101e3d" />
+                android:endX="92" android:endY="104" android:startColor="#def6ff"
+                android:endColor="#78addc" />
         </aapt:attr>
     </path>
 </vector>
