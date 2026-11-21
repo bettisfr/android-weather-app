@@ -6,6 +6,7 @@ const observerEccentricitySquared = .00669437999014;
 const centralBand = 7;
 const coverageStep = .5;
 const centralStep = .25;
+const solarThresholds = [.00001, .2, .4, .6, .8, .9];
 
 function observer(latitude) {
     const phi = latitude * radians;
@@ -146,19 +147,20 @@ function solarGeometry(date, useExactPath) {
     if (!elements) return null;
     const [type, latitude, longitude, , , , , , , , , , partialSlope, centralSlope] = elements;
     const samples = solarSamples(elements, 3);
-    const thresholds = [.2, .4, .6, .8, .9];
-    const bands = coverageBands(coverageStep, (_row, _column, horizontal, vertical, sinLon, cosLon) => {
+    const width = 360 / coverageStep;
+    const field = new Float32Array(width * (2 * maxLatitude / coverageStep));
+    const bands = coverageBands(coverageStep, (row, column, horizontal, vertical, sinLon, cosLon) => {
         let maximum = 0;
         for (const sample of samples) {
             maximum = Math.max(maximum, solarObscuration(sample, horizontal, vertical, sinLon, cosLon,
                 partialSlope, centralSlope));
-            if (maximum >= .9) return 6;
+            if (maximum === 1) break;
         }
-        if (maximum <= 0) return 0;
-        return 1 + thresholds.filter(threshold => maximum >= threshold).length;
+        field[row * width + column] = maximum;
+        return 0;
     });
     if (!useExactPath && /[ATH]/.test(type)) bands.push(...centralBands(solarSamples(elements, .75), centralSlope));
-    return {type, bands, center: [latitude, longitude]};
+    return {type, bands, field, center: [latitude, longitude]};
 }
 
 function horizonGeometry(contacts) {
@@ -247,6 +249,75 @@ function smoothRing(ring) {
     return ring;
 }
 
+function solarContour(field, threshold) {
+    const width = 360 / coverageStep;
+    const height = 2 * maxLatitude / coverageStep;
+    const stride = width + 2;
+    const links = new Map();
+    const vertices = new Map();
+    function sample(x, y) {
+        return x > 0 && x <= width && y > 0 && y <= height ? field[(y - 1) * width + x - 1] : 0;
+    }
+    function connect(first, second) {
+        if (!links.has(first)) links.set(first, []);
+        if (!links.has(second)) links.set(second, []);
+        links.get(first).push(second);
+        links.get(second).push(first);
+    }
+    for (let y = 0; y <= height; y++) {
+        for (let x = 0; x <= width; x++) {
+            const values = [sample(x, y), sample(x + 1, y), sample(x + 1, y + 1), sample(x, y + 1)];
+            const inside = values.map(value => value >= threshold);
+            if (inside.every(Boolean) || !inside.some(Boolean)) continue;
+            const corner = y * stride + x;
+            const edges = [2 * corner, 2 * (corner + 1) + 1, 2 * (corner + stride), 2 * corner + 1];
+            const crossings = [];
+            for (let side = 0; side < 4; side++) {
+                if (inside[side] === inside[(side + 1) % 4]) continue;
+                const edge = edges[side];
+                crossings.push(edge);
+                if (vertices.has(edge)) continue;
+                const point = Math.floor(edge / 2);
+                const startX = point % stride;
+                const startY = Math.floor(point / stride);
+                const vertical = edge % 2 === 1;
+                const before = sample(startX, startY);
+                const after = sample(startX + (vertical ? 0 : 1), startY + (vertical ? 1 : 0));
+                const fraction = (threshold - before) / (after - before);
+                vertices.set(edge, [startY + (vertical ? fraction : 0), startX + (vertical ? 0 : fraction)]);
+            }
+            if (crossings.length === 2) {
+                connect(crossings[0], crossings[1]);
+            } else {
+                const centerInside = values.reduce((sum, value) => sum + value, 0) >= 4 * threshold;
+                const paired = centerInside === inside[0];
+                connect(edges[0], edges[paired ? 1 : 3]);
+                connect(edges[2], edges[paired ? 3 : 1]);
+            }
+        }
+    }
+    const rings = [];
+    while (links.size) {
+        const start = links.keys().next().value;
+        const ring = [];
+        let previous = -1;
+        let current = start;
+        do {
+            ring.push(vertices.get(current));
+            const neighbors = links.get(current);
+            const next = neighbors[0] === previous ? neighbors[1] : neighbors[0];
+            links.delete(current);
+            previous = current;
+            current = next;
+        } while (current !== start);
+        rings.push(smoothRing(ring).map(([y, x]) => [
+            Math.max(-maxLatitude, Math.min(maxLatitude, (y - .5) * coverageStep - maxLatitude)),
+            Math.max(-180, Math.min(180, (x - .5) * coverageStep - 180)),
+        ]));
+    }
+    return rings;
+}
+
 function vectorGeometry(geometry, solar) {
     if (!geometry) return null;
     const {bands, type} = geometry;
@@ -254,8 +325,9 @@ function vectorGeometry(geometry, solar) {
     const count = solar ? centralBand : 2;
     for (let band = 1; band <= count; band++) {
         const central = solar && band === centralBand;
-        const rings = traceContours(bands, central ? centralStep : coverageStep, value =>
-            central ? value === centralBand : value >= band && (!solar || value < centralBand));
+        const rings = solar && !central ? solarContour(geometry.field, solarThresholds[band - 1])
+            : traceContours(bands, central ? centralStep : coverageStep, value =>
+                central ? value === centralBand : value >= band);
         if (rings.length) layers.push({band, rings});
     }
     const central = solar ? bands.filter(row => row[4] === centralBand)

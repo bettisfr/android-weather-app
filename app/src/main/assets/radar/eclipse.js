@@ -148,7 +148,7 @@ function initialize(config) {
 
     status.textContent = config.loading;
     status.hidden = false;
-    const cacheKey = 'eclipse-geometry-v3';
+    const cacheKey = 'eclipse-geometry-v4';
     const id = config.kind + ':' + config.date;
     try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
