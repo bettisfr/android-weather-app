@@ -1635,7 +1635,7 @@ public final class MainActivity extends Activity {
     private void sun(JSONObject daily, int index) {
         LinearLayout tile = card();
         sunTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_sun_astronomy), getString(R.string.sun),
-                () -> showDailySkyTrack(getString(R.string.sun), false, null));
+                () -> showDailySkyTrack(getString(R.string.sun), false, null, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
         LinearLayout readings = row();
@@ -1729,7 +1729,7 @@ public final class MainActivity extends Activity {
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = card();
         moonTrackHeading = addSkyTrackHeading(tile, new MoonPhaseView(this, phase, latitude < 0), getString(R.string.moon),
-                () -> showDailySkyTrack(getString(R.string.moon), true, null));
+                () -> showDailySkyTrack(getString(R.string.moon), true, null, null));
         TextView eventLabel = label("", 13, muted);
         int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
                 textWidth(eventLabel, getString(R.string.moonrise)),
@@ -1821,15 +1821,16 @@ public final class MainActivity extends Activity {
 
     private static final class PlanetRow {
         final Planets.Body body;
-        final View entry, chevron;
+        final View entry, chevron, badges;
         final TextView now, magnitude, position, windows;
         List<Planets.Window> observingWindows = List.of();
 
-        PlanetRow(Planets.Body body, View entry, View chevron, TextView now, TextView magnitude,
+        PlanetRow(Planets.Body body, View entry, View chevron, View badges, TextView now, TextView magnitude,
                   TextView position, TextView windows) {
             this.body = body;
             this.entry = entry;
             this.chevron = chevron;
+            this.badges = badges;
             this.now = now;
             this.magnitude = magnitude;
             this.position = position;
@@ -1859,7 +1860,9 @@ public final class MainActivity extends Activity {
             TextView chevron = skyTrackChevron();
             planetTitle.addView(chevron);
             entry.addView(planetTitle);
-            TextView now = astronomyBadge("");
+            TextView now = astronomyBadge(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
+            now.setTextColor(getColor(R.color.sky_observing));
+            now.setBackground(background(getColor(R.color.sky_background), 8));
             TextView magnitude = astronomyBadge("");
             LinearLayout badges = largeText() ? column() : row();
             if (largeText()) {
@@ -1882,10 +1885,12 @@ public final class MainActivity extends Activity {
             TextView windows = label("", 12, muted);
             windows.setPadding(0, dp(5), 0, 0);
             entry.addView(windows);
-            PlanetRow planet = new PlanetRow(body, entry, chevron, now, magnitude, position, windows);
+            PlanetRow planet = new PlanetRow(body, entry, chevron, badges, now, magnitude, position, windows);
             planetRows.add(planet);
             astronomyCardAction(entry, () -> {
-                if (planet.observesAt(Instant.now())) showDailySkyTrack(name.getText().toString(), false, body);
+                if (planet.observesAt(Instant.now())) {
+                    showDailySkyTrack(name.getText().toString(), false, body, planet.windows.getText());
+                }
             });
             addSpaced(tile, entry, 7);
         }
@@ -1924,9 +1929,6 @@ public final class MainActivity extends Activity {
         for (PlanetRow row : planetRows) {
             Planets.Reading reading = Planets.at(row.body, now, latitude, longitude);
             boolean above = reading.elevation >= 0;
-            int status = reading.favorable ? R.string.planet_visible_now
-                    : above ? R.string.planet_difficult : R.string.planet_below_horizon;
-            row.now.setText(getString(R.string.planet_now_status, getString(status)));
             row.magnitude.setVisibility(above ? View.VISIBLE : View.GONE);
             if (above) {
                 setMagnitudeBadge(row.magnitude, reading.magnitude,
@@ -1944,14 +1946,14 @@ public final class MainActivity extends Activity {
                         : getString(R.string.planet_today_windows, android.text.TextUtils.join(" · ", hours)));
             }
             boolean observingNow = row.observesAt(now);
+            row.now.setVisibility(observingNow ? View.VISIBLE : View.GONE);
+            row.badges.setVisibility(observingNow || above ? View.VISIBLE : View.GONE);
             setSkyTrackAvailable(row.entry, row.chevron, observingNow);
             row.position.setVisibility(observingNow ? View.VISIBLE : View.GONE);
             if (observingNow) {
                 row.position.setText(getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
                         compassDirection(reading.azimuth), Math.round(reading.elevation)));
             }
-            row.now.setTextColor(observingNow ? getColor(R.color.sky_observing) : getColor(R.color.sky_on_action));
-            row.now.setBackground(background(getColor(observingNow ? R.color.sky_background : R.color.sky_action), 8));
         }
         planetWindowDate = today;
     }
@@ -2321,7 +2323,7 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void showDailySkyTrack(String name, boolean moon, Planets.Body planet) {
+    private void showDailySkyTrack(String name, boolean moon, Planets.Body planet, CharSequence observingWindows) {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         Instant now = Instant.now();
         SkyPosition sun = SkyPosition.at(now, latitude, longitude, false);
@@ -2340,6 +2342,9 @@ public final class MainActivity extends Activity {
         int fill = planet == null ? EXTREME_MAGNITUDE_COLOR
                 : sun.zenith >= 90 ? magnitudeColor(magnitude) : android.graphics.Color.TRANSPARENT;
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
+            if (observingWindows != null) {
+                addSpaced(panel, label(observingWindows.toString(), 13, accent), 6);
+            }
             addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
             if (track.peak == null) {
                 int message = nightOnly ? R.string.sky_track_no_night_path : R.string.sky_track_no_path;
