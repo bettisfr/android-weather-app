@@ -4,10 +4,18 @@ const output = document.getElementById('time');
 const source = document.getElementById('source');
 const steps = document.getElementById('steps');
 const play = document.getElementById('play');
+const modes = document.getElementById('modes');
+const autoButton = document.getElementById('auto');
+const infraredButton = document.getElementById('infrared');
+const frameImages = new Map();
+const frameCacheSize = 12;
 let config;
 let times;
+let products;
+let mode;
 let frames = [];
 let timer = null;
+let renderTimer;
 let requestedFrame;
 let map;
 let globalOverlay;
@@ -30,6 +38,9 @@ function initialize(parameters) {
     document.documentElement.classList.toggle('dark', config.dark);
     steps.setAttribute('aria-label', config.timelineLabel);
     play.setAttribute('aria-label', config.play);
+    modes.setAttribute('aria-label', config.modeLabel);
+    autoButton.textContent = config.auto;
+    infraredButton.textContent = config.observed;
     times = new Intl.DateTimeFormat(config.language, {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
         hourCycle: config.clock24 ? 'h23' : 'h12', timeZone: config.timeZone,
@@ -41,16 +52,34 @@ function initialize(parameters) {
     L.circleMarker([config.lat, config.lon], {
         pane: 'cityMarker', radius: 7, color: '#fff', weight: 3, fillColor: '#273b6a', fillOpacity: 1, interactive: false,
     }).addTo(map);
+    map.on('moveend', () => {
+        if (regionalLayer) queueFrame(Number(steps.value));
+    });
     status(config.loading);
 }
 
-function setRegionalFrames(product) {
+function setProducts(available) {
+    products = available;
+    modes.hidden = !available.auto || !available.infrared;
+    selectMode(available.auto ? 'auto' : 'infrared');
+}
+
+function selectMode(nextMode) {
+    const product = products[nextMode];
+    if (!product || nextMode === mode) return;
+    const previousTime = frames[Number(steps.value)]?.time;
+    setPlaying(false);
+    mode = nextMode;
     regionalLayer = product.layer;
-    map.on('moveend', () => {
-        clearTimeout(timer);
-        showFrame(Number(steps.value));
-    });
-    setFrames(product.frames);
+    autoButton.setAttribute('aria-pressed', mode === 'auto');
+    infraredButton.setAttribute('aria-pressed', mode === 'infrared');
+    status(config.loading);
+    frames = [...product.frames].reverse();
+    steps.max = frames.length - 1;
+    steps.disabled = frames.length < 2;
+    play.disabled = frames.length < 2;
+    const matchingFrame = frames.findIndex(frame => frame.time >= previousTime);
+    showFrame(matchingFrame >= 0 ? matchingFrame : frames.length - 1);
 }
 
 function regionalFrame(time) {
@@ -59,38 +88,57 @@ function regionalFrame(time) {
     const sw = coordinates.project(bounds.getSouthWest());
     const ne = coordinates.project(bounds.getNorthEast());
     const size = map.getSize();
-    const density = Math.min(2, window.devicePixelRatio || 1);
+    const scale = Math.min(2, 1536 / Math.max(size.x, size.y));
     const params = new URLSearchParams({
         service: 'WMS', version: '1.1.1', request: 'GetMap', layers: regionalLayer,
-        styles: '', format: 'image/png', transparent: 'true', srs: 'EPSG:3857',
+        styles: '', format: 'image/vnd.jpeg-png', transparent: 'true', srs: 'EPSG:3857',
         bbox: [sw.x, sw.y, ne.x, ne.y].join(','),
-        width: Math.max(1, Math.min(1536, Math.ceil(size.x * density))),
-        height: Math.max(1, Math.min(1536, Math.ceil(size.y * density))),
+        width: Math.max(1, Math.round(size.x * scale)),
+        height: Math.max(1, Math.round(size.y * scale)),
         time: new Date(time).toISOString(),
     });
     return {bounds, url: config.regionalSource + 'geoserver/wms?' + params};
 }
 
-function setFrames(available) {
-    frames = available.reverse();
-    steps.max = frames.length - 1;
-    steps.disabled = frames.length < 2;
-    play.disabled = frames.length < 2;
-    showFrame(frames.length - 1);
+function loadFrameImage(url) {
+    let cached = frameImages.get(url);
+    frameImages.delete(url);
+    if (!cached) {
+        cached = new Promise((resolve, reject) => {
+            const image = new Image();
+            image.alt = '';
+            image.onload = () => resolve(image);
+            image.onerror = reject;
+            image.src = url;
+        }).catch(error => {
+            if (frameImages.get(url) === cached) frameImages.delete(url);
+            throw error;
+        });
+    }
+    frameImages.set(url, cached);
+    if (frameImages.size > frameCacheSize) frameImages.delete(frameImages.keys().next().value);
+    return cached;
+}
+
+function queueFrame(index) {
+    clearTimeout(timer);
+    clearTimeout(renderTimer);
+    requestedFrame = null;
+    renderTimer = setTimeout(() => showFrame(index), 120);
 }
 
 function showFrame(index) {
+    clearTimeout(renderTimer);
     steps.value = index;
     const data = frames[index];
     const regional = regionalLayer ? regionalFrame(data.time) : null;
     const request = {};
     requestedFrame = request;
-    const image = new Image();
-    image.onload = () => {
+    loadFrameImage(regional ? regional.url : data.url).then(image => {
         if (requestedFrame !== request) return;
         if (regional) {
             if (regionalOverlay) regionalOverlay.remove();
-            regionalOverlay = L.imageOverlay(regional.url, regional.bounds, {
+            regionalOverlay = L.imageOverlay(image, regional.bounds, {
                 opacity: .80, interactive: false, alt: '',
             }).addTo(map);
         } else if (!globalOverlay) {
@@ -98,25 +146,28 @@ function showFrame(index) {
         } else {
             globalOverlay.setImage(image);
         }
-        output.textContent = config.observed + ' · ' + times.format(data.time);
-        source.href = regional ? config.regionalSource : config.globalSource;
-        source.textContent = regional ? 'EUMETSAT' : 'NOAA NESDIS';
+        const geocolour = mode === 'auto';
+        output.textContent = (geocolour ? 'GeoColour' : config.observed) + ' · ' + times.format(data.time);
+        source.href = geocolour ? config.geocolourSource : regional ? config.regionalSource : config.globalSource;
+        source.textContent = geocolour ? 'EUMETSAT · NASA' : regional ? 'EUMETSAT' : 'NOAA NESDIS';
         source.hidden = false;
         status(!regional && Math.abs(config.lat) > 60 ? config.coverage : '');
         scheduleFrame();
-    };
-    image.onerror = () => {
+    }, () => {
         if (requestedFrame === request) {
             status(config.unavailable);
             scheduleFrame();
         }
-    };
-    image.src = regional ? regional.url : data.url;
+    });
 }
 
 function scheduleFrame() {
     clearTimeout(timer);
-    timer = playing ? setTimeout(() => showFrame((Number(steps.value) + 1) % frames.length), 1400) : null;
+    if (!playing) return;
+    const index = (Number(steps.value) + 1) % frames.length;
+    const next = frames[index];
+    loadFrameImage(regionalLayer ? regionalFrame(next.time).url : next.url).catch(() => {});
+    timer = setTimeout(() => showFrame(index), 1400);
 }
 
 function setPlaying(active) {
@@ -126,5 +177,7 @@ function setPlaying(active) {
     scheduleFrame();
 }
 
-steps.addEventListener('input', () => { setPlaying(false); showFrame(Number(steps.value)); });
+steps.addEventListener('input', () => { setPlaying(false); queueFrame(Number(steps.value)); });
 play.addEventListener('click', () => setPlaying(!playing));
+autoButton.addEventListener('click', () => selectMode('auto'));
+infraredButton.addEventListener('click', () => selectMode('infrared'));

@@ -3,9 +3,11 @@ package it.meteo.locale;
 import android.util.Xml;
 import org.xmlpull.v1.XmlPullParser;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.IOException;
 import java.io.StringReader;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,40 +25,62 @@ final class SatelliteImagery {
     private static final DateTimeFormatter FRAME_TIME = DateTimeFormatter.ofPattern("uuuuMMddHHmm");
 
     static final String EUMETSAT = "https://view.eumetsat.int/";
-    private static final String WMS = EUMETSAT + "geoserver/wms";
+    private static final String GEOCOLOUR_LAYER = "mtg_fd:rgb_geocolour";
+    static final String GEOCOLOUR_SOURCE = EUMETSAT + "productviewer/productDetails/" + GEOCOLOUR_LAYER;
 
     static JSONObject regionalFrames(double latitude, double longitude) throws Exception {
         boolean indianOcean = longitude > 35;
         double center = indianOcean ? 41.5 : 0;
         double distance = Math.acos(Math.cos(Math.toRadians(latitude)) * Math.cos(Math.toRadians(longitude - center)));
         if (distance > Math.toRadians(65)) return null;
-        String layer = indianOcean ? "msg_iodc:ir108" : "mtg_fd:ir105_hrfi";
-        String capabilities = OpenMeteo.readBody(WMS + "?service=WMS&request=GetCapabilities&version=1.3.0");
+        String workspace = indianOcean ? "msg_iodc" : "mtg_fd";
+        String infraredLayer = workspace + (indianOcean ? ":ir108" : ":ir105_hrfi");
+        String capabilities = OpenMeteo.readBody(EUMETSAT + "geoserver/" + workspace
+                + "/wms?service=WMS&request=GetCapabilities&version=1.3.0");
         XmlPullParser xml = Xml.newPullParser();
         xml.setInput(new StringReader(capabilities));
+        JSONObject products = new JSONObject();
+        Instant cutoff = Instant.now().minus(Duration.ofHours(3));
         String name = "";
         while (xml.next() != XmlPullParser.END_DOCUMENT) {
             if (xml.getEventType() != XmlPullParser.START_TAG) continue;
             if ("Name".equals(xml.getName())) {
                 name = xml.nextText();
-            } else if (layer.equals(name) && "Dimension".equals(xml.getName())
+                if (!name.contains(":")) name = workspace + ":" + name;
+            } else if ("Dimension".equals(xml.getName())
                     && "time".equals(xml.getAttributeValue(null, "name"))) {
-                Instant latest = Instant.parse(xml.getAttributeValue(null, "default"));
-                String[] range = xml.nextText().split("/");
-                if (range.length != 3 || latest.isBefore(Instant.now().minus(Duration.ofHours(3)))) return null;
-                Duration step = Duration.parse(range[2]);
-                if (step.isZero() || step.isNegative()) return null;
-                Instant first = Instant.parse(range[0]);
-                JSONArray frames = new JSONArray();
-                for (int i = 0; i < 8; i++) {
-                    Instant time = latest.minus(step.multipliedBy(i));
-                    if (time.isBefore(first)) break;
-                    frames.put(new JSONObject().put("time", time.toEpochMilli()));
+                boolean geocolour = !indianOcean && GEOCOLOUR_LAYER.equals(name);
+                if (!geocolour && !infraredLayer.equals(name)) continue;
+                String defaultTime = xml.getAttributeValue(null, "default");
+                JSONArray frames = regionalTimeline(xml.nextText(), defaultTime, cutoff);
+                if (frames.length() > 0) {
+                    products.put(geocolour ? "auto" : "infrared", new JSONObject().put("layer", name).put("frames", frames));
                 }
-                return new JSONObject().put("layer", layer).put("frames", frames);
+                if (products.length() == (indianOcean ? 1 : 2)) break;
             }
         }
-        return null;
+        return products.length() == 0 ? null : products;
+    }
+
+    private static JSONArray regionalTimeline(String extent, String defaultTime, Instant cutoff) throws JSONException {
+        JSONArray frames = new JSONArray();
+        String[] range = extent.trim().split("/");
+        if (range.length != 3 || defaultTime == null) return frames;
+        try {
+            Instant latest = Instant.parse(defaultTime);
+            if (latest.isBefore(cutoff)) return frames;
+            Duration step = Duration.parse(range[2]);
+            if (step.isZero() || step.isNegative()) return frames;
+            Instant first = Instant.parse(range[0]);
+            for (int i = 0; i < 8; i++) {
+                Instant time = latest.minus(step.multipliedBy(i));
+                if (time.isBefore(first)) break;
+                frames.put(new JSONObject().put("time", time.toEpochMilli()));
+            }
+        } catch (DateTimeException invalidExtent) {
+            android.util.Log.w("SkyHere", "Invalid satellite time dimension", invalidExtent);
+        }
+        return frames;
     }
 
     static JSONArray recentFrames() throws Exception {

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://tile.openstreetmap.org data:">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+  :root { color-scheme:light; --page:#fafafa; --ink:#242d40; --accent:#435e94; }
+  :root.dark { color-scheme:dark; --page:#111d30; --ink:#edf3ff; --accent:#adc8ff; }
+  body { margin:0; height:100vh; display:flex; flex-direction:column; background:var(--page); color:var(--ink); font:14px system-ui,sans-serif; }
+  main { position:relative; flex:1; min-height:0; }
+  #map { position:absolute; inset:0; background:#dfe5ed; }
+  .dark .leaflet-basemap-pane { filter:invert(1) hue-rotate(180deg) saturate(.65) brightness(.86); }
+  #status { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:800;
+    background:var(--page); padding:8px 12px; border-radius:8px; text-align:center; }
+  #legend { display:flex; flex-wrap:wrap; align-items:center; gap:6px 11px; padding:8px 16px; font-size:12px; }
+  .band { display:inline-flex; align-items:center; gap:4px; white-space:nowrap; }
+  .dot { width:var(--size); height:var(--size); box-sizing:border-box; border:1px solid #303942;
+    border-radius:50%; background:var(--color); }
+  footer { display:flex; flex-wrap:wrap; gap:6px 12px; justify-content:space-between; padding:3px 16px 12px; }
+  footer a { color:var(--accent); }
+</style>
+</head>
+<body>
+  <main><div id="map" role="region"></div><div id="status" role="status" hidden></div></main>
+  <div id="legend" role="group"></div>
+  <footer><span id="scope"></span><a id="source">INGV</a></footer>
+  <script src="leaflet.js"></script>
+  <script src="map.js"></script>
+  <script src="earthquakes.js"></script>
+</body>
+</html>

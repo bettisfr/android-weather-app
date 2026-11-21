@@ -172,6 +172,12 @@ public final class MainActivity extends Activity {
     private TextView placeHeader;
     private View forecastMaps;
     private Button airQualityMapButton;
+    private TextView earthquakeTitle;
+    private LinearLayout earthquakePanel;
+    private int earthquakeRadius;
+    private double deviceLatitude = Double.NaN;
+    private double deviceLongitude = Double.NaN;
+    private String deviceCountry = "";
     private TextView currentLocationTitle;
     private TextView currentLocationWeather;
     private String devicePlace;
@@ -196,6 +202,7 @@ public final class MainActivity extends Activity {
         clock24 = prefs.getBoolean("clock24", true);
         windUnit = prefs.getInt("windUnit", 0);
         pressureUnit = prefs.getInt("pressureUnit", 0);
+        earthquakeRadius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
         if (state != null && state.containsKey("forecastPlace")) {
             place = state.getString("forecastPlace");
             latitude = state.getDouble("forecastLatitude");
@@ -203,6 +210,9 @@ public final class MainActivity extends Activity {
             selectedCountry = state.getString("forecastCountry", "");
             usingCurrentLocation = state.getBoolean("forecastUsesGps");
             locationNotice = state.getString("forecastLocationNotice");
+            deviceLatitude = state.getDouble("deviceLatitude", Double.NaN);
+            deviceLongitude = state.getDouble("deviceLongitude", Double.NaN);
+            deviceCountry = state.getString("deviceCountry", "");
             load();
         } else {
             currentLocation(!prefs.getBoolean("askedForLocation", false));
@@ -218,6 +228,9 @@ public final class MainActivity extends Activity {
         state.putString("forecastCountry", selectedCountry);
         state.putBoolean("forecastUsesGps", usingCurrentLocation);
         state.putString("forecastLocationNotice", locationNotice);
+        state.putDouble("deviceLatitude", deviceLatitude);
+        state.putDouble("deviceLongitude", deviceLongitude);
+        state.putString("deviceCountry", deviceCountry);
     }
 
     private void currentLocation(boolean askPermission) {
@@ -268,6 +281,9 @@ public final class MainActivity extends Activity {
                         (float) location.getLongitude(), (float) location.getAltitude(), location.getTime()).getDeclination();
                 latitude = location.getLatitude();
                 longitude = location.getLongitude();
+                deviceLatitude = latitude;
+                deviceLongitude = longitude;
+                deviceCountry = "";
                 selectedCountry = "";
                 selectedRegion = "";
                 place = getString(R.string.current_location);
@@ -318,10 +334,12 @@ public final class MainActivity extends Activity {
                 if (isDestroyed() || gps != usingCurrentLocation || lat != latitude || lon != longitude) return;
                 if (country != null) {
                     selectedCountry = country;
+                    if (gps) deviceCountry = country;
                     if (region != null) selectedRegion = region;
                     refreshWarnings();
                     renderWarnings(Instant.now());
                     updateItalianMaps();
+                    renderEarthquakes();
                     if (!gps) getPreferences(MODE_PRIVATE).edit().putString("countryCode", country).apply();
                 }
                 if (gps && name != null && !name.trim().isEmpty()) {
@@ -588,6 +606,8 @@ public final class MainActivity extends Activity {
         kpTable = null;
         forecastMaps = null;
         airQualityMapButton = null;
+        earthquakeTitle = null;
+        earthquakePanel = null;
         sunCoordinates = null;
         moonCoordinates = null;
         if (phoneDirection != null) {
@@ -766,6 +786,10 @@ public final class MainActivity extends Activity {
             planets();
             aurora();
             eclipsesAndTransits();
+            earthquakeTitle = title(getString(R.string.seismic_activity));
+            earthquakePanel = card();
+            page.addView(earthquakePanel);
+            renderEarthquakes();
         } else {
             LinearLayout dates = carousel(page);
             View selectedChip = null;
@@ -889,6 +913,92 @@ public final class MainActivity extends Activity {
         startActivity(new android.content.Intent(this, RadarActivity.class)
                 .putExtra("layer", layer.name()).putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
                 .putExtra("timeZone", data.optString("timezone", "UTC")).putExtra("clock24", clock24));
+    }
+
+    private void renderEarthquakes() {
+        LinearLayout panel = earthquakePanel;
+        if (panel == null) return;
+        boolean show = inItaly() && (deviceCountry.isEmpty() || "IT".equalsIgnoreCase(deviceCountry));
+        earthquakeTitle.setVisibility(show ? View.VISIBLE : View.GONE);
+        panel.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+
+        panel.removeAllViews();
+        LinearLayout heading = row();
+        heading.setGravity(Gravity.TOP);
+        heading.setBaselineAligned(false);
+        heading.addView(label(getString(R.string.earthquakes), 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        panel.addView(heading);
+        if (!"IT".equalsIgnoreCase(deviceCountry) || !Double.isFinite(deviceLatitude) || !Double.isFinite(deviceLongitude)) {
+            panel.addView(label(getString(R.string.earthquake_location_required), 13, muted));
+            return;
+        }
+        double lat = deviceLatitude;
+        double lon = deviceLongitude;
+        int radius = earthquakeRadius;
+        Button map = mapButton(R.string.aurora_map_short, () -> startActivity(new android.content.Intent(this, RadarActivity.class)
+                .putExtra("layer", RadarActivity.Layer.EARTHQUAKES.name())
+                .putExtra("place", devicePlace == null ? getString(R.string.current_location) : devicePlace)
+                .putExtra("lat", lat).putExtra("lon", lon).putExtra("radiusKm", radius)
+                .putExtra("timeZone", "Europe/Rome").putExtra("clock24", clock24)));
+        map.setContentDescription(getString(R.string.earthquake_map));
+        heading.addView(map);
+        addSpaced(panel, label(getString(R.string.earthquake_scope, radius), 13, muted), 8);
+        TextView status = label(getString(R.string.earthquake_loading), 13, muted);
+        panel.addView(status);
+        CompletableFuture.supplyAsync(() -> {
+            try {
+                return EarthquakeFeed.recent(lat, lon, radius);
+            } catch (Exception error) {
+                android.util.Log.w("SkyHere", "INGV events unavailable", error);
+                return null;
+            }
+        }).thenAccept(events -> main.post(() -> {
+            if (isDestroyed() || panel != earthquakePanel || status.getParent() != panel) return;
+            if (events == null || events.isEmpty()) {
+                status.setText(events == null ? R.string.earthquake_unavailable : R.string.earthquake_empty);
+                return;
+            }
+            panel.removeView(status);
+            LinearLayout rows = column();
+            panel.addView(rows);
+            Button more = moreButton();
+            panel.addView(more);
+            more.setOnClickListener(v -> appendEarthquakes(rows, more, events, lat, lon, 15));
+            appendEarthquakes(rows, more, events, lat, lon, 5);
+        }));
+    }
+
+    private void appendEarthquakes(LinearLayout rows, Button more, List<EarthquakeFeed.Event> events,
+                                   double lat, double lon, int count) {
+        int start = rows.getChildCount();
+        int end = Math.min(start + count, events.size());
+        DateTimeFormatter date = DateTimeFormatter.ofPattern("EEE d MMM, " + (clock24 ? "HH:mm" : "h:mm a"), appLocale())
+                .withZone(ZoneId.of("Europe/Rome"));
+        float[] distance = new float[1];
+        for (int i = start; i < end; i++) {
+            EarthquakeFeed.Event event = events.get(i);
+            Location.distanceBetween(lat, lon, event.latitude, event.longitude, distance);
+            LinearLayout entry = column();
+            entry.setPadding(dp(12), dp(8), dp(12), dp(8));
+            entry.setBackground(background(surfaceColor, 12));
+            LinearLayout heading = row();
+            heading.setGravity(Gravity.TOP);
+            TextView magnitude = label(event.magnitudeType + " " + number(event.magnitude, "%.1f"), 13, 0xff000000);
+            magnitude.setPadding(dp(5), dp(2), dp(5), dp(2));
+            magnitude.setBackground(background(EarthquakeFeed.magnitudeColor(event.magnitude), 6));
+            heading.addView(magnitude);
+            TextView zone = label(event.zone, 15, ink);
+            LinearLayout.LayoutParams zoneSize = new LinearLayout.LayoutParams(0, -2, 1);
+            zoneSize.setMarginStart(dp(6));
+            heading.addView(zone, zoneSize);
+            entry.addView(heading);
+            entry.addView(label(getString(R.string.earthquake_details, date.format(event.time), Math.round(distance[0] / 1000),
+                    number(event.depth, "%.1f")), 13, muted));
+            entry.setOnClickListener(v -> openAstronomyPage(event.url()));
+            addSpaced(rows, entry, 5);
+        }
+        more.setVisibility(end < events.size() ? View.VISIBLE : View.GONE);
     }
 
     private void refreshWarnings() {
@@ -1380,8 +1490,17 @@ public final class MainActivity extends Activity {
         tile.addView(label(getString(R.string.sun), 16, ink));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
+        LinearLayout readings = row();
+        readings.setGravity(Gravity.BOTTOM);
         sunCoordinates = skyCoordinates(false);
-        tile.addView(sunCoordinates);
+        readings.addView(sunCoordinates, new LinearLayout.LayoutParams(0, -2, 1));
+        LocalDate date = LocalDate.parse(at(daily, "time", index));
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        TextView maximum = label(getString(R.string.sun_max_today, solarMaximumElevation(date, zone, seconds)), 12, muted);
+        maximum.setGravity(Gravity.END);
+        maximum.setPaddingRelative(dp(8), dp(8), 0, 0);
+        readings.addView(maximum, new LinearLayout.LayoutParams(-2, -2));
+        tile.addView(readings);
         addUpcomingTimes(tile, daily, index, false);
         addSpaced(page, tile, 9);
     }
@@ -1448,6 +1567,12 @@ public final class MainActivity extends Activity {
         chart.addView(legend);
         tile.addView(content);
         if (!daylightFits) tile.addView(daylight);
+    }
+
+    private String solarMaximumElevation(LocalDate date, ZoneId zone, long seconds) {
+        double maximum = SkyPosition.maximumSolarElevation(date, zone, latitude, longitude);
+        if (seconds > 0) maximum = Math.max(0, maximum);
+        return maximum < 0 && Math.round(maximum) == 0 ? "<0°" : number(maximum, "%.0f") + "°";
     }
 
     private void moon(JSONObject daily, int index) {
@@ -1909,7 +2034,7 @@ public final class MainActivity extends Activity {
         int end = Math.min(items.size(), start + ASTRONOMY_PAGE_SIZE);
         for (int i = start; i < end; i++) addTransit(list, items.get(i), zone);
         if (end >= items.size()) return;
-        TextView more = button(getString(R.string.more), () -> {});
+        Button more = moreButton();
         more.setContentDescription(getString(R.string.more_transits));
         more.setOnClickListener(v -> {
             list.removeView(more);
@@ -1956,7 +2081,8 @@ public final class MainActivity extends Activity {
                 return;
             }
             if (shown == 0) footer.addView(label(getString(R.string.no_eclipses_until, year - 1), 14, muted));
-            TextView more = button(getString(R.string.more), this::showNext);
+            Button more = moreButton();
+            more.setOnClickListener(v -> showNext());
             more.setContentDescription(lunar ? getString(R.string.more_lunar_eclipses) : getString(R.string.more_solar_eclipses));
             footer.addView(more);
         }
@@ -2190,13 +2316,10 @@ public final class MainActivity extends Activity {
                 long seconds = daylightSeconds(daily, i);
                 String duration = seconds <= 0 ? "-" : String.format(appLocale(), "%d:%02d:%02d",
                         seconds / 3600, seconds / 60 % 60, seconds % 60);
-                double maximum = SkyPosition.maximumSolarElevation(day, zone, latitude, longitude);
-                if (seconds > 0) maximum = Math.max(0, maximum);
-                String elevation = maximum < 0 && Math.round(maximum) == 0 ? "<0°" : number(maximum, "%.0f") + "°";
                 boolean polar = isPolarDaylight(seconds);
                 addEventTableRow(table, date, null, ink, polar ? "—" : eventClock(at(daily, rise, i)),
                         polar ? "—" : eventClock(at(daily, set, i)),
-                        duration, elevation);
+                        duration, solarMaximumElevation(day, zone, seconds));
                 continue;
             }
             View phaseIcon;
@@ -2330,6 +2453,7 @@ public final class MainActivity extends Activity {
         addCredit(sources, R.string.air_quality_map_credit, "https://airindex.eea.europa.eu/AQI/");
         addCredit(sources, R.string.satellite_credit, SatelliteImagery.EUMETSAT);
         addCredit(sources, R.string.satellite_mosaic_credit, SatelliteImagery.SOURCE);
+        addCredit(sources, R.string.earthquake_credit, EarthquakeFeed.SOURCE);
         addCredit(sources, R.string.eclipse_data, "https://opale.imcce.fr/");
         addCredit(sources, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
     }
@@ -2373,6 +2497,28 @@ public final class MainActivity extends Activity {
         RadioGroup pressures = unitOption(options, getString(R.string.pressure), PRESSURE_UNITS, pressureUnit);
         RadioGroup clockFormats = unitOption(options, getString(R.string.time_format),
                 new String[]{getString(R.string.clock_12), getString(R.string.clock_24)}, clock24 ? 1 : 0);
+        LinearLayout radiusHeading = row();
+        radiusHeading.setPadding(0, dp(17), 0, dp(4));
+        TextView radiusLabel = label(getString(R.string.earthquake_radius), 15, ink);
+        radiusHeading.addView(radiusLabel, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView radiusValue = label(getString(R.string.earthquake_radius_value, earthquakeRadius), 15, accent);
+        radiusHeading.addView(radiusValue);
+        options.addView(radiusHeading);
+        SeekBar radiusSlider = new SeekBar(this);
+        radiusSlider.setId(View.generateViewId());
+        radiusLabel.setLabelFor(radiusSlider.getId());
+        radiusSlider.setMin(1);
+        radiusSlider.setMax(EarthquakeFeed.MAX_RADIUS);
+        radiusSlider.setProgress(earthquakeRadius);
+        radiusSlider.setKeyProgressIncrement(1);
+        radiusSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar slider, int progress, boolean fromUser) {
+                radiusValue.setText(getString(R.string.earthquake_radius_value, progress));
+            }
+            @Override public void onStartTrackingTouch(SeekBar slider) {}
+            @Override public void onStopTrackingTouch(SeekBar slider) {}
+        });
+        options.addView(radiusSlider, new LinearLayout.LayoutParams(-1, -2));
         String versionDate = LocalDate.parse(getString(R.string.sky_version_date))
                 .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(appLocale()));
         TextView version = label(getString(R.string.app_version, getString(R.string.sky_version_name), versionDate), 12, muted);
@@ -2385,13 +2531,14 @@ public final class MainActivity extends Activity {
         actions.setPadding(dp(20), dp(10), dp(20), dp(16));
         actions.addView(button(getString(R.string.cancel), dialog::dismiss));
         TextView apply = button(getString(R.string.apply), () -> {
+            earthquakeRadius = radiusSlider.getProgress();
             fahrenheit = selectedUnit(temperatures) == 1;
             windUnit = selectedUnit(winds);
             pressureUnit = selectedUnit(pressures);
             clock24 = selectedUnit(clockFormats) == 1;
             getPreferences(MODE_PRIVATE).edit().putBoolean("fahrenheit", fahrenheit)
                     .putInt("windUnit", windUnit).putInt("pressureUnit", pressureUnit)
-                    .putBoolean("clock24", clock24).apply();
+                    .putBoolean("clock24", clock24).putInt("earthquakeRadius", earthquakeRadius).apply();
             dialog.dismiss();
             int selectedTheme = selectedUnit(themes);
             if (selectedTheme != originalTheme) {
@@ -3077,6 +3224,10 @@ public final class MainActivity extends Activity {
         return view;
     }
 
+    private Button moreButton() {
+        return actionButton(getString(R.string.more), surfaceColor, 12);
+    }
+
     private Button accordionButton(String text) {
         Button toggle = actionButton(text, surfaceColor, 12);
         toggle.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
@@ -3111,11 +3262,12 @@ public final class MainActivity extends Activity {
         header.setPadding(dp(14), dp(9), dp(14), dp(9));
         return header;
     }
-    private void title(String text) {
+    private TextView title(String text) {
         TextView title = label(text, 19, ink);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         title.setPadding(0, dp(23), 0, dp(11));
         page.addView(title);
+        return title;
     }
     private void addSpaced(LinearLayout parent, View child, int gap) {
         LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);

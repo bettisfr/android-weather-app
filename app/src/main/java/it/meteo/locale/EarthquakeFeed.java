@@ -1,0 +1,127 @@
+package it.meteo.locale;
+
+import android.os.SystemClock;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+final class EarthquakeFeed {
+    static final String SOURCE = "https://terremoti.ingv.it/";
+    static final int DEFAULT_RADIUS = 50;
+    static final int MAX_RADIUS = 500;
+    private static final String API = "https://webservices.ingv.it/fdsnws/event/1/query";
+    private static final int PAGE_SIZE = 1000;
+    private static final DateTimeFormatter API_TIME = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")
+            .withZone(ZoneOffset.UTC);
+    private static double cachedLatitude, cachedLongitude;
+    private static int cachedRadius;
+    private static long cacheTime;
+    private static List<Event> cachedEvents;
+    private static final MagnitudeBand[] BANDS = {
+            new MagnitudeBand(2, "< 2", 4, 0xff2ca764),
+            new MagnitudeBand(3, "2–<3", 6, 0xff83b83f),
+            new MagnitudeBand(4, "3–<4", 8, 0xffe5bd36),
+            new MagnitudeBand(5, "4–<5", 10, 0xffe8872d),
+            new MagnitudeBand(Double.POSITIVE_INFINITY, "≥ 5", 12, 0xffd84b53)
+    };
+
+    static int magnitudeColor(double magnitude) {
+        for (MagnitudeBand band : BANDS) if (magnitude < band.limit) return band.color;
+        return BANDS[BANDS.length - 1].color;
+    }
+
+    static JSONArray magnitudeBands() throws JSONException {
+        JSONArray bands = new JSONArray();
+        for (MagnitudeBand band : BANDS) {
+            JSONObject item = new JSONObject().put("label", band.label).put("radius", band.radius)
+                    .put("color", String.format(Locale.ROOT, "#%06x", band.color & 0x00ffffff));
+            if (Double.isFinite(band.limit)) item.put("limit", band.limit);
+            bands.put(item);
+        }
+        return bands;
+    }
+
+    private static final class MagnitudeBand {
+        final double limit;
+        final String label;
+        final int radius, color;
+
+        MagnitudeBand(double limit, String label, int radius, int color) {
+            this.limit = limit;
+            this.label = label;
+            this.radius = radius;
+            this.color = color;
+        }
+    }
+
+    static synchronized List<Event> recent(double lat, double lon, int radius) throws Exception {
+        if (cachedEvents != null && cachedLatitude == lat && cachedLongitude == lon && cachedRadius == radius
+                && SystemClock.elapsedRealtime() - cacheTime < 5 * 60_000) return cachedEvents;
+
+        Instant end = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        String query = API + "?format=text&orderby=time&starttime=" + API_TIME.format(end.minus(7, ChronoUnit.DAYS))
+                + "&endtime=" + API_TIME.format(end) + "&latitude=" + lat + "&longitude=" + lon
+                + "&maxradiuskm=" + radius + "&limit=" + PAGE_SIZE;
+        List<Event> events = new ArrayList<>();
+        for (int offset = 1; ; offset += PAGE_SIZE) {
+            String body = OpenMeteo.readBody(query + "&offset=" + offset);
+            int rows = 0;
+            for (String line : body.split("\\r?\\n")) {
+                if (line.isEmpty() || line.startsWith("#")) continue;
+                rows++;
+                String[] fields = line.split("\\|", -1);
+                if (fields.length < 13 || !fields[0].matches("[0-9]+")) continue;
+                if (fields.length > 13 && !"earthquake".equalsIgnoreCase(fields[13])) continue;
+                try {
+                    Event event = new Event(fields);
+                    if (Double.isFinite(event.latitude) && Double.isFinite(event.longitude)
+                            && Double.isFinite(event.magnitude) && Double.isFinite(event.depth)) events.add(event);
+                } catch (DateTimeException | NumberFormatException invalidRecord) {
+                    android.util.Log.w("SkyHere", "Invalid INGV event " + fields[0], invalidRecord);
+                }
+            }
+            if (rows < PAGE_SIZE) break;
+        }
+        cachedLatitude = lat;
+        cachedLongitude = lon;
+        cachedRadius = radius;
+        cacheTime = SystemClock.elapsedRealtime();
+        cachedEvents = events;
+        return events;
+    }
+
+    static final class Event {
+        final String id, zone, magnitudeType;
+        final Instant time;
+        final double latitude, longitude, depth, magnitude;
+
+        Event(String[] fields) {
+            id = fields[0];
+            time = Instant.parse(fields[1].endsWith("Z") ? fields[1] : fields[1] + "Z");
+            latitude = Double.parseDouble(fields[2]);
+            longitude = Double.parseDouble(fields[3]);
+            depth = Double.parseDouble(fields[4]);
+            magnitudeType = fields[9];
+            magnitude = Double.parseDouble(fields[10]);
+            zone = fields[12];
+        }
+
+        String url() { return SOURCE + "event/" + id; }
+
+        JSONObject mapData() throws JSONException {
+            return new JSONObject().put("time", time.toEpochMilli()).put("lat", latitude).put("lon", longitude)
+                    .put("depth", depth).put("magnitude", magnitude).put("magnitudeType", magnitudeType)
+                    .put("zone", zone).put("url", url());
+        }
+    }
+
+    private EarthquakeFeed() {}
+}

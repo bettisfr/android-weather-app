@@ -6,8 +6,8 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://www.ospo.noaa.gov https://view.eumetsat.int https://tile.openstreetmap.org data:">
 <link rel="stylesheet" href="leaflet.css">
 <style>
-  :root { color-scheme: light; --page:#fafafa; --ink:#242d40; --accent:#435e94; }
-  :root.dark { color-scheme: dark; --page:#111d30; --ink:#edf3ff; --accent:#adc8ff; }
+  :root { color-scheme: light; --page:#fafafa; --ink:#242d40; --accent:#435e94; --segmented:#eef1f6; --selected:#dce4f3; }
+  :root.dark { color-scheme: dark; --page:#111d30; --ink:#edf3ff; --accent:#adc8ff; --segmented:#253249; --selected:#3a4d71; }
   body { margin:0; height:100vh; display:flex; flex-direction:column; background:var(--page); color:var(--ink); font:14px system-ui,sans-serif; }
   main { position:relative; flex:1; min-height:0; }
   #map { position:absolute; inset:0; background:#dfe5ed; }
@@ -19,11 +19,19 @@
   a { color:var(--accent); }
   button { min-width:44px; min-height:44px; color:var(--accent); font-size:18px; }
   input { flex:1; accent-color:var(--accent); }
+  #modes { display:inline-flex; gap:2px; padding:2px; margin-bottom:8px; border-radius:12px; background:var(--segmented); }
+  #modes[hidden] { display:none; }
+  #modes button { min-height:40px; padding:0 12px; border:0; border-radius:10px; background:transparent; font:inherit; }
+  #modes button[aria-pressed="true"] { background:var(--selected); color:var(--ink); font-weight:600; }
 </style>
 </head>
 <body>
   <main><div id="map" role="region"></div><div id="status" role="status" hidden></div></main>
   <section>
+    <div id="modes" role="group" hidden>
+      <button id="auto" type="button" aria-pressed="false"></button>
+      <button id="infrared" type="button" aria-pressed="false"></button>
+    </div>
     <div class="line"><output id="time"></output><a id="source" hidden></a></div>
     <div class="line"><button id="play" disabled>▶</button><input id="steps" type="range" min="0" value="0" disabled></div>
   </section>
