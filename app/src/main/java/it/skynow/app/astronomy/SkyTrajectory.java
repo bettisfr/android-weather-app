@@ -9,7 +9,7 @@ import java.util.function.LongFunction;
 
 public final class SkyTrajectory {
     private static final int STEP_SECONDS = 120;
-    private static final int MOON_SEARCH_STEPS = 26 * 60 * 60 / STEP_SECONDS;
+    private static final int HORIZON_SEARCH_STEPS = 26 * 60 * 60 / STEP_SECONDS;
 
     public static class Point {
         public final long time;
@@ -50,7 +50,7 @@ public final class SkyTrajectory {
         Point current = sample.apply(now.getEpochSecond());
         Point rise = null;
         Point set = null;
-        if (moon && current.elevation >= 0) {
+        if ((moon || planet != null) && current.elevation >= 0) {
             rise = findHorizon(sample, current, -STEP_SECONDS);
             set = findHorizon(sample, current, STEP_SECONDS);
             if (rise != null) start = rise.time;
@@ -84,7 +84,7 @@ public final class SkyTrajectory {
 
     private static Point findHorizon(LongFunction<Point> sample, Point current, int step) {
         Point above = current;
-        for (int i = 0; i < MOON_SEARCH_STEPS; i++) {
+        for (int i = 0; i < HORIZON_SEARCH_STEPS; i++) {
             Point next = sample.apply(above.time + step);
             if (next.elevation < 0) {
                 return step < 0 ? horizon(sample, next, above) : horizon(sample, above, next);

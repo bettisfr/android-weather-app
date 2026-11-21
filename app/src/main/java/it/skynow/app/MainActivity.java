@@ -1927,8 +1927,11 @@ public final class MainActivity extends Activity {
             int status = reading.favorable ? R.string.planet_visible_now
                     : above ? R.string.planet_difficult : R.string.planet_below_horizon;
             row.now.setText(getString(R.string.planet_now_status, getString(status)));
-            setMagnitudeBadge(row.magnitude, reading.magnitude,
-                    daylight ? android.graphics.Color.TRANSPARENT : magnitudeColor(reading.magnitude));
+            row.magnitude.setVisibility(above ? View.VISIBLE : View.GONE);
+            if (above) {
+                setMagnitudeBadge(row.magnitude, reading.magnitude,
+                        daylight ? android.graphics.Color.TRANSPARENT : magnitudeColor(reading.magnitude));
+            }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
                 row.observingWindows = Planets.windows(row.body, today, zone, latitude, longitude);
