@@ -118,15 +118,13 @@ function initialize(config) {
         const colors = lunar ? ['#7797ce', '#435e94']
             : solar ? ['#71a3d5', '#70a79a', '#ceb268', '#e69b59', '#d06c76', '#bd548e', '#8958bd']
                 : ['#e3ba77', '#c48227'];
-        const renderer = L.canvas({padding: .5});
-        const central = [];
-        for (const [south, north, west, east, band] of geometry.bands) {
-            L.rectangle([[south, west], [north, east]], {
-                renderer, stroke: false, fillColor: colors[band - 1],
-                fillOpacity: solar ? (band === 7 ? .63 : .39 + band * .035) : (band === 2 ? .47 : .36),
-                interactive: false,
-            }).addTo(map);
-            if (solar && band === 7) central.push([(south + north) / 2, (west + east) / 2]);
+        const pane = map.createPane('eclipse-coverage');
+        pane.style.zIndex = 400;
+        pane.style.opacity = solar ? .5 : .43;
+        const renderer = L.canvas({padding: .5, pane: 'eclipse-coverage'});
+        for (const {band, rings} of geometry.layers) {
+            L.polygon(rings, {renderer, stroke: false, fillColor: colors[band - 1], fillOpacity: 1,
+                fillRule: 'evenodd', interactive: false}).addTo(map);
         }
         if (solar) {
             const title = document.createElement('strong');
@@ -138,19 +136,19 @@ function initialize(config) {
         } else {
             addLegend(config.partial, colors[0]);
         }
-        if (exact || central.length) {
+        if (exact || geometry.central.length) {
             const label = geometry.type.startsWith('A') ? config.annularity
                 : geometry.type.startsWith('H') ? config.mixed : config.totality;
             addLegend(label, colors[6]);
-            if (!exact) fitCentralPath(central);
-        } else if (!solar && geometry.bands.some(band => band[4] === 2)) {
+            if (!exact) fitCentralPath(geometry.central);
+        } else if (!solar && geometry.layers.some(layer => layer.band === 2)) {
             addLegend(config.whole, colors[1]);
         }
     }
 
     status.textContent = config.loading;
     status.hidden = false;
-    const cacheKey = 'eclipse-geometry-v2';
+    const cacheKey = 'eclipse-geometry-v3';
     const id = config.kind + ':' + config.date;
     try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');

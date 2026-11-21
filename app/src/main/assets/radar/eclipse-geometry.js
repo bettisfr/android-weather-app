@@ -4,6 +4,8 @@ const radians = Math.PI / 180;
 const maxLatitude = 85;
 const observerEccentricitySquared = .00669437999014;
 const centralBand = 7;
+const coverageStep = .5;
+const centralStep = .25;
 
 function observer(latitude) {
     const phi = latitude * radians;
@@ -112,7 +114,7 @@ function centerOfShadow(sample) {
 }
 
 function centralBands(samples, slope) {
-    const step = .25;
+    const step = centralStep;
     const cellColumns = 360 / step;
     const cells = new Map();
     for (const sample of samples) {
@@ -145,7 +147,7 @@ function solarGeometry(date, useExactPath) {
     const [type, latitude, longitude, , , , , , , , , , partialSlope, centralSlope] = elements;
     const samples = solarSamples(elements, 3);
     const thresholds = [.2, .4, .6, .8, .9];
-    const bands = coverageBands(1, (_row, _column, horizontal, vertical, sinLon, cosLon) => {
+    const bands = coverageBands(coverageStep, (_row, _column, horizontal, vertical, sinLon, cosLon) => {
         let maximum = 0;
         for (const sample of samples) {
             maximum = Math.max(maximum, solarObscuration(sample, horizontal, vertical, sinLon, cosLon,
@@ -167,7 +169,7 @@ function horizonGeometry(contacts) {
         return [Math.sin(declination), Math.cos(declination), Math.sin(longitudeRadians),
             Math.cos(longitudeRadians), Math.sin(horizon * radians)];
     });
-    const bands = coverageBands(1, (_row, _column, _horizontal, _vertical, sinLon, cosLon, latitude) => {
+    const bands = coverageBands(coverageStep, (_row, _column, _horizontal, _vertical, sinLon, cosLon, latitude) => {
         const phi = latitude * radians;
         const sinLat = Math.sin(phi);
         const cosLat = Math.cos(phi);
@@ -181,7 +183,88 @@ function horizonGeometry(contacts) {
     return {bands};
 }
 
+function traceContours(bands, step, includes) {
+    const width = 360 / step;
+    const height = 2 * maxLatitude / step;
+    const cells = new Uint8Array(width * height);
+    for (const [south, , west, east, band] of bands) {
+        if (!includes(band)) continue;
+        const offset = Math.round((south + maxLatitude) / step) * width;
+        cells.fill(1, offset + Math.round((west + 180) / step), offset + Math.round((east + 180) / step));
+    }
+    const stride = width + 1;
+    const edges = new Map();
+    function edge(from, to) {
+        if (!edges.has(from)) edges.set(from, []);
+        edges.get(from).push(to);
+    }
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const cell = y * width + x;
+            if (!cells[cell]) continue;
+            const corner = y * stride + x;
+            if (y === 0 || !cells[cell - width]) edge(corner, corner + 1);
+            if (x === width - 1 || !cells[cell + 1]) edge(corner + 1, corner + stride + 1);
+            if (y === height - 1 || !cells[cell + width]) edge(corner + stride + 1, corner + stride);
+            if (x === 0 || !cells[cell - 1]) edge(corner + stride, corner);
+        }
+    }
+    const directions = [1, stride, -1, -stride];
+    const rings = [];
+    while (edges.size) {
+        const start = edges.keys().next().value;
+        const ring = [];
+        let previous = start;
+        let current = start;
+        do {
+            ring.push([Math.floor(current / stride), current % stride]);
+            const candidates = edges.get(current);
+            // At a corner shared by two regions, follow the edge of this region.
+            const left = directions[(directions.indexOf(current - previous) + 1) % 4];
+            const choice = candidates.length === 2 && candidates[1] - current === left ? 1 : 0;
+            const next = candidates.splice(choice, 1)[0];
+            if (!candidates.length) edges.delete(current);
+            previous = current;
+            current = next;
+        } while (current !== start);
+        rings.push(smoothRing(ring).map(([y, x]) => [y * step - maxLatitude, x * step - 180]));
+    }
+    return rings;
+}
+
+function smoothRing(ring) {
+    // Round each join while keeping the contour within the local sampled cells.
+    for (let pass = 0; pass < 2; pass++) {
+        const rounded = [];
+        for (let i = 0; i < ring.length; i++) {
+            const [y, x] = ring[i];
+            const [nextY, nextX] = ring[(i + 1) % ring.length];
+            rounded.push([y * .75 + nextY * .25, x * .75 + nextX * .25],
+                [y * .25 + nextY * .75, x * .25 + nextX * .75]);
+        }
+        ring = rounded;
+    }
+    return ring;
+}
+
+function vectorGeometry(geometry, solar) {
+    if (!geometry) return null;
+    const {bands, type} = geometry;
+    const layers = [];
+    const count = solar ? centralBand : 2;
+    for (let band = 1; band <= count; band++) {
+        const central = solar && band === centralBand;
+        const rings = traceContours(bands, central ? centralStep : coverageStep, value =>
+            central ? value === centralBand : value >= band && (!solar || value < centralBand));
+        if (rings.length) layers.push({band, rings});
+    }
+    const central = solar ? bands.filter(row => row[4] === centralBand)
+        .map(([south, north, west, east]) => [(south + north) / 2, (west + east) / 2]) : [];
+    return {type, layers, central};
+}
+
 self.onmessage = ({data}) => {
     const {date, kind, contacts, useExactPath} = data;
-    self.postMessage(kind === 'solar' ? solarGeometry(date, useExactPath) : horizonGeometry(contacts));
+    const solar = kind === 'solar';
+    self.postMessage(vectorGeometry(solar ? solarGeometry(date, useExactPath) : horizonGeometry(contacts), solar));
 };
