@@ -49,7 +49,6 @@ import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.StateListDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -69,7 +68,6 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -133,11 +131,13 @@ public final class MainActivity extends Activity {
     private boolean fahrenheit;
     private boolean clock24;
     private int windUnit;
+    private static final int SETTINGS_REQUEST = 403;
+    private int appliedTheme;
     private int pressureUnit;
 
-    private static final String[] WIND_UNITS = {"km/h", "mph", "m/s", "kn"};
+    static final String[] WIND_UNITS = {"km/h", "mph", "m/s", "kn"};
     private static final double[] WIND_FACTORS = {1, 0.621371, 1.0 / 3.6, 1.0 / 1.852};
-    private static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
+    static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
     private static final double[] PRESSURE_FACTORS = {1, 1, 0.029529983, 0.750061683};
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
@@ -248,11 +248,8 @@ public final class MainActivity extends Activity {
         place = prefs.getString("place", "Bastia Umbra");
         latitude = Double.parseDouble(prefs.getString("latitude", "43.066"));
         longitude = Double.parseDouble(prefs.getString("longitude", "12.548"));
-        fahrenheit = prefs.getBoolean("fahrenheit", false);
-        clock24 = prefs.getBoolean("clock24", true);
-        windUnit = prefs.getInt("windUnit", 0);
-        pressureUnit = prefs.getInt("pressureUnit", 0);
-        earthquakeRadius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
+        appliedTheme = SkyTheme.preference(this);
+        readDisplayPreferences(prefs);
         earthquakeMinimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
         if (state != null && state.containsKey("forecastPlace")) {
             place = state.getString("forecastPlace");
@@ -3028,179 +3025,33 @@ public final class MainActivity extends Activity {
         return number(hpa * PRESSURE_FACTORS[pressureUnit], pressureUnit == 2 ? "%,.2f" : "%,.0f");
     }
 
-    private void addCredits(LinearLayout options, ScrollView scroller) {
-        LinearLayout sources = column();
-        sources.setVisibility(View.GONE);
-        Button toggle = accordionButton(getString(R.string.credits));
-        toggle.setOnClickListener(v -> {
-            boolean open = sources.getVisibility() != View.VISIBLE;
-            sources.setVisibility(open ? View.VISIBLE : View.GONE);
-            updateAccordion(toggle, open);
-            if (open) scroller.post(() -> scroller.smoothScrollTo(0, toggle.getTop()));
-        });
-        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);
-        size.topMargin = dp(12);
-        options.addView(toggle, size);
-        options.addView(sources);
-        addCredit(sources, R.string.weather_data, "https://open-meteo.com/");
-        addCredit(sources, R.string.warning_credit, "https://meteoalarm.org/");
-        addCredit(sources, R.string.radar_credit, "https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/");
-        addCredit(sources, R.string.aurora_credit, AuroraForecast.MAP);
-        addCredit(sources, R.string.air_quality_credit, "https://open-meteo.com/en/docs/air-quality-api");
-        addCredit(sources, R.string.air_quality_map_credit, "https://airindex.eea.europa.eu/AQI/");
-        addCredit(sources, R.string.satellite_credit, SatelliteImagery.EUMETSAT);
-        addCredit(sources, R.string.satellite_mosaic_credit, SatelliteImagery.SOURCE);
-        addCredit(sources, R.string.earthquake_credit, EarthquakeFeed.SOURCE);
-        addCredit(sources, R.string.iss_credit, "https://www.amsat.org/keplerian-elements/");
-        addCredit(sources, R.string.eclipse_data, "https://opale.imcce.fr/");
-        addCredit(sources, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
-    }
-
-    private void addCredit(LinearLayout sources, int title, String url) {
-        TextView link = button(getString(title), () -> openAstronomyPage(url));
-        link.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
-        sources.addView(link, new LinearLayout.LayoutParams(-1, -2));
-    }
-
     private void settings() {
-        Dialog dialog = new Dialog(this);
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        LinearLayout panel = column();
-        panel.setBackgroundColor(getColor(R.color.sky_card));
-        dialog.setContentView(panel);
-
-        LinearLayout header = row();
-        header.setPadding(dp(20), dp(12), dp(12), dp(10));
-        TextView heading = label(getString(R.string.settings), 26, ink);
-        heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        header.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView close = button("×", dialog::dismiss);
-        close.setTextSize(24);
-        close.setContentDescription(getString(R.string.close_settings));
-        header.addView(close);
-        panel.addView(header);
-
-        ScrollView scroller = new ScrollView(this);
-        panel.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
-        LinearLayout options = column();
-        options.setPadding(dp(20), 0, dp(20), dp(16));
-        scroller.addView(options);
-        int originalTheme = SkyTheme.preference(this);
-        RadioGroup themes = unitOption(options, getString(R.string.appearance_theme),
-                new String[]{getString(R.string.theme_system), getString(R.string.theme_light),
-                        getString(R.string.theme_dark)}, originalTheme);
-        RadioGroup temperatures = unitOption(options, getString(R.string.temperature),
-                new String[]{getString(R.string.celsius), getString(R.string.fahrenheit)}, fahrenheit ? 1 : 0);
-        RadioGroup winds = unitOption(options, getString(R.string.wind_speed), WIND_UNITS, windUnit);
-        RadioGroup pressures = unitOption(options, getString(R.string.pressure), PRESSURE_UNITS, pressureUnit);
-        RadioGroup clockFormats = unitOption(options, getString(R.string.time_format),
-                new String[]{getString(R.string.clock_12), getString(R.string.clock_24)}, clock24 ? 1 : 0);
-        LinearLayout radiusHeading = row();
-        radiusHeading.setPadding(0, dp(17), 0, dp(4));
-        TextView radiusLabel = label(getString(R.string.earthquake_radius), 15, ink);
-        radiusHeading.addView(radiusLabel, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView radiusValue = label(getString(R.string.earthquake_radius_value, earthquakeRadius), 15, accent);
-        radiusHeading.addView(radiusValue);
-        options.addView(radiusHeading);
-        SeekBar radiusSlider = new SeekBar(this);
-        radiusSlider.setId(View.generateViewId());
-        radiusLabel.setLabelFor(radiusSlider.getId());
-        radiusSlider.setMin(1);
-        radiusSlider.setMax(EarthquakeFeed.MAX_RADIUS);
-        radiusSlider.setProgress(earthquakeRadius);
-        radiusSlider.setKeyProgressIncrement(1);
-        radiusSlider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar slider, int progress, boolean fromUser) {
-                radiusValue.setText(getString(R.string.earthquake_radius_value, progress));
-            }
-            @Override public void onStartTrackingTouch(SeekBar slider) {}
-            @Override public void onStopTrackingTouch(SeekBar slider) {}
-        });
-        options.addView(radiusSlider, new LinearLayout.LayoutParams(-1, -2));
-        String versionDate = LocalDate.parse(getString(R.string.sky_version_date))
-                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(appLocale()));
-        TextView version = label(getString(R.string.app_version, getString(R.string.sky_version_name), versionDate), 12, muted);
-        version.setPadding(0, dp(18), 0, 0);
-        options.addView(version);
-        addCredits(options, scroller);
-
-        LinearLayout actions = row();
-        actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        actions.setPadding(dp(20), dp(10), dp(20), dp(16));
-        actions.addView(button(getString(R.string.cancel), dialog::dismiss));
-        TextView apply = button(getString(R.string.apply), () -> {
-            earthquakeRadius = radiusSlider.getProgress();
-            fahrenheit = selectedUnit(temperatures) == 1;
-            windUnit = selectedUnit(winds);
-            pressureUnit = selectedUnit(pressures);
-            clock24 = selectedUnit(clockFormats) == 1;
-            getPreferences(MODE_PRIVATE).edit().putBoolean("fahrenheit", fahrenheit)
-                    .putInt("windUnit", windUnit).putInt("pressureUnit", pressureUnit)
-                    .putBoolean("clock24", clock24).putInt("earthquakeRadius", earthquakeRadius).apply();
-            dialog.dismiss();
-            int selectedTheme = selectedUnit(themes);
-            if (selectedTheme != originalTheme) {
-                SkyTheme.savePreference(this, selectedTheme);
-                recreate();
-            } else if (data != null) {
-                render();
-            }
-        });
-        apply.setBackground(background(accent, 14));
-        apply.setTextColor(getColor(R.color.sky_on_accent));
-        apply.setPadding(dp(24), dp(8), dp(24), dp(8));
-        LinearLayout.LayoutParams applySize = new LinearLayout.LayoutParams(-2, -2);
-        applySize.leftMargin = dp(10);
-        actions.addView(apply, applySize);
-        panel.addView(actions);
-
-        android.view.Window window = dialog.getWindow();
-        window.setBackgroundDrawableResource(android.R.color.transparent);
-        window.setGravity(Gravity.END | Gravity.TOP);
-        window.setWindowAnimations(R.style.SettingsDrawerAnimation);
-        dialog.show();
-        int width = getResources().getConfiguration().screenWidthDp;
-        window.setLayout(dp(Math.min(380, width - (largeText() ? 8 : 32))), -1);
+        startActivityForResult(new android.content.Intent(this, SettingsActivity.class)
+                .putExtra(SettingsActivity.PREFERENCES_FILE, getLocalClassName()), SETTINGS_REQUEST);
     }
 
-    private RadioGroup unitOption(LinearLayout parent, String name, String[] values, int selected) {
-        TextView title = label(name, 15, ink);
-        title.setPadding(0, dp(17), 0, dp(8));
-        parent.addView(title);
-        RadioGroup choices = new RadioGroup(this);
-        boolean vertical = largeText();
-        choices.setOrientation(vertical ? LinearLayout.VERTICAL : LinearLayout.HORIZONTAL);
-        choices.setId(View.generateViewId());
-        title.setLabelFor(choices.getId());
-        for (int i = 0; i < values.length; i++) {
-            RadioButton option = new RadioButton(this);
-            option.setId(View.generateViewId());
-            option.setText(values[i]);
-            option.setTextColor(ink);
-            option.setTextSize(14);
-            option.setGravity(Gravity.CENTER);
-            option.setButtonDrawable((android.graphics.drawable.Drawable) null);
-            option.setPadding(dp(4), dp(8), dp(4), dp(8));
-            StateListDrawable surface = new StateListDrawable();
-            surface.addState(new int[]{android.R.attr.state_checked}, background(getColor(R.color.sky_selected), 12));
-            surface.addState(new int[]{}, background(getColor(R.color.sky_subtle), 12));
-            option.setBackground(surface);
-            RadioGroup.LayoutParams size = vertical ? new RadioGroup.LayoutParams(-1, -2)
-                    : new RadioGroup.LayoutParams(0, -2, 1);
-            if (i > 0) {
-                if (vertical) size.topMargin = dp(6);
-                else size.leftMargin = dp(6);
-            }
-            option.setMinHeight(dp(46));
-            choices.addView(option, size);
-        }
-        choices.check(choices.getChildAt(selected).getId());
-        parent.addView(choices);
-        return choices;
+    @Override protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != SETTINGS_REQUEST || resultCode != RESULT_OK) return;
+        boolean changed = readDisplayPreferences(getPreferences(MODE_PRIVATE));
+        if (SkyTheme.preference(this) != appliedTheme) recreate();
+        else if (changed && this.data != null) render();
     }
 
-    private static int selectedUnit(RadioGroup choices) {
-        return choices.indexOfChild(choices.findViewById(choices.getCheckedRadioButtonId()));
+    private boolean readDisplayPreferences(android.content.SharedPreferences prefs) {
+        boolean useFahrenheit = prefs.getBoolean("fahrenheit", false);
+        boolean use24Hours = prefs.getBoolean("clock24", true);
+        int wind = prefs.getInt("windUnit", 0);
+        int pressure = prefs.getInt("pressureUnit", 0);
+        int radius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
+        boolean changed = fahrenheit != useFahrenheit || clock24 != use24Hours || windUnit != wind
+                || pressureUnit != pressure || earthquakeRadius != radius;
+        fahrenheit = useFahrenheit;
+        clock24 = use24Hours;
+        windUnit = wind;
+        pressureUnit = pressure;
+        earthquakeRadius = radius;
+        return changed;
     }
 
     private void locations() {

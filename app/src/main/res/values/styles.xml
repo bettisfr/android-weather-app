@@ -1,6 +1,0 @@
-<resources>
-    <style name="SettingsDrawerAnimation">
-        <item name="android:windowEnterAnimation">@anim/settings_enter</item>
-        <item name="android:windowExitAnimation">@anim/settings_exit</item>
-    </style>
-</resources>
