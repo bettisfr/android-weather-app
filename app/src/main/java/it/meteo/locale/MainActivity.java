@@ -2172,6 +2172,7 @@ public final class MainActivity extends Activity {
     }
 
     private static int issMagnitudeColor(double magnitude) {
+        if (magnitude <= -4) return 0xfff28b92;
         if (magnitude <= -3) return 0xffef9b64;
         if (magnitude <= -2) return 0xffffd277;
         if (magnitude <= -1) return 0xffb6cef1;
