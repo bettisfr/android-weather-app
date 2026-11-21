@@ -13,6 +13,17 @@ public final class LunarPhases {
 
     private LunarPhases() {}
 
+    public static double apparentMagnitude(SkyPosition sun, SkyPosition moon) {
+        double sunZenith = Math.toRadians(sun.zenith);
+        double moonZenith = Math.toRadians(moon.zenith);
+        double azimuthDifference = Math.toRadians(sun.azimuth - moon.azimuth);
+        double cosine = Math.cos(sunZenith) * Math.cos(moonZenith)
+                + Math.sin(sunZenith) * Math.sin(moonZenith) * Math.cos(azimuthDifference);
+        double phaseAngle = 180 - Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cosine))));
+        // Approximate phase law from Krisciunas and Schaefer (1991), eq. 9.
+        return -12.73 + .026 * phaseAngle + 4e-9 * Math.pow(phaseAngle, 4);
+    }
+
     public static LocalDate nextDate(LocalDate from, ZoneId zone, boolean fullMoon) {
         return nextDate(from, zone, fullMoon ? 2 : 0);
     }

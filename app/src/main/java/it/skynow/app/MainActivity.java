@@ -2272,12 +2272,6 @@ public final class MainActivity extends Activity {
         return badge;
     }
 
-    private void addAstronomyBadge(LinearLayout panel, TextView badge, int topDp) {
-        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, -2);
-        size.topMargin = dp(topDp);
-        panel.addView(badge, size);
-    }
-
     private void setMagnitudeBadge(TextView badge, double magnitude, boolean colored) {
         badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
         badge.setTextColor(colored ? 0xff202735 : muted);
@@ -2286,10 +2280,7 @@ public final class MainActivity extends Activity {
 
     private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
         LocalDate date = Instant.ofEpochSecond(pass.rise.time).atZone(zone).toLocalDate();
-        showSkyTrack(getString(R.string.iss_track), period, panel -> {
-            TextView magnitude = astronomyBadge("");
-            setMagnitudeBadge(magnitude, pass.magnitude, true);
-            addAstronomyBadge(panel, magnitude, 6);
+        showSkyTrack(getString(R.string.iss_track), period, pass.magnitude, true, panel -> {
             addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
             addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
@@ -2308,11 +2299,19 @@ public final class MainActivity extends Activity {
     private void showDailySkyTrack(String name, boolean moon, Planets.Body planet) {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         Instant now = Instant.now();
-        if (planet == null && SkyPosition.at(now, latitude, longitude, moon).zenith >= 90) return;
+        SkyPosition sun = SkyPosition.at(now, latitude, longitude, false);
+        SkyPosition body = moon ? SkyPosition.at(now, latitude, longitude, true) : sun;
+        if (planet == null && body.zenith >= 90) return;
+        double magnitude = planet != null ? Planets.at(planet, now, latitude, longitude).magnitude
+                : moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74;
         SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
         ZonedDateTime localNow = now.atZone(zone);
         LocalDate date = localNow.toLocalDate();
-        showSkyTrack(getString(R.string.daily_sky_track, name), localNow.format(shortDate(true)), panel -> {
+        String period = localNow.format(shortDate(true));
+        if (track.rise != null && track.set != null && track.rise.time <= track.set.time) {
+            period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
+        }
+        showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, sun.zenith >= 90, panel -> {
             addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
             if (track.peak.elevation < 0) {
                 panel.addView(label(getString(R.string.sky_track_no_path), 14, muted));
@@ -2324,7 +2323,8 @@ public final class MainActivity extends Activity {
         });
     }
 
-    private void showSkyTrack(String title, String period, java.util.function.Consumer<LinearLayout> content) {
+    private void showSkyTrack(String title, String period, double magnitude, boolean coloredMagnitude,
+                              java.util.function.Consumer<LinearLayout> content) {
         Dialog dialog = new Dialog(this, R.style.SkyHereTheme);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         LinearLayout screen = column();
@@ -2347,7 +2347,18 @@ public final class MainActivity extends Activity {
         LinearLayout panel = column();
         panel.setBackground(background(getColor(R.color.sky_card), 16));
         panel.setPadding(dp(14), dp(12), dp(14), dp(14));
-        panel.addView(label(period, 14, muted));
+        LinearLayout summary = row();
+        summary.setGravity(Gravity.TOP);
+        summary.addView(label(period, 14, muted), new LinearLayout.LayoutParams(0, -2, 1));
+        if (Double.isFinite(magnitude)) {
+            TextView badge = astronomyBadge("");
+            setMagnitudeBadge(badge, magnitude, coloredMagnitude);
+            if (!coloredMagnitude) badge.setBackground(background(getColor(R.color.sky_subtle), 8));
+            LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
+            badgeSize.setMarginStart(dp(8));
+            summary.addView(badge, badgeSize);
+        }
+        panel.addView(summary);
         content.accept(panel);
         body.addView(panel);
         viewport.addView(body);
@@ -2398,14 +2409,18 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(dp(8), dp(8));
         markerSize.setMarginEnd(dp(8));
         item.addView(marker, markerSize);
-        ZonedDateTime localTime = Instant.ofEpochSecond(point.time).atZone(zone);
-        String time = localTime.format(clockFormat());
-        if (!localTime.toLocalDate().equals(date)) time = localTime.format(shortDate(false)) + " " + time;
+        String time = skyTrackTime(point, zone, date);
         String position = point.elevation >= 0 ? issBearing(point.azimuth) + " · " + Math.round(point.elevation) + "°"
                 : getString(R.string.planet_below_horizon);
         String details = getString(title) + " · " + time + " · " + position;
         item.addView(label(details, 14, ink), new LinearLayout.LayoutParams(0, -2, 1));
         addSpaced(panel, item, 6);
+    }
+
+    private String skyTrackTime(SkyTrajectory.Point point, ZoneId zone, LocalDate date) {
+        ZonedDateTime localTime = Instant.ofEpochSecond(point.time).atZone(zone);
+        String time = localTime.format(clockFormat());
+        return localTime.toLocalDate().equals(date) ? time : localTime.format(shortDate(false)) + " " + time;
     }
 
     private String issBearing(double azimuth) {
