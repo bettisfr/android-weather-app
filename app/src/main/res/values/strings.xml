@@ -297,6 +297,7 @@
     <string name="earthquakes">Recent earthquakes</string>
     <string name="seismic_activity">Seismic activity</string>
     <string name="earthquake_map">Earthquake map</string>
+    <string name="earthquake_open_event">Open on INGV</string>
     <string name="earthquake_map_title">Earthquakes · %1$s</string>
     <string name="earthquake_scope">Last 7 days · Within %1$d km of your current location</string>
     <string name="earthquake_location_required">Current location is needed to show nearby earthquakes</string>

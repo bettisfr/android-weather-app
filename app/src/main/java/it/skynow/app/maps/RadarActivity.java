@@ -50,6 +50,7 @@ public final class RadarActivity extends Activity {
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WebView web;
     private Layer layer;
+    private String selectedEarthquake;
 
     @Override protected void attachBaseContext(android.content.Context base) {
         super.attachBaseContext(SkyTheme.withPreference(base));
@@ -59,6 +60,7 @@ public final class RadarActivity extends Activity {
         super.onCreate(state);
         String requested = getIntent().getStringExtra("layer");
         layer = requested == null ? Layer.RADAR : Layer.valueOf(requested);
+        if (layer == Layer.EARTHQUAKES) selectedEarthquake = getIntent().getStringExtra("selectedEarthquake");
         String page = layer.page;
         int surface = getColor(R.color.sky_background);
         int ink = getColor(R.color.sky_text);
@@ -125,7 +127,7 @@ public final class RadarActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url) {
                 if (!page.equals(url) || isFinishing()) return;
                 view.evaluateJavascript("initialize(" + parameters() + ")", null);
-                if (layer == Layer.AIR_QUALITY) return;
+                if (layer == Layer.AIR_QUALITY || selectedEarthquake != null) return;
                 network.execute(() -> {
                     switch (layer) {
                         case AURORA: loadAurora(); break;
@@ -166,6 +168,10 @@ public final class RadarActivity extends Activity {
                 result.put("magnitudeLabel", getString(R.string.earthquake_magnitude));
                 result.put("magnitudeBands", EarthquakeFeed.magnitudeBands());
                 result.put("source", EarthquakeFeed.SOURCE);
+                if (selectedEarthquake != null) {
+                    result.put("selectedEvent", new JSONObject(selectedEarthquake));
+                    result.put("openEvent", getString(R.string.earthquake_open_event));
+                }
                 return result;
             }
             if (layer == Layer.AIR_QUALITY) {

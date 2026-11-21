@@ -296,6 +296,7 @@
     <string name="earthquakes">Terremoti recenti</string>
     <string name="seismic_activity">Attività sismica</string>
     <string name="earthquake_map">Mappa dei terremoti</string>
+    <string name="earthquake_open_event">Apri su INGV</string>
     <string name="earthquake_map_title">Terremoti · %1$s</string>
     <string name="earthquake_scope">Ultimi 7 giorni · Entro %1$d km dalla posizione attuale</string>
     <string name="earthquake_location_required">Serve la posizione attuale per mostrare i terremoti vicini</string>

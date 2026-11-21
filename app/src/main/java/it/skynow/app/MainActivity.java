@@ -1137,13 +1137,26 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams zoneSize = new LinearLayout.LayoutParams(0, -2, 1);
             zoneSize.setMarginStart(dp(6));
             heading.addView(zone, zoneSize);
+            heading.addView(skyTrackChevron());
             entry.addView(heading);
             entry.addView(label(getString(R.string.earthquake_details, date.format(event.time), Math.round(distance[0] / 1000),
                     number(event.depth, "%.1f")), 13, muted));
-            entry.setOnClickListener(v -> openAstronomyPage(event.url()));
+            astronomyCardAction(entry, () -> openEarthquake(event));
             addSpaced(rows, entry, 5);
         }
         more.setVisibility(end < events.size() ? View.VISIBLE : View.GONE);
+    }
+
+    private void openEarthquake(EarthquakeFeed.Event event) {
+        try {
+            startActivity(new android.content.Intent(this, RadarActivity.class)
+                    .putExtra("layer", RadarActivity.Layer.EARTHQUAKES.name())
+                    .putExtra("place", event.zone)
+                    .putExtra("selectedEarthquake", event.mapData().toString())
+                    .putExtra("timeZone", "Europe/Rome").putExtra("clock24", clock24));
+        } catch (org.json.JSONException error) {
+            Toast.makeText(this, getString(R.string.earthquake_unavailable), Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void refreshWarnings() {

@@ -18,7 +18,8 @@ function initialize(parameters) {
     document.documentElement.classList.toggle('dark', config.dark);
     document.getElementById('map').setAttribute('aria-label', config.mapLabel);
     document.getElementById('scope').textContent = config.scope;
-    document.getElementById('source').href = config.source;
+    const source = document.getElementById('source');
+    source.href = config.source;
     const legend = document.getElementById('legend');
     legend.setAttribute('aria-label', config.magnitudeLabel);
     legend.textContent = config.magnitudeLabel;
@@ -37,6 +38,16 @@ function initialize(parameters) {
         timeZone: config.timeZone, hourCycle: config.clock24 ? 'h23' : 'h12',
     });
     numberFormat = new Intl.NumberFormat(config.language, {minimumFractionDigits: 1, maximumFractionDigits: 1});
+    if (config.selectedEvent) {
+        const event = config.selectedEvent;
+        document.body.classList.add('event-detail');
+        source.href = event.url;
+        source.textContent = config.openEvent + ' ↗';
+        map = createWeatherMap('map', [event.lat, event.lon], 12, {preferCanvas: true});
+        markers = L.layerGroup().addTo(map);
+        showEarthquakes([event]);
+        return;
+    }
     const center = [config.lat, config.lon];
     map = createWeatherMap('map', center, 8, {preferCanvas: true});
     const coverage = L.circle(center, {
@@ -73,14 +84,19 @@ function showEarthquakes(events) {
         when.textContent = timeFormat.format(event.time);
         const depth = document.createElement('div');
         depth.textContent = config.depthLabel + ' ' + numberFormat.format(event.depth) + ' km';
-        const link = document.createElement('a');
-        link.href = event.url;
-        link.textContent = 'INGV ↗';
-        popup.append(title, when, depth, link);
+        popup.append(title, when, depth);
+        if (!config.selectedEvent) {
+            const link = document.createElement('a');
+            link.href = event.url;
+            link.textContent = 'INGV ↗';
+            popup.append(link);
+        }
         const band = config.magnitudeBands.find(item => item.limit === undefined || event.magnitude < item.limit);
-        L.circleMarker([event.lat, event.lon], {
-            radius: band.radius, color: '#303942', weight: 1, fillColor: band.color, fillOpacity: .9, interactive: false,
-        }).bindPopup(popup).addTo(markers);
+        const marker = L.circleMarker([event.lat, event.lon], {
+            radius: config.selectedEvent ? Math.max(8, band.radius) : band.radius,
+            color: '#303942', weight: 1, fillColor: band.color, fillOpacity: .9, interactive: Boolean(config.selectedEvent),
+        }).bindPopup(popup, {autoPan: !config.selectedEvent}).addTo(markers);
+        if (config.selectedEvent) marker.openPopup();
     }
     status(events.length ? '' : config.empty);
 }
