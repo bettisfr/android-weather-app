@@ -14,6 +14,8 @@ final class IssPasses {
     private static final double EARTH_RADIUS_KM = 6378.137;
     private static final double EARTH_ECCENTRICITY_SQUARED = 0.00669437999014;
     private static final int STEP = 20;
+    // Estimated visual magnitude at a range of 1,000 km and a phase angle of 90 degrees.
+    private static final double STANDARD_MAGNITUDE = -1.3;
     private static String[] cachedLines;
     private static Instant fetchedAt = Instant.EPOCH;
 
@@ -26,14 +28,17 @@ final class IssPasses {
         Sample previous = observer.at(start);
         Sample rise = previous.visible ? previous : null;
         Sample peak = rise;
+        Sample brightest = rise;
         for (long time = start + STEP; time <= end; time += STEP) {
             Sample current = observer.at(time);
             if (current.visible) {
                 if (rise == null) {
                     rise = observer.boundary(previous, current);
                     peak = rise;
+                    brightest = rise;
                 }
                 if (current.elevation > peak.elevation) peak = current;
+                if (current.magnitude < brightest.magnitude) brightest = current;
             } else if (rise != null) {
                 Sample set = observer.boundary(previous, current);
                 long low = Math.max(rise.time, peak.time - STEP);
@@ -42,7 +47,13 @@ final class IssPasses {
                     Sample candidate = observer.at(second);
                     if (candidate.visible && candidate.elevation > peak.elevation) peak = candidate;
                 }
-                if (set.time > rise.time) passes.add(new Pass(rise, peak, set));
+                low = Math.max(rise.time, brightest.time - STEP);
+                high = Math.min(set.time, brightest.time + STEP);
+                for (long second = low; second <= high; second++) {
+                    Sample candidate = observer.at(second);
+                    if (candidate.magnitude < brightest.magnitude) brightest = candidate;
+                }
+                if (set.time > rise.time) passes.add(new Pass(rise, peak, set, brightest.magnitude));
                 rise = null;
             }
             previous = current;
@@ -68,24 +79,27 @@ final class IssPasses {
 
     static final class Pass {
         final Sample rise, peak, set;
+        final double magnitude;
 
-        Pass(Sample rise, Sample peak, Sample set) {
+        Pass(Sample rise, Sample peak, Sample set, double magnitude) {
             this.rise = rise;
             this.peak = peak;
             this.set = set;
+            this.magnitude = magnitude;
         }
     }
 
     static final class Sample {
         final long time;
-        final double azimuth, elevation;
+        final double azimuth, elevation, magnitude;
         final boolean visible;
 
-        Sample(long time, double azimuth, double elevation, boolean visible) {
+        Sample(long time, double azimuth, double elevation, double magnitude) {
             this.time = time;
             this.azimuth = azimuth;
             this.elevation = elevation;
-            this.visible = visible;
+            this.magnitude = magnitude;
+            this.visible = Double.isFinite(magnitude);
         }
     }
 
@@ -125,9 +139,9 @@ final class IssPasses {
             double elevation = Math.toDegrees(Math.atan2(up, Math.hypot(east, north)));
             double azimuth = (Math.toDegrees(Math.atan2(east, north)) + 360) % 360;
             Instant time = Instant.ofEpochSecond(second);
-            boolean visible = elevation >= 10 && SkyPosition.at(time, latitude, longitude, false).zenith >= 96
-                    && sunlit(time, sx, sy, sz);
-            return new Sample(second, azimuth, elevation, visible);
+            double magnitude = elevation >= 10 && SkyPosition.at(time, latitude, longitude, false).zenith >= 96
+                    ? apparentMagnitude(time, sx, sy, sz, dx, dy, dz) : Double.POSITIVE_INFINITY;
+            return new Sample(second, azimuth, elevation, magnitude);
         }
 
         Sample boundary(Sample before, Sample after) throws IOException {
@@ -140,13 +154,25 @@ final class IssPasses {
         }
     }
 
-    private static boolean sunlit(Instant time, double x, double y, double z) {
+    private static double apparentMagnitude(Instant time, double x, double y, double z,
+                                            double dx, double dy, double dz) {
         // At the equator on Greenwich, local up/east/north are the Earth-fixed X/Y/Z axes.
         SkyPosition sun = SkyPosition.at(time, 0, 0, false);
         double zenith = Math.toRadians(sun.zenith);
         double azimuth = Math.toRadians(sun.azimuth);
-        double alongSun = x * Math.cos(zenith) + Math.sin(zenith) * (y * Math.sin(azimuth) + z * Math.cos(azimuth));
-        return alongSun >= 0 || x * x + y * y + z * z - alongSun * alongSun >= EARTH_RADIUS_KM * EARTH_RADIUS_KM;
+        double sunX = Math.cos(zenith);
+        double sunY = Math.sin(zenith) * Math.sin(azimuth);
+        double sunZ = Math.sin(zenith) * Math.cos(azimuth);
+        double alongSun = x * sunX + y * sunY + z * sunZ;
+        if (alongSun < 0 && x * x + y * y + z * z - alongSun * alongSun < EARTH_RADIUS_KM * EARTH_RADIUS_KM) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double range = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        double cosine = Math.max(-1, Math.min(1, -(dx * sunX + dy * sunY + dz * sunZ) / range));
+        double phase = Math.acos(cosine);
+        // Lambert-sphere phase function, normalized to unity at the reference 90-degree phase.
+        double phaseFactor = Math.sin(phase) + (Math.PI - phase) * cosine;
+        return STANDARD_MAGNITUDE + 5 * Math.log10(range / 1000) - 2.5 * Math.log10(Math.max(1e-6, phaseFactor));
     }
 
     private IssPasses() {}

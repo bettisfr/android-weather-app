@@ -2147,11 +2147,15 @@ public final class MainActivity extends Activity {
             LinearLayout entry = column();
             entry.setPadding(dp(12), dp(8), dp(12), dp(8));
             entry.setBackground(background(getColor(R.color.sky_subtle), 12));
-            entry.addView(label(dayFormat.format(rise) + " · " + range, 15, ink));
+            LinearLayout heading = row();
+            heading.addView(label(dayFormat.format(rise) + " · " + range, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
+            heading.addView(astronomyLinkIcon());
+            entry.addView(heading);
             entry.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
-                    Math.round(pass.peak.elevation)), 13, muted));
+                    Math.round(pass.peak.elevation), number(pass.magnitude, "%+.1f")), 13, muted));
             entry.addView(label(getString(R.string.iss_directions, issBearing(pass.rise.azimuth),
                     issBearing(pass.peak.azimuth), issBearing(pass.set.azimuth)), 13, muted));
+            linkAstronomyCard(entry, issPassUrl(pass, zone));
             addSpaced(rows, entry, 6);
         }
         more.setVisibility(end < passes.size() ? View.VISIBLE : View.GONE);
@@ -2159,6 +2163,21 @@ public final class MainActivity extends Activity {
 
     private String issBearing(double azimuth) {
         return compassDirection(azimuth) + " " + (Math.round(azimuth) % 360) + "°";
+    }
+
+    private String issPassUrl(IssPasses.Pass pass, ZoneId zone) {
+        double altitude = data.optDouble("elevation", 0);
+        double modifiedJulianDate = 40587 + pass.peak.time / 86400.0;
+        return android.net.Uri.parse("https://www.heavens-above.com/passdetails.aspx").buildUpon()
+                .appendQueryParameter("satid", "25544")
+                .appendQueryParameter("mjd", String.format(Locale.ROOT, "%.8f", modifiedJulianDate))
+                .appendQueryParameter("type", "V")
+                .appendQueryParameter("lat", Double.toString(latitude))
+                .appendQueryParameter("lng", Double.toString(longitude))
+                .appendQueryParameter("alt", Long.toString(Math.round(altitude)))
+                .appendQueryParameter("loc", place)
+                .appendQueryParameter("tz", "Europe/Rome".equals(zone.getId()) ? "CET" : "UCT")
+                .appendQueryParameter("cul", italian() ? "it" : "en").build().toString();
     }
 
     private void eclipsesAndTransits() {
