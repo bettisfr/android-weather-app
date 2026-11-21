@@ -151,8 +151,7 @@ public final class SkyTrack extends View {
         float anchorY = issPass ? (y(before) + y(after)) / 2 : y(now);
         canvas.translate(anchorX, anchorY);
         canvas.rotate((float) Math.toDegrees(Math.atan2(dy, dx)));
-        // Beside the ISS track so short passes can still show all event markers.
-        canvas.translate(issPass ? -2.5f * density : 8 * density, issPass ? -10 * density : 0);
+        canvas.translate((issPass ? -2.5f : 8) * density, 0);
         path.rewind();
         path.moveTo(0, -4 * density);
         path.lineTo(5 * density, 0);
