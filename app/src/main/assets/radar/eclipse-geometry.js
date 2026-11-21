@@ -120,7 +120,7 @@ function solarGeometry(date, useExactPath) {
     return {type, bands, center: [latitude, longitude]};
 }
 
-function lunarGeometry(contacts) {
+function horizonGeometry(contacts) {
     if (contacts.length < 2) return null;
     const samples = contacts.map(([latitude, longitude, horizon]) => {
         const declination = latitude * radians;
@@ -143,6 +143,6 @@ function lunarGeometry(contacts) {
 }
 
 self.onmessage = ({data}) => {
-    const {date, lunar, contacts, useExactPath} = data;
-    self.postMessage(lunar ? lunarGeometry(contacts) : solarGeometry(date, useExactPath));
+    const {date, kind, contacts, useExactPath} = data;
+    self.postMessage(kind === 'solar' ? solarGeometry(date, useExactPath) : horizonGeometry(contacts));
 };

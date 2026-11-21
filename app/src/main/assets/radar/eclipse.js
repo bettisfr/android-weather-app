@@ -4,9 +4,12 @@ function initialize(config) {
     document.documentElement.lang = config.language;
     document.documentElement.classList.toggle('dark', config.dark);
     document.getElementById('map').setAttribute('aria-label', config.mapLabel);
+    const solar = config.kind === 'solar';
+    const lunar = config.kind === 'lunar';
     const source = document.getElementById('source');
-    source.href = config.lunar ? 'https://opale.imcce.fr/' : 'https://eclipse.gsfc.nasa.gov/SEcat5/beselm.html';
-    source.textContent = (config.lunar ? 'IMCCE / OPALE' : 'NASA / GSFC') + ' ↗';
+    source.href = config.catalogUrl || (lunar ? 'https://opale.imcce.fr/' : 'https://eclipse.gsfc.nasa.gov/SEcat5/beselm.html');
+    source.textContent = (lunar ? 'IMCCE / OPALE' : 'NASA / GSFC') + ' ↗';
+    source.hidden = config.catalogUrl === config.detailsUrl;
     const details = document.getElementById('details');
     details.href = config.detailsUrl;
     details.textContent = config.openDetails + ' ↗';
@@ -19,7 +22,7 @@ function initialize(config) {
     }
 
     const location = L.latLng(config.lat, config.lon);
-    const map = createWeatherMap('map', location, config.lunar ? 2 : 4);
+    const map = createWeatherMap('map', location, solar ? 4 : 2);
     const name = document.createElement('span');
     name.textContent = config.place;
     map.createPane('eclipse-location').style.zIndex = 450;
@@ -27,7 +30,7 @@ function initialize(config) {
         fillColor: '#335ba7', fillOpacity: 1}).bindTooltip(name, {direction: 'top', permanent: true}).addTo(map);
     const legend = document.getElementById('bands');
     const status = document.getElementById('coverage-status');
-    const exact = !config.lunar && config.date === '2027-08-02';
+    const exact = solar && config.date === '2027-08-02';
 
     function fitCentralPath(points) {
         let closest = L.latLng(points[0]);
@@ -67,7 +70,8 @@ function initialize(config) {
         const note = document.getElementById('coverage-note');
         note.textContent = config.approximate;
         note.hidden = false;
-        const colors = config.lunar ? ['#7797ce', '#435e94'] : ['#a8a0ce', '#8958bd'];
+        const colors = lunar ? ['#7797ce', '#435e94']
+            : solar ? ['#a8a0ce', '#8958bd'] : ['#e3ba77', '#c48227'];
         const renderer = L.canvas({padding: .5});
         const central = [];
         for (const [south, north, west, east, band] of geometry.bands) {
@@ -75,7 +79,7 @@ function initialize(config) {
                 renderer, stroke: false, fillColor: colors[band - 1], fillOpacity: band === 2 ? .47 : .36,
                 interactive: false,
             }).addTo(map);
-            if (!config.lunar && band === 2) central.push([(south + north) / 2, (west + east) / 2]);
+            if (solar && band === 2) central.push([(south + north) / 2, (west + east) / 2]);
         }
         addLegend(config.partial, colors[0]);
         if (exact || central.length) {
@@ -83,7 +87,7 @@ function initialize(config) {
                 : geometry.type.startsWith('H') ? config.mixed : config.totality;
             addLegend(label, colors[1]);
             if (!exact) fitCentralPath(central);
-        } else if (config.lunar && geometry.bands.some(band => band[4] === 2)) {
+        } else if (!solar && geometry.bands.some(band => band[4] === 2)) {
             addLegend(config.whole, colors[1]);
         }
     }
@@ -91,7 +95,7 @@ function initialize(config) {
     status.textContent = config.loading;
     status.hidden = false;
     const cacheKey = 'eclipse-geometry-v1';
-    const id = (config.lunar ? 'lunar:' : 'solar:') + config.date;
+    const id = config.kind + ':' + config.date;
     try {
         const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
         if (cached?.id === id) {
@@ -113,5 +117,5 @@ function initialize(config) {
         worker.terminate();
         render(null);
     };
-    worker.postMessage({date: config.date, lunar: config.lunar, contacts: config.contacts, useExactPath: exact});
+    worker.postMessage({date: config.date, kind: config.kind, contacts: config.contacts, useExactPath: exact});
 }

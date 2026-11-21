@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class TransitCatalog {
+    private static final double SOLAR_HORIZON = -.833;
     // Transit Predictions by Fred Espenak, NASA/GSFC.
     // Catalog date, geocentric contacts I and IV, greatest transit, solar RA, Dec and GST at 0h UT.
     private static final Transit[] CATALOG = {
@@ -89,9 +90,27 @@ public final class TransitCatalog {
         public String detailsUrl(double latitude, double longitude) {
             // The NASA catalog also covers dates outside Timeanddate's event pages.
             if (transit.date.getYear() > 2125) {
-                return "https://eclipse.gsfc.nasa.gov/transit/catalog/" + transit.planet + "Catalog.html";
+                return catalogUrl();
             }
             return EclipseCatalog.localDetailsUrl(transit.date, latitude, longitude);
+        }
+
+        public String catalogUrl() {
+            return "https://eclipse.gsfc.nasa.gov/transit/catalog/" + transit.planet + "Catalog.html";
+        }
+
+        public LocalDate catalogDate() {
+            return transit.date;
+        }
+
+        public org.json.JSONArray visibilitySamples() throws org.json.JSONException {
+            org.json.JSONArray samples = new org.json.JSONArray();
+            long end = transit.end.getEpochSecond();
+            for (long time = transit.start.getEpochSecond(); ; time = Math.min(time + 300, end)) {
+                samples.put(new org.json.JSONArray().put(transit.solarDec).put(transit.solarLongitude(time))
+                        .put(SOLAR_HORIZON));
+                if (time == end) return samples;
+            }
         }
     }
 
@@ -122,12 +141,16 @@ public final class TransitCatalog {
         }
 
         boolean aboveHorizon(long time, double latitude, double longitude) {
-            double hours = (time - midnight) / 3600.0;
-            double ha = Math.toRadians(15 * (siderealTime + 1.0027379 * hours - solarRa) + longitude);
+            double ha = Math.toRadians(longitude - solarLongitude(time));
             double lat = Math.toRadians(latitude);
             double dec = Math.toRadians(solarDec);
             double sineAltitude = Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(ha);
-            return sineAltitude >= Math.sin(Math.toRadians(-.833));
+            return sineAltitude >= Math.sin(Math.toRadians(SOLAR_HORIZON));
+        }
+
+        private double solarLongitude(long time) {
+            double hours = (time - midnight) / 3600.0;
+            return Math.IEEEremainder(-15 * (siderealTime + 1.0027379 * hours - solarRa), 360);
         }
     }
 

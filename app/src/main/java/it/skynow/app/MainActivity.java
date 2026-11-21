@@ -2675,22 +2675,29 @@ public final class MainActivity extends Activity {
 
     private void openEclipseMap(EclipseCatalog.Event event, String url, ArrayList<String> localDetails) {
         try {
-            startActivity(new android.content.Intent(this, RadarActivity.class)
-                    .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
-                    .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
-                    .putExtra("eclipseDate", event.catalogDate().toString()).putExtra("lunarEclipse", event.lunar)
-                    .putExtra("lunarSamples", event.lunarVisibilitySamples().toString())
-                    .putExtra("detailsUrl", url).putStringArrayListExtra("localDetails", localDetails));
+            startActivity(visibilityMapIntent(event.catalogDate(), url, localDetails)
+                    .putExtra("visibilityKind", event.lunar ? "lunar" : "solar")
+                    .putExtra("visibilitySamples", event.lunarVisibilitySamples().toString()));
         } catch (org.json.JSONException error) {
             openAstronomyPage(url);
         }
+    }
+
+    private android.content.Intent visibilityMapIntent(LocalDate date, String url, ArrayList<String> localDetails) {
+        return new android.content.Intent(this, RadarActivity.class)
+                .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
+                .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
+                .putExtra("eventDate", date.toString()).putExtra("detailsUrl", url)
+                .putStringArrayListExtra("localDetails", localDetails);
     }
 
     private void addTransit(LinearLayout parent, TransitCatalog.Event event, ZoneId zone) {
         LinearLayout entry = column();
         entry.setPadding(dp(11), dp(10), dp(11), dp(10));
         entry.setBackground(background(getColor(R.color.sky_subtle), 12));
-        linkAstronomyCard(entry, event.detailsUrl(latitude, longitude));
+        String eventUrl = event.detailsUrl(latitude, longitude);
+        String transitName = getString(R.string.transit_of,
+                getString(event.transit.planet.equals("Mercury") ? R.string.mercury : R.string.venus));
 
         LinearLayout header = row();
         View icon = new View(this) {
@@ -2713,14 +2720,13 @@ public final class MainActivity extends Activity {
         iconSize.rightMargin = dp(9);
         header.addView(icon, iconSize);
         LinearLayout title = column();
-        title.addView(label(getString(R.string.transit_of,
-                getString(event.transit.planet.equals("Mercury") ? R.string.mercury : R.string.venus)), 15, ink));
+        title.addView(label(transitName, 15, ink));
         ZonedDateTime date = event.visibleStart.atZone(zone);
         TextView when = label(date.format(shortDate(true)), 13, muted);
         when.setPadding(0, dp(3), 0, 0);
         title.addView(when);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        header.addView(astronomyLinkIcon());
+        header.addView(skyTrackChevron());
         entry.addView(header);
 
         ZonedDateTime start = event.visibleStart.atZone(zone);
@@ -2735,18 +2741,21 @@ public final class MainActivity extends Activity {
         TextView details = label(getString(R.string.estimated_duration, duration), 13, muted);
         details.setPadding(0, dp(3), 0, 0);
         entry.addView(details);
+        ArrayList<String> localDetails = new ArrayList<>();
+        localDetails.add(transitName + " · " + when.getText());
+        localDetails.add(visible.getText().toString());
+        localDetails.add(details.getText().toString());
+        astronomyCardAction(entry, () -> {
+            try {
+                startActivity(visibilityMapIntent(event.catalogDate(), eventUrl, localDetails)
+                        .putExtra("visibilityKind", "transit").putExtra("transitName", transitName)
+                        .putExtra("catalogUrl", event.catalogUrl())
+                        .putExtra("visibilitySamples", event.visibilitySamples().toString()));
+            } catch (org.json.JSONException error) {
+                openAstronomyPage(eventUrl);
+            }
+        });
         addSpaced(parent, entry, 7);
-    }
-
-    private TextView astronomyLinkIcon() {
-        TextView link = label("↗", 19, accent);
-        link.setContentDescription(getString(R.string.open_in_browser));
-        link.setPadding(dp(8), 0, dp(3), 0);
-        return link;
-    }
-
-    private void linkAstronomyCard(View card, String url) {
-        astronomyCardAction(card, () -> openAstronomyPage(url));
     }
 
     private void astronomyCardAction(View card, Runnable action) {

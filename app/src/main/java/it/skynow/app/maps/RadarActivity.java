@@ -81,9 +81,13 @@ public final class RadarActivity extends Activity {
         back.setOnClickListener(view -> finish());
         header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
         TextView title = new TextView(this);
-        int titleResource = layer == Layer.ECLIPSE && getIntent().getBooleanExtra("lunarEclipse", false)
+        String visibilityKind = getIntent().getStringExtra("visibilityKind");
+        int titleResource = layer == Layer.ECLIPSE && "lunar".equals(visibilityKind)
                 ? R.string.lunar_eclipse_map_title : layer.title;
-        title.setText(getString(titleResource, getIntent().getStringExtra("place")));
+        String place = getIntent().getStringExtra("place");
+        title.setText(layer == Layer.ECLIPSE && "transit".equals(visibilityKind)
+                ? getString(R.string.transit_map_title, getIntent().getStringExtra("transitName"), place)
+                : getString(titleResource, place));
         title.setTextColor(ink);
         title.setTextSize(19);
         title.setPadding(0, dp(7), dp(12), dp(7));
@@ -161,23 +165,30 @@ public final class RadarActivity extends Activity {
             result.put("language", getString(R.string.app_language_tag));
             result.put("updated", getString(R.string.map_updated));
             if (layer == Layer.ECLIPSE) {
-                boolean lunar = options.getBooleanExtra("lunarEclipse", false);
-                result.put("date", options.getStringExtra("eclipseDate"));
-                result.put("lunar", lunar);
-                result.put("contacts", new org.json.JSONArray(options.getStringExtra("lunarSamples")));
+                String kind = options.getStringExtra("visibilityKind");
+                boolean lunar = "lunar".equals(kind);
+                boolean transit = "transit".equals(kind);
+                String catalogUrl = options.getStringExtra("catalogUrl");
+                String detailsUrl = options.getStringExtra("detailsUrl");
+                result.put("date", options.getStringExtra("eventDate"));
+                result.put("kind", kind);
+                result.put("contacts", new org.json.JSONArray(options.getStringExtra("visibilitySamples")));
                 result.put("place", options.getStringExtra("place"));
-                result.put("detailsUrl", options.getStringExtra("detailsUrl"));
+                result.put("detailsUrl", detailsUrl);
+                result.put("catalogUrl", catalogUrl);
                 result.put("localDetails", new org.json.JSONArray(options.getStringArrayListExtra("localDetails")));
-                result.put("mapLabel", getString(R.string.eclipse_map));
+                result.put("mapLabel", getString(transit ? R.string.transit_map : R.string.eclipse_map));
                 result.put("totality", getString(R.string.eclipse_totality_band));
                 result.put("annularity", getString(R.string.eclipse_annularity_band));
                 result.put("mixed", getString(R.string.eclipse_mixed_band));
-                result.put("partial", getString(lunar ? R.string.eclipse_partial_lunar_band : R.string.eclipse_partial_solar_band));
-                result.put("whole", getString(R.string.eclipse_whole_lunar_band));
+                result.put("partial", getString(transit ? R.string.transit_partial_band
+                        : lunar ? R.string.eclipse_partial_lunar_band : R.string.eclipse_partial_solar_band));
+                result.put("whole", getString(transit ? R.string.transit_whole_band : R.string.eclipse_whole_lunar_band));
                 result.put("loading", getString(R.string.eclipse_map_loading));
                 result.put("approximate", getString(R.string.eclipse_map_approximate));
                 result.put("unavailable", getString(R.string.eclipse_map_unavailable));
-                result.put("openDetails", getString(R.string.eclipse_open_timeanddate));
+                result.put("openDetails", getString(transit && detailsUrl.equals(catalogUrl)
+                        ? R.string.transit_open_nasa : R.string.eclipse_open_timeanddate));
                 return result;
             }
             if (layer == Layer.EARTHQUAKES) {

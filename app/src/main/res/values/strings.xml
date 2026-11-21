@@ -296,6 +296,11 @@
     <string name="satellite_mosaic_credit">Satellite mosaic · NOAA NESDIS</string>
     <string name="earthquakes">Recent earthquakes</string>
     <string name="seismic_activity">Seismic activity</string>
+    <string name="transit_map_title">%1$s · %2$s</string>
+    <string name="transit_map">Transit map</string>
+    <string name="transit_partial_band">Part of the transit visible</string>
+    <string name="transit_whole_band">Entire transit visible</string>
+    <string name="transit_open_nasa">Open NASA catalog</string>
     <string name="eclipse_map">Eclipse map</string>
     <string name="eclipse_map_title">Solar eclipse · %1$s</string>
     <string name="lunar_eclipse_map_title">Lunar eclipse · %1$s</string>
