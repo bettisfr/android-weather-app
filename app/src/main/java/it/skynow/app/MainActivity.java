@@ -1821,16 +1821,15 @@ public final class MainActivity extends Activity {
 
     private static final class PlanetRow {
         final Planets.Body body;
-        final View entry, chevron, badges;
+        final View entry, chevron;
         final TextView now, magnitude, position, windows;
         List<Planets.Window> observingWindows = List.of();
 
-        PlanetRow(Planets.Body body, View entry, View chevron, View badges, TextView now, TextView magnitude,
+        PlanetRow(Planets.Body body, View entry, View chevron, TextView now, TextView magnitude,
                   TextView position, TextView windows) {
             this.body = body;
             this.entry = entry;
             this.chevron = chevron;
-            this.badges = badges;
             this.now = now;
             this.magnitude = magnitude;
             this.position = position;
@@ -1857,35 +1856,28 @@ public final class MainActivity extends Activity {
             TextView name = label(getString(names[body.ordinal()]), 16, ink);
             name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             planetTitle.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView magnitude = astronomyBadge("");
+            LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
+            magnitudeSize.setMarginStart(dp(6));
+            planetTitle.addView(magnitude, magnitudeSize);
             TextView chevron = skyTrackChevron();
-            planetTitle.addView(chevron);
+            LinearLayout.LayoutParams chevronSize = new LinearLayout.LayoutParams(-2, -2);
+            chevronSize.setMarginStart(dp(5));
+            planetTitle.addView(chevron, chevronSize);
             entry.addView(planetTitle);
             TextView now = astronomyBadge(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
             now.setTextColor(getColor(R.color.sky_observing));
             now.setBackground(background(getColor(R.color.sky_background), 8));
-            TextView magnitude = astronomyBadge("");
-            LinearLayout badges = largeText() ? column() : row();
-            if (largeText()) {
-                badges.addView(now, new LinearLayout.LayoutParams(-2, -2));
-                LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(-2, -2);
-                right.gravity = Gravity.END;
-                right.topMargin = dp(4);
-                badges.addView(magnitude, right);
-            } else {
-                badges.addView(now, new LinearLayout.LayoutParams(-2, -2));
-                badges.addView(new View(this), new LinearLayout.LayoutParams(0, dp(1), 1));
-                LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(-2, -2);
-                right.setMarginStart(dp(6));
-                badges.addView(magnitude, right);
-            }
-            addSpaced(entry, badges, 6);
+            LinearLayout.LayoutParams nowSize = new LinearLayout.LayoutParams(-2, -2);
+            nowSize.topMargin = dp(5);
+            entry.addView(now, nowSize);
             TextView position = label("", 13, ink);
             position.setPadding(0, dp(4), 0, 0);
             entry.addView(position);
             TextView windows = label("", 12, muted);
             windows.setPadding(0, dp(5), 0, 0);
             entry.addView(windows);
-            PlanetRow planet = new PlanetRow(body, entry, chevron, badges, now, magnitude, position, windows);
+            PlanetRow planet = new PlanetRow(body, entry, chevron, now, magnitude, position, windows);
             planetRows.add(planet);
             astronomyCardAction(entry, () -> {
                 if (planet.observesAt(Instant.now())) {
@@ -1947,7 +1939,6 @@ public final class MainActivity extends Activity {
             }
             boolean observingNow = row.observesAt(now);
             row.now.setVisibility(observingNow ? View.VISIBLE : View.GONE);
-            row.badges.setVisibility(observingNow || above ? View.VISIBLE : View.GONE);
             setSkyTrackAvailable(row.entry, row.chevron, observingNow);
             row.position.setVisibility(observingNow ? View.VISIBLE : View.GONE);
             if (observingNow) {
