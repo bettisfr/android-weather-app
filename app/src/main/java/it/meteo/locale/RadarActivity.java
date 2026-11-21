@@ -190,6 +190,7 @@ public final class RadarActivity extends Activity {
                 result.put("globalSource", SatelliteImagery.SOURCE);
                 result.put("observed", getString(R.string.satellite_observed));
                 result.put("auto", getString(R.string.satellite_auto));
+                result.put("rapid", getString(R.string.satellite_rapid));
                 result.put("modeLabel", getString(R.string.satellite_mode));
                 result.put("coverage", getString(R.string.satellite_coverage));
                 result.put("timelineLabel", getString(R.string.satellite_timeline));

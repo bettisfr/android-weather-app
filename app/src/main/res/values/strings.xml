@@ -264,6 +264,7 @@
     <string name="satellite_title">Satellite · %1$s</string>
     <string name="satellite_observed">Infrared</string>
     <string name="satellite_auto">Auto</string>
+    <string name="satellite_rapid">Rapid</string>
     <string name="satellite_mode">Satellite imagery mode</string>
     <string name="satellite_timeline">Satellite image time</string>
     <string name="satellite_loading">Loading satellite imagery…</string>
