@@ -295,6 +295,10 @@
     <string name="satellite_mosaic_credit">Mosaico satellitare · NOAA NESDIS</string>
     <string name="earthquakes">Terremoti recenti</string>
     <string name="seismic_activity">Attività sismica</string>
+    <string name="eclipse_map">Mappa dell’eclissi</string>
+    <string name="eclipse_map_title">Eclissi solare · %1$s</string>
+    <string name="eclipse_totality_band">Fascia di totalità</string>
+    <string name="eclipse_open_timeanddate">Apri su Timeanddate</string>
     <string name="earthquake_map">Mappa dei terremoti</string>
     <string name="earthquake_open_event">Apri su INGV</string>
     <string name="earthquake_map_title">Terremoti · %1$s</string>

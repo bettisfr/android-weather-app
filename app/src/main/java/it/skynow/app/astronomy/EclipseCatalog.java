@@ -66,6 +66,10 @@ public final class EclipseCatalog {
         public String detailsUrl(double latitude, double longitude) {
             return localDetailsUrl(catalogDate, latitude, longitude);
         }
+
+        public LocalDate catalogDate() {
+            return catalogDate;
+        }
     }
 
     static String localDetailsUrl(LocalDate date, double latitude, double longitude) {

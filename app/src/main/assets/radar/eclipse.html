@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src https://tile.openstreetmap.org data:">
+<link rel="stylesheet" href="leaflet.css">
+<style>
+  :root { color-scheme:light; --page:#fafafa; --ink:#242d40; --accent:#435e94; --button:#dbe4f2; }
+  :root.dark { color-scheme:dark; --page:#111d30; --ink:#edf3ff; --accent:#adc8ff; --button:#2c4063; }
+  body { margin:0; height:100vh; display:flex; flex-direction:column; background:var(--page); color:var(--ink); font:14px system-ui,sans-serif; }
+  #map { flex:1; min-height:180px; background:#dfe5ed; }
+  .dark .leaflet-basemap-pane { filter:invert(1) hue-rotate(180deg) saturate(.65) brightness(.86); }
+  footer { padding:10px 16px; display:grid; gap:5px; overflow:auto; }
+  #legend { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; }
+  #band::before { content:''; display:inline-block; width:14px; height:8px; margin-inline-end:6px; background:#8958bd; border-radius:2px; }
+  #local { display:grid; gap:3px; }
+  a { color:var(--accent); }
+  #details { justify-self:center; background:var(--button); padding:8px 14px; border-radius:24px; text-decoration:none; font-weight:600; }
+</style>
+</head>
+<body>
+<div id="map" role="region"></div>
+<footer>
+  <div id="legend"><span id="band"></span><a id="source">NASA / GSFC ↗</a></div>
+  <div id="local"></div>
+  <a id="details"></a>
+</footer>
+<script src="leaflet.js"></script>
+<script src="map.js"></script>
+<script src="eclipse-path-2027.js"></script>
+<script src="eclipse.js"></script>
+</body>
+</html>

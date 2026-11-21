@@ -2615,7 +2615,9 @@ public final class MainActivity extends Activity {
         LinearLayout entry = column();
         entry.setPadding(dp(11), dp(10), dp(11), dp(10));
         entry.setBackground(background(getColor(R.color.sky_subtle), 12));
-        linkAstronomyCard(entry, event.detailsUrl(latitude, longitude));
+        boolean hasMap = !event.lunar && LocalDate.of(2027, 8, 2).equals(event.catalogDate());
+        String eventUrl = event.detailsUrl(latitude, longitude);
+        ArrayList<String> localDetails = new ArrayList<>();
         LinearLayout heading = row();
         EclipseIcon icon = new EclipseIcon(this, event);
         LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(36), dp(36));
@@ -2624,17 +2626,19 @@ public final class MainActivity extends Activity {
         LinearLayout title = column();
         title.addView(label(eclipseTypeLabel(event.type), 15, ink));
         heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        heading.addView(astronomyLinkIcon());
+        heading.addView(hasMap ? skyTrackChevron() : astronomyLinkIcon());
         entry.addView(heading);
         ZonedDateTime start = event.start.atZone(zone);
         ZonedDateTime end = event.end.atZone(zone);
         DateTimeFormatter date = shortDate(true);
         TextView when = label(start.format(date), 13, muted);
+        localDetails.add(eclipseTypeLabel(event.type) + " · " + when.getText());
         when.setPadding(0, dp(3), 0, 0);
         title.addView(when);
         String range = start.format(clockFormat()) + " – " + end.format(clockFormat());
         if (!start.toLocalDate().equals(end.toLocalDate())) range += getString(R.string.next_day_suffix);
         TextView visible = label(getString(R.string.visible_range, range), 14, ink);
+        localDetails.add(visible.getText().toString());
         visible.setPadding(0, dp(7), 0, 0);
         entry.addView(visible);
         Duration duration = Duration.between(event.start, event.end);
@@ -2644,6 +2648,7 @@ public final class MainActivity extends Activity {
         durationLabel += " · " + getString(event.estimatedPeak ? R.string.best_visible : R.string.peak_time,
                 event.maximum.atZone(zone).format(clockFormat()));
         TextView details = label(durationLabel, 13, muted);
+        localDetails.add(durationLabel);
         details.setPadding(0, dp(3), 0, 0);
         entry.addView(details);
         if (event.totalitySeconds > 0) {
@@ -2652,6 +2657,7 @@ public final class MainActivity extends Activity {
                     ? getString(R.string.totality_hours, seconds / 3600, seconds / 60 % 60, seconds % 60)
                     : getString(R.string.totality_minutes, seconds / 60, seconds % 60);
             TextView totalityLabel = label(totality, 13, accent);
+            localDetails.add(totality);
             totalityLabel.setPadding(0, dp(3), 0, 0);
             entry.addView(totalityLabel);
         }
@@ -2660,8 +2666,17 @@ public final class MainActivity extends Activity {
             String coverageText = getString(disk, percent(event.obscuration));
             if (event.estimatedPeak) coverageText = getString(R.string.approximate_value, coverageText);
             TextView coverage = label(coverageText, 13, accent);
+            localDetails.add(coverageText);
             coverage.setPadding(0, dp(3), 0, 0);
             entry.addView(coverage);
+        }
+        if (hasMap) {
+            astronomyCardAction(entry, () -> startActivity(new android.content.Intent(this, RadarActivity.class)
+                    .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
+                    .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
+                    .putExtra("detailsUrl", eventUrl).putStringArrayListExtra("localDetails", localDetails)));
+        } else {
+            linkAstronomyCard(entry, eventUrl);
         }
         addSpaced(parent, entry, 7);
     }

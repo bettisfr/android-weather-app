@@ -35,7 +35,8 @@ public final class RadarActivity extends Activity {
     public enum Layer {
         RADAR("index", R.string.radar_title), AURORA("aurora", R.string.aurora_map_title),
         AIR_QUALITY("aurora", R.string.air_quality_map_title), SATELLITE("satellite", R.string.satellite_title),
-        EARTHQUAKES("earthquakes", R.string.earthquake_map_title);
+        EARTHQUAKES("earthquakes", R.string.earthquake_map_title),
+        ECLIPSE("eclipse", R.string.eclipse_map_title);
 
         final String page;
         final int title;
@@ -100,11 +101,12 @@ public final class RadarActivity extends Activity {
                 String path = url.getPath();
                 String type;
                 if ("/radar/index.html".equals(path) || "/radar/aurora.html".equals(path) || "/radar/satellite.html".equals(path)
-                        || "/radar/earthquakes.html".equals(path)) type = "text/html";
+                        || "/radar/earthquakes.html".equals(path) || "/radar/eclipse.html".equals(path)) type = "text/html";
                 else if ("/radar/leaflet.css".equals(path)) type = "text/css";
                 else if ("/radar/leaflet.js".equals(path) || "/radar/map.js".equals(path) || "/radar/radar.js".equals(path)
                         || "/radar/aurora.js".equals(path) || "/radar/satellite.js".equals(path)
-                        || "/radar/earthquakes.js".equals(path)) type = "application/javascript";
+                        || "/radar/earthquakes.js".equals(path) || "/radar/eclipse.js".equals(path)
+                        || "/radar/eclipse-path-2027.js".equals(path)) type = "application/javascript";
                 else return null;
                 try {
                     return new WebResourceResponse(type, "UTF-8", getAssets().open(path.substring(1)));
@@ -127,7 +129,7 @@ public final class RadarActivity extends Activity {
             @Override public void onPageFinished(WebView view, String url) {
                 if (!page.equals(url) || isFinishing()) return;
                 view.evaluateJavascript("initialize(" + parameters() + ")", null);
-                if (layer == Layer.AIR_QUALITY || selectedEarthquake != null) return;
+                if (layer == Layer.AIR_QUALITY || layer == Layer.ECLIPSE || selectedEarthquake != null) return;
                 network.execute(() -> {
                     switch (layer) {
                         case AURORA: loadAurora(); break;
@@ -154,6 +156,15 @@ public final class RadarActivity extends Activity {
             result.put("dark", SkyTheme.isDark(this));
             result.put("language", getString(R.string.app_language_tag));
             result.put("updated", getString(R.string.map_updated));
+            if (layer == Layer.ECLIPSE) {
+                result.put("place", options.getStringExtra("place"));
+                result.put("detailsUrl", options.getStringExtra("detailsUrl"));
+                result.put("localDetails", new org.json.JSONArray(options.getStringArrayListExtra("localDetails")));
+                result.put("mapLabel", getString(R.string.eclipse_map));
+                result.put("band", getString(R.string.eclipse_totality_band));
+                result.put("openDetails", getString(R.string.eclipse_open_timeanddate));
+                return result;
+            }
             if (layer == Layer.EARTHQUAKES) {
                 int radius = options.getIntExtra("radiusKm", EarthquakeFeed.DEFAULT_RADIUS);
                 int minimum = options.getIntExtra("minimumMagnitude", 0);
