@@ -285,8 +285,8 @@
     <string name="air_quality_credit">Qualità dell’aria · Open-Meteo e CAMS</string>
     <string name="satellite">Satellite</string>
     <string name="satellite_title">Satellite · %1$s</string>
-    <string name="satellite_observed">Infrarosso</string>
-    <string name="satellite_auto">Auto</string>
+    <string name="satellite_observed">Infrared</string>
+    <string name="satellite_meteosat">Meteosat</string>
     <string name="satellite_mode">Modalità delle immagini satellitari</string>
     <string name="satellite_timeline">Orario dell’immagine satellitare</string>
     <string name="satellite_loading">Caricamento immagini satellitari…</string>

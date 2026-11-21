@@ -5,7 +5,7 @@ const source = document.getElementById('source');
 const steps = document.getElementById('steps');
 const play = document.getElementById('play');
 const modes = document.getElementById('modes');
-const autoButton = document.getElementById('auto');
+const meteosatButton = document.getElementById('meteosat');
 const infraredButton = document.getElementById('infrared');
 const frameBlobs = new Map();
 const frameCacheSize = 12;
@@ -40,7 +40,7 @@ function initialize(parameters) {
     steps.setAttribute('aria-label', config.timelineLabel);
     play.setAttribute('aria-label', config.play);
     modes.setAttribute('aria-label', config.modeLabel);
-    autoButton.textContent = config.auto;
+    meteosatButton.textContent = config.meteosat;
     infraredButton.textContent = config.observed;
     times = new Intl.DateTimeFormat(config.language, {
         month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -62,8 +62,8 @@ function initialize(parameters) {
 
 function setProducts(available) {
     products = available;
-    modes.hidden = !available.auto || !available.infrared;
-    selectMode(available.auto ? 'auto' : 'infrared');
+    modes.hidden = !available.meteosat || !available.infrared;
+    selectMode(available.meteosat ? 'meteosat' : 'infrared');
 }
 
 function selectMode(nextMode) {
@@ -73,7 +73,7 @@ function selectMode(nextMode) {
     setPlaying(false);
     mode = nextMode;
     regionalLayer = product.layer;
-    autoButton.setAttribute('aria-pressed', mode === 'auto');
+    meteosatButton.setAttribute('aria-pressed', mode === 'meteosat');
     infraredButton.setAttribute('aria-pressed', mode === 'infrared');
     status(config.loading);
     frames = [...product.frames].reverse();
@@ -188,7 +188,7 @@ function showFrame(index, preload = false) {
         } else {
             globalOverlay.setImage(image);
         }
-        const geocolour = mode === 'auto';
+        const geocolour = mode === 'meteosat';
         output.textContent = (geocolour ? 'GeoColour' : config.observed) + ' · ' + times.format(data.time);
         showMapUpdate(config, receivedAt);
         source.href = geocolour ? config.geocolourSource : regional ? config.regionalSource : config.globalSource;
@@ -223,5 +223,5 @@ function setPlaying(active) {
 
 steps.addEventListener('input', () => { setPlaying(false); queueFrame(Number(steps.value)); });
 play.addEventListener('click', () => setPlaying(!playing));
-autoButton.addEventListener('click', () => selectMode('auto'));
+meteosatButton.addEventListener('click', () => selectMode('meteosat'));
 infraredButton.addEventListener('click', () => selectMode('infrared'));

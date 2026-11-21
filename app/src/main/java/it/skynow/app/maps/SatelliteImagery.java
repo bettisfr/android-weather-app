@@ -62,7 +62,7 @@ public final class SatelliteImagery {
                 String defaultTime = xml.getAttributeValue(null, "default");
                 JSONArray frames = regionalTimeline(xml.nextText(), defaultTime, cutoff);
                 if (frames.length() > 0) {
-                    products.put(geocolour ? "auto" : "infrared", new JSONObject().put("layer", name).put("frames", frames));
+                    products.put(geocolour ? "meteosat" : "infrared", new JSONObject().put("layer", name).put("frames", frames));
                 }
                 if (products.length() == (indianOcean ? 1 : 2)) break;
             }

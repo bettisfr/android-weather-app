@@ -33,7 +33,7 @@ SkyHere is an Android app for local weather, interactive maps, skywatching, and 
 - A scrollable 24-hour forecast and a 10-day forecast. Daily icons summarize the most frequent condition during daylight hours, with notable events and their approximate times in the day details.
 - Hourly charts for precipitation amount and probability, wind and gusts, humidity, and actual and feels-like temperatures.
 - Interactive precipitation radar for Italian locations. Pan and zoom the map, scrub through the previous hour, or play the observed five-minute frames with a short crossfade.
-- Animated satellite imagery for Italian locations. Auto mode uses GeoColour for natural colours by day and thermal imagery at night. Infrared mode is also available. The map downloads only the visible area from Meteosat and reuses loaded frames during playback.
+- Animated satellite imagery for Italian locations. **Meteosat** shows the GeoColour product, which uses natural colours by day and thermal imagery at night. **Infrared** shows the thermal feed at any hour. The map downloads only the visible area from Meteosat and reuses loaded frames during playback.
 - Current European AQI category and PM2.5 and PM10 concentrations. For Italian locations, the air quality map shows the EEA’s modelled categories. Tap an area to see its category.
 - Regional weather warnings for Italian locations, with the hazard, severity, validity period, and a link to MeteoAlarm.
 - Illustrated weather conditions, including separate symbols for rain, showers, snow, and hail, plus high-contrast snowflakes. [Weather icon catalog](docs/weather-icons.html)
