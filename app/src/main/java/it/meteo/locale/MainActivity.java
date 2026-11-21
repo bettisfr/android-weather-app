@@ -1915,13 +1915,14 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         LocalDate today = now.atZone(zone).toLocalDate();
         Instant tomorrow = today.plusDays(1).atStartOfDay(zone).toInstant();
+        boolean daylight = SkyPosition.at(now, latitude, longitude, false).zenith < 90;
         for (PlanetRow row : planetRows) {
             Planets.Reading reading = Planets.at(row.body, now, latitude, longitude);
             boolean above = reading.elevation >= 0;
             int status = reading.favorable ? R.string.planet_visible_now
                     : above ? R.string.planet_difficult : R.string.planet_below_horizon;
             row.now.setText(getString(R.string.planet_now_status, getString(status)));
-            setMagnitudeBadge(row.magnitude, reading.magnitude);
+            setMagnitudeBadge(row.magnitude, reading.magnitude, !daylight);
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
                 row.observingWindows = Planets.windows(row.body, today, zone, latitude, longitude);
@@ -2223,7 +2224,7 @@ public final class MainActivity extends Activity {
             details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
                     Math.round(pass.peak.elevation)), 13, muted), new LinearLayout.LayoutParams(0, -2, 1));
             TextView magnitude = astronomyBadge("");
-            setMagnitudeBadge(magnitude, pass.magnitude);
+            setMagnitudeBadge(magnitude, pass.magnitude, true);
             details.addView(magnitude);
             entry.addView(details);
             String appears = issBearing(pass.rise.azimuth);
@@ -2273,17 +2274,17 @@ public final class MainActivity extends Activity {
         panel.addView(badge, size);
     }
 
-    private void setMagnitudeBadge(TextView badge, double magnitude) {
+    private void setMagnitudeBadge(TextView badge, double magnitude, boolean colored) {
         badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
-        badge.setTextColor(0xff202735);
-        badge.setBackground(background(issMagnitudeColor(magnitude), 8));
+        badge.setTextColor(colored ? 0xff202735 : muted);
+        badge.setBackground(colored ? background(issMagnitudeColor(magnitude), 8) : null);
     }
 
     private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
         LocalDate date = Instant.ofEpochSecond(pass.rise.time).atZone(zone).toLocalDate();
         showSkyTrack(getString(R.string.iss_track), period, panel -> {
             TextView magnitude = astronomyBadge("");
-            setMagnitudeBadge(magnitude, pass.magnitude);
+            setMagnitudeBadge(magnitude, pass.magnitude, true);
             addAstronomyBadge(panel, magnitude, 6);
             addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
             addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
