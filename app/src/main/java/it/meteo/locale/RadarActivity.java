@@ -145,13 +145,17 @@ public final class RadarActivity extends Activity {
             result.put("clock24", options.getBooleanExtra("clock24", true));
             result.put("dark", SkyTheme.isDark(this));
             result.put("language", getString(R.string.app_language_tag));
+            result.put("updated", getString(R.string.map_updated));
             if (layer == Layer.EARTHQUAKES) {
                 int radius = options.getIntExtra("radiusKm", EarthquakeFeed.DEFAULT_RADIUS);
+                int minimum = options.getIntExtra("minimumMagnitude", 0);
                 result.put("radiusKm", radius);
-                result.put("scope", getString(R.string.earthquake_scope, radius));
+                String scope = getString(R.string.earthquake_scope, radius);
+                if (minimum > 0) scope += " · M ≥ " + minimum;
+                result.put("scope", scope);
                 result.put("mapLabel", getString(R.string.earthquake_map));
                 result.put("loading", getString(R.string.earthquake_loading));
-                result.put("empty", getString(R.string.earthquake_empty));
+                result.put("empty", getString(minimum > 0 ? R.string.earthquake_filter_empty : R.string.earthquake_empty));
                 result.put("depthLabel", getString(R.string.earthquake_depth));
                 result.put("magnitudeLabel", getString(R.string.earthquake_magnitude));
                 result.put("magnitudeBands", EarthquakeFeed.magnitudeBands());
@@ -180,6 +184,7 @@ public final class RadarActivity extends Activity {
                 return result;
             }
             if (layer == Layer.SATELLITE) {
+                result.put("updated", getString(R.string.satellite_downloaded));
                 result.put("regionalSource", SatelliteImagery.EUMETSAT);
                 result.put("geocolourSource", SatelliteImagery.GEOCOLOUR_SOURCE);
                 result.put("globalSource", SatelliteImagery.SOURCE);
@@ -251,9 +256,10 @@ public final class RadarActivity extends Activity {
         Intent options = getIntent();
         try {
             org.json.JSONArray events = new org.json.JSONArray();
+            int minimum = options.getIntExtra("minimumMagnitude", 0);
             for (EarthquakeFeed.Event event : EarthquakeFeed.recent(options.getDoubleExtra("lat", 42),
                     options.getDoubleExtra("lon", 12), options.getIntExtra("radiusKm", EarthquakeFeed.DEFAULT_RADIUS))) {
-                events.put(event.mapData());
+                if (event.matchesMagnitude(minimum)) events.put(event.mapData());
             }
             runOnUiThread(() -> evaluate("showEarthquakes(" + events + ")"));
         } catch (Exception error) {

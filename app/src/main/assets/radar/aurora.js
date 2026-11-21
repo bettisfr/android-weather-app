@@ -83,6 +83,7 @@ function setAurora(encoded, validTime) {
 
     new GlobalRaster(canvas, limit, {zIndex: 1}).addTo(map);
     document.getElementById('forecast').textContent = strings.forecast + ' · ' + timeFormat.format(validTime);
+    showMapUpdate(strings);
     status('');
 }
 
@@ -135,6 +136,7 @@ function showAirQualityImage() {
         if (requestedAirQualityImage !== image) return;
         if (airQualityOverlay) airQualityOverlay.remove();
         airQualityOverlay = L.imageOverlay(image, bounds, {opacity: .65, interactive: false, alt: ''}).addTo(map);
+        showMapUpdate(strings);
         status('');
     };
     image.onerror = () => {

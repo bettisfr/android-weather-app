@@ -111,7 +111,7 @@ function loadRegionalBlob(url) {
             if (!response.ok || !response.headers.get('content-type')?.startsWith('image/')) {
                 throw new Error('Satellite image unavailable');
             }
-            return response.blob();
+            return response.blob().then(blob => ({blob, receivedAt: Date.now()}));
         }).catch(error => {
             if (frameBlobs.get(url) === cached) frameBlobs.delete(url);
             throw error;
@@ -130,11 +130,11 @@ function loadImage(url) {
 }
 
 async function loadRegionalImage(url, request) {
-    const blob = await loadRegionalBlob(url);
+    const {blob, receivedAt} = await loadRegionalBlob(url);
     if (requestedFrame !== request) return null;
     const objectUrl = URL.createObjectURL(blob);
     try {
-        return await loadImage(objectUrl);
+        return {image: await loadImage(objectUrl), receivedAt};
     } finally {
         URL.revokeObjectURL(objectUrl);
     }
@@ -173,9 +173,11 @@ function showFrame(index, preload = false) {
     const regional = regionalLayer ? regionalFrame(data.time) : null;
     const request = {};
     requestedFrame = request;
-    const pendingImage = regional ? loadRegionalImage(regional.url, request) : loadImage(data.url);
-    pendingImage.then(image => {
+    const pendingImage = regional ? loadRegionalImage(regional.url, request)
+        : loadImage(data.url).then(image => ({image, receivedAt: Date.now()}));
+    pendingImage.then(frame => {
         if (requestedFrame !== request) return;
+        const {image, receivedAt} = frame;
         if (regional) {
             if (regionalOverlay) regionalOverlay.remove();
             regionalOverlay = L.imageOverlay(image, regional.bounds, {
@@ -188,6 +190,7 @@ function showFrame(index, preload = false) {
         }
         const geocolour = mode === 'auto';
         output.textContent = (geocolour ? 'GeoColour' : config.observed) + ' · ' + times.format(data.time);
+        showMapUpdate(config, receivedAt);
         source.href = geocolour ? config.geocolourSource : regional ? config.regionalSource : config.globalSource;
         source.textContent = geocolour ? 'EUMETSAT · NASA' : regional ? 'EUMETSAT' : 'NOAA NESDIS';
         source.hidden = false;

@@ -140,9 +140,12 @@ public final class MainActivity extends Activity {
             boolean trueNorth = Double.isFinite(magneticDeclination);
             if (trueNorth) heading += magneticDeclination;
             long azimuth = Math.floorMod(Math.round(heading), 360);
-            String direction = Math.abs(elevation) == 90 ? "—" : azimuth + "° " + compassDirection(azimuth);
+            boolean unreliable = event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE;
+            boolean lowAccuracy = unreliable || event.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_LOW;
+            String direction = unreliable || Math.abs(elevation) == 90 ? "—" : azimuth + "° " + compassDirection(azimuth);
             String reading = getString(trueNorth ? R.string.phone_direction_reading : R.string.phone_direction_magnetic,
                     direction, elevation);
+            if (lowAccuracy) reading += "\n" + getString(R.string.phone_compass_low_accuracy);
             if (!reading.contentEquals(phoneDirection.getText())) phoneDirection.setText(reading);
         }
 
@@ -179,6 +182,7 @@ public final class MainActivity extends Activity {
     private TextView earthquakeTitle;
     private LinearLayout earthquakePanel;
     private int earthquakeRadius;
+    private int earthquakeMinimumMagnitude;
     private double deviceLatitude = Double.NaN;
     private double deviceLongitude = Double.NaN;
     private String deviceCountry = "";
@@ -207,6 +211,7 @@ public final class MainActivity extends Activity {
         windUnit = prefs.getInt("windUnit", 0);
         pressureUnit = prefs.getInt("pressureUnit", 0);
         earthquakeRadius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
+        earthquakeMinimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
         if (state != null && state.containsKey("forecastPlace")) {
             place = state.getString("forecastPlace");
             latitude = state.getDouble("forecastLatitude");
@@ -1009,6 +1014,7 @@ public final class MainActivity extends Activity {
                 .putExtra("layer", RadarActivity.Layer.EARTHQUAKES.name())
                 .putExtra("place", devicePlace == null ? getString(R.string.current_location) : devicePlace)
                 .putExtra("lat", lat).putExtra("lon", lon).putExtra("radiusKm", radius)
+                .putExtra("minimumMagnitude", earthquakeMinimumMagnitude)
                 .putExtra("timeZone", "Europe/Rome").putExtra("clock24", clock24)));
         map.setContentDescription(getString(R.string.earthquake_map));
         heading.addView(map);
@@ -1029,12 +1035,40 @@ public final class MainActivity extends Activity {
                 return;
             }
             panel.removeView(status);
+            Spinner filter = new Spinner(this);
+            int[] thresholds = {0, 2, 3, 4};
+            String[] options = {getString(R.string.earthquake_all_magnitudes), "M ≥ 2", "M ≥ 3", "M ≥ 4"};
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, options);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            filter.setAdapter(adapter);
+            filter.setContentDescription(getString(R.string.earthquake_magnitude));
+            for (int i = 0; i < thresholds.length; i++) {
+                if (thresholds[i] == earthquakeMinimumMagnitude) filter.setSelection(i);
+            }
+            addSpaced(panel, filter, 5);
             LinearLayout rows = column();
             panel.addView(rows);
+            TextView empty = label(getString(R.string.earthquake_filter_empty), 13, muted);
+            empty.setVisibility(View.GONE);
+            panel.addView(empty);
             Button more = moreButton();
+            more.setVisibility(View.GONE);
             panel.addView(more);
-            more.setOnClickListener(v -> appendEarthquakes(rows, more, events, lat, lon, 15));
-            appendEarthquakes(rows, more, events, lat, lon, 5);
+            filter.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                    earthquakeMinimumMagnitude = thresholds[position];
+                    getPreferences(MODE_PRIVATE).edit().putInt("earthquakeMinimumMagnitude", earthquakeMinimumMagnitude).apply();
+                    List<EarthquakeFeed.Event> visible = new ArrayList<>();
+                    for (EarthquakeFeed.Event event : events) {
+                        if (event.matchesMagnitude(earthquakeMinimumMagnitude)) visible.add(event);
+                    }
+                    rows.removeAllViews();
+                    empty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
+                    more.setOnClickListener(v -> appendEarthquakes(rows, more, visible, lat, lon, 15));
+                    appendEarthquakes(rows, more, visible, lat, lon, 5);
+                }
+                @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            });
         }));
     }
 

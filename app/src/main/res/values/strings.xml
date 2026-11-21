@@ -283,6 +283,11 @@
     <string name="earthquake_details">%1$s · %2$d km away · Depth %3$s km</string>
     <string name="earthquake_depth">Depth</string>
     <string name="earthquake_magnitude">Magnitude</string>
+    <string name="earthquake_all_magnitudes">All magnitudes</string>
+    <string name="earthquake_filter_empty">No earthquakes match this magnitude filter</string>
+    <string name="map_updated">Data received</string>
+    <string name="satellite_downloaded">Frame downloaded</string>
+    <string name="phone_compass_low_accuracy">Low compass accuracy</string>
     <string name="earthquake_radius">Earthquake search radius</string>
     <string name="earthquake_radius_value">%1$d km</string>
     <string name="earthquake_credit">Earthquakes · INGV, CC BY 4.0</string>

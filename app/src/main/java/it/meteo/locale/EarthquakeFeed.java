@@ -116,6 +116,8 @@ final class EarthquakeFeed {
 
         String url() { return SOURCE + "event/" + id; }
 
+        boolean matchesMagnitude(int minimum) { return minimum == 0 || magnitude >= minimum; }
+
         JSONObject mapData() throws JSONException {
             return new JSONObject().put("time", time.toEpochMilli()).put("lat", latitude).put("lon", longitude)
                     .put("depth", depth).put("magnitude", magnitude).put("magnitudeType", magnitudeType)

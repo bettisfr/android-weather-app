@@ -136,6 +136,7 @@ function showFrame(index) {
             displayedIndex = index;
             layer.setOpacity(1);
             frame.textContent = frameTime;
+            if (available.size && document.getElementById('map-updated').hidden) showMapUpdate(strings);
             status(available.size ? '' : strings.noTiles);
             if (playing) {
                 clearTimeout(playTimer);

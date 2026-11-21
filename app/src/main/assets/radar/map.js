@@ -2,6 +2,16 @@
 
 const maximumMapZoom = 23;
 
+function showMapUpdate(config, receivedAt = Date.now()) {
+    const updated = document.getElementById('map-updated');
+    const format = new Intl.DateTimeFormat(config.language, {
+        hour: '2-digit', minute: '2-digit', timeZone: config.timeZone,
+        hourCycle: config.clock24 ? 'h23' : 'h12',
+    });
+    updated.textContent = config.updated + ' · ' + format.format(receivedAt);
+    updated.hidden = false;
+}
+
 function createWeatherMap(element, center, zoom, options = {}) {
     const map = L.map(element, {minZoom: 0, maxZoom: maximumMapZoom, ...options}).setView(center, zoom);
     map.attributionControl.setPrefix(false);

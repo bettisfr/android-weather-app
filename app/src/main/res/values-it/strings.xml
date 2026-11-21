@@ -282,6 +282,11 @@
     <string name="earthquake_details">%1$s · A %2$d km · Profondità %3$s km</string>
     <string name="earthquake_depth">Profondità</string>
     <string name="earthquake_magnitude">Magnitudo</string>
+    <string name="earthquake_all_magnitudes">Tutte le magnitudo</string>
+    <string name="earthquake_filter_empty">Nessun terremoto corrisponde al filtro di magnitudo</string>
+    <string name="map_updated">Dati ricevuti</string>
+    <string name="satellite_downloaded">Fotogramma scaricato</string>
+    <string name="phone_compass_low_accuracy">Bussola poco precisa</string>
     <string name="earthquake_radius">Raggio dei terremoti</string>
     <string name="earthquake_radius_value">%1$d km</string>
     <string name="earthquake_credit">Terremoti · INGV, CC BY 4.0</string>
