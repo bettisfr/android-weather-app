@@ -160,29 +160,40 @@ public final class TransitCatalog {
         List<Event> events = new ArrayList<>();
         for (Transit transit : CATALOG) {
             if (transit.end.isBefore(now)) continue;
-            long start = transit.start.getEpochSecond();
-            long end = transit.end.getEpochSecond();
-            long visibleStart = -1;
-            long visibleEnd = -1;
-            boolean wasVisible = transit.aboveHorizon(start, latitude, longitude);
-            if (wasVisible) visibleStart = start;
-            for (long previous = start, time = Math.min(start + 60, end); time > previous;
-                 previous = time, time = Math.min(time + 60, end)) {
-                boolean visible = transit.aboveHorizon(time, latitude, longitude);
-                if (visible != wasVisible) {
-                    long crossing = crossing(transit, previous, time, latitude, longitude, visible);
-                    if (visible && visibleStart < 0) visibleStart = crossing;
-                    if (!visible) visibleEnd = crossing;
-                }
-                if (visible && time == end) visibleEnd = end;
-                wasVisible = visible;
-            }
-            if (visibleStart >= 0 && visibleEnd > visibleStart && visibleEnd >= now.getEpochSecond()) {
-                events.add(new Event(transit, Instant.ofEpochSecond(visibleStart), Instant.ofEpochSecond(visibleEnd)));
-            }
+            Event event = visibleEvent(transit, latitude, longitude);
+            if (event != null && !event.visibleEnd.isBefore(now)) events.add(event);
         }
         events.sort(Comparator.comparing(event -> event.transit.greatest));
         return events;
+    }
+
+    public static Event atDate(LocalDate date, double latitude, double longitude) {
+        for (Transit transit : CATALOG) {
+            if (transit.date.equals(date)) return visibleEvent(transit, latitude, longitude);
+        }
+        return null;
+    }
+
+    private static Event visibleEvent(Transit transit, double latitude, double longitude) {
+        long start = transit.start.getEpochSecond();
+        long end = transit.end.getEpochSecond();
+        long visibleStart = -1;
+        long visibleEnd = -1;
+        boolean wasVisible = transit.aboveHorizon(start, latitude, longitude);
+        if (wasVisible) visibleStart = start;
+        for (long previous = start, time = Math.min(start + 60, end); time > previous;
+             previous = time, time = Math.min(time + 60, end)) {
+            boolean visible = transit.aboveHorizon(time, latitude, longitude);
+            if (visible != wasVisible) {
+                long crossing = crossing(transit, previous, time, latitude, longitude, visible);
+                if (visible && visibleStart < 0) visibleStart = crossing;
+                if (!visible) visibleEnd = crossing;
+            }
+            if (visible && time == end) visibleEnd = end;
+            wasVisible = visible;
+        }
+        return visibleStart >= 0 && visibleEnd > visibleStart
+                ? new Event(transit, Instant.ofEpochSecond(visibleStart), Instant.ofEpochSecond(visibleEnd)) : null;
     }
 
     private static long crossing(Transit transit, long low, long high, double latitude, double longitude, boolean rising) {

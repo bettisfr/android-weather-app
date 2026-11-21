@@ -301,6 +301,9 @@
     <string name="transit_whole_band">Visibile per tutto il transito</string>
     <string name="transit_open_nasa">Apri il catalogo NASA</string>
     <string name="eclipse_map">Mappa dell’eclissi</string>
+    <string name="visibility_point_loading">Calcolo dei dettagli locali…</string>
+    <string name="visibility_point_hidden">Evento non visibile da questo punto</string>
+    <string name="visibility_point_unavailable">Dettagli locali non disponibili</string>
     <string name="eclipse_map_title">Eclissi solare · %1$s</string>
     <string name="lunar_eclipse_map_title">Eclissi lunare · %1$s</string>
     <string name="eclipse_annularity_band">Fascia di anularità</string>

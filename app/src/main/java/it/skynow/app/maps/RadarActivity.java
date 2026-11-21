@@ -3,11 +3,15 @@ package it.skynow.app.maps;
 import it.skynow.app.R;
 import it.skynow.app.SkyTheme;
 import it.skynow.app.astronomy.AuroraForecast;
+import it.skynow.app.astronomy.EclipseCatalog;
 import it.skynow.app.seismic.EarthquakeFeed;
 import it.skynow.app.weather.AirQualityBand;
+import it.skynow.app.weather.OpenMeteo;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.location.Address;
+import android.location.Geocoder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -25,13 +29,22 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 public final class RadarActivity extends Activity {
     private static final String ASSET_ORIGIN = "https://appassets.androidplatform.net";
+    private static final String VISIBILITY_POINT_PATH = "/radar/visibility-point";
     public enum Layer {
         RADAR("index", R.string.radar_title), AURORA("aurora", R.string.aurora_map_title),
         AIR_QUALITY("aurora", R.string.air_quality_map_title), SATELLITE("satellite", R.string.satellite_title),
@@ -52,6 +65,7 @@ public final class RadarActivity extends Activity {
     private WebView web;
     private Layer layer;
     private String selectedEarthquake;
+    private Future<?> visibilityRequest;
 
     @Override protected void attachBaseContext(android.content.Context base) {
         super.attachBaseContext(SkyTheme.withPreference(base));
@@ -126,6 +140,12 @@ public final class RadarActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
                 if (page.equals(uri.toString())) return false;
+                if (request.isForMainFrame() && layer == Layer.ECLIPSE
+                        && "https".equals(uri.getScheme()) && "appassets.androidplatform.net".equals(uri.getHost())
+                        && VISIBILITY_POINT_PATH.equals(uri.getPath())) {
+                    loadVisibilityPoint(uri);
+                    return true;
+                }
                 if (request.isForMainFrame() && "https".equals(uri.getScheme())) {
                     try {
                         startActivity(new Intent(Intent.ACTION_VIEW, uri));
@@ -187,6 +207,7 @@ public final class RadarActivity extends Activity {
                 result.put("loading", getString(R.string.eclipse_map_loading));
                 result.put("approximate", getString(R.string.eclipse_map_approximate));
                 result.put("unavailable", getString(R.string.eclipse_map_unavailable));
+                result.put("pointLoading", getString(R.string.visibility_point_loading));
                 result.put("openDetails", getString(transit && detailsUrl.equals(catalogUrl)
                         ? R.string.transit_open_nasa : R.string.eclipse_open_timeanddate));
                 return result;
@@ -314,6 +335,74 @@ public final class RadarActivity extends Activity {
         } catch (Exception error) {
             android.util.Log.w("SkyHere", "INGV map unavailable", error);
             showMapError(R.string.earthquake_unavailable);
+        }
+    }
+
+    private void loadVisibilityPoint(Uri request) {
+        int sequence;
+        double latitude, longitude;
+        try {
+            sequence = Integer.parseInt(request.getQueryParameter("id"));
+            latitude = Double.parseDouble(request.getQueryParameter("lat"));
+            longitude = Double.parseDouble(request.getQueryParameter("lon"));
+        } catch (IllegalArgumentException | NullPointerException error) {
+            return;
+        }
+        if (sequence < 1 || !Double.isFinite(latitude) || !Double.isFinite(longitude)
+                || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return;
+
+        Intent options = getIntent();
+        LocalDate date = LocalDate.parse(options.getStringExtra("eventDate"));
+        String catalog = options.getStringExtra("catalogUrl");
+        boolean useCatalog = catalog != null && catalog.equals(options.getStringExtra("detailsUrl"));
+        String url = useCatalog ? catalog : EclipseCatalog.localDetailsUrl(date, latitude, longitude);
+        String label = getString(useCatalog ? R.string.transit_open_nasa : R.string.eclipse_open_timeanddate);
+        if (visibilityRequest != null) visibilityRequest.cancel(true);
+        resolveVisibilityPlace(sequence, latitude, longitude);
+        visibilityRequest = network.submit(() -> {
+            CompletableFuture<ZoneId> zone = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return OpenMeteo.timeZone(latitude, longitude);
+                } catch (Exception error) {
+                    return ZoneOffset.UTC;
+                }
+            });
+            JSONArray lines;
+            try {
+                lines = VisibilityPointDetails.lookup(this, options.getStringExtra("visibilityKind"), date, latitude,
+                        longitude, zone.join(), options.getBooleanExtra("clock24", true));
+            } catch (Exception error) {
+                android.util.Log.w("SkyHere", "Map point details unavailable", error);
+                lines = new JSONArray().put(getString(R.string.visibility_point_unavailable));
+            }
+            String script = "showVisibilityPoint(" + sequence + "," + lines + ","
+                    + JSONObject.quote(url) + "," + JSONObject.quote(label) + ")";
+            runOnUiThread(() -> evaluate(script));
+        });
+    }
+
+    private void resolveVisibilityPlace(int sequence, double latitude, double longitude) {
+        if (!Geocoder.isPresent()) return;
+        Geocoder geocoder = new Geocoder(this, Locale.forLanguageTag(getString(R.string.app_language_tag)));
+        java.util.function.Consumer<List<Address>> resolved = addresses -> {
+            if (addresses == null || addresses.isEmpty()) return;
+            Address address = addresses.get(0);
+            String city = address.getLocality();
+            if (city == null) city = address.getSubAdminArea();
+            if (city == null) return;
+            String name = city;
+            runOnUiThread(() -> evaluate("setVisibilityPlace(" + sequence + "," + JSONObject.quote(name) + ")"));
+        };
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            geocoder.getFromLocation(latitude, longitude, 1, resolved::accept);
+        } else {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    resolved.accept(geocoder.getFromLocation(latitude, longitude, 1));
+                } catch (IOException ignored) {
+                    // The popup already displays the selected coordinates.
+                }
+            });
         }
     }
 

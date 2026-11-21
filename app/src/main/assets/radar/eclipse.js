@@ -1,5 +1,28 @@
 'use strict';
 
+let point;
+
+function showVisibilityPoint(id, lines, url, label) {
+    if (point?.id !== id) return;
+    point.details.replaceChildren();
+    for (const line of lines) {
+        const row = document.createElement('div');
+        row.textContent = line;
+        point.details.append(row);
+    }
+    const link = document.createElement('a');
+    link.href = url;
+    link.textContent = label + ' ↗';
+    point.details.append(link);
+    point.popup.update();
+}
+
+function setVisibilityPlace(id, name) {
+    if (point?.id !== id) return;
+    point.title.textContent = name;
+    point.popup.update();
+}
+
 function initialize(config) {
     document.documentElement.lang = config.language;
     document.documentElement.classList.toggle('dark', config.dark);
@@ -23,6 +46,28 @@ function initialize(config) {
 
     const location = L.latLng(config.lat, config.lon);
     const map = createWeatherMap('map', location, solar ? 4 : 2);
+    let sequence = 0;
+    let pendingTap;
+    map.on('click', ({latlng}) => {
+        clearTimeout(pendingTap);
+        const coordinates = latlng.wrap();
+        const id = ++sequence;
+        const title = document.createElement('strong');
+        const localName = coordinates.distanceTo(location) < 1000 ? config.place : null;
+        title.textContent = localName || coordinates.lat.toFixed(3) + '°, ' + coordinates.lng.toFixed(3) + '°';
+        const body = document.createElement('div');
+        body.className = 'visibility-point';
+        const details = document.createElement('div');
+        details.textContent = config.pointLoading;
+        details.setAttribute('aria-live', 'polite');
+        body.append(title, details);
+        const popup = L.popup({maxWidth: 280}).setLatLng(latlng).setContent(body).openOn(map);
+        point = {id, title, details, popup};
+        pendingTap = setTimeout(() => {
+            window.location.assign('/radar/visibility-point?id=' + id
+                + '&lat=' + coordinates.lat.toFixed(5) + '&lon=' + coordinates.lng.toFixed(5));
+        }, 140);
+    });
     const name = document.createElement('span');
     name.textContent = config.place;
     map.createPane('eclipse-location').style.zIndex = 450;

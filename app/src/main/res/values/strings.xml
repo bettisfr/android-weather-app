@@ -302,6 +302,9 @@
     <string name="transit_whole_band">Entire transit visible</string>
     <string name="transit_open_nasa">Open NASA catalog</string>
     <string name="eclipse_map">Eclipse map</string>
+    <string name="visibility_point_loading">Calculating local details…</string>
+    <string name="visibility_point_hidden">The event is not visible from this point</string>
+    <string name="visibility_point_unavailable">Local details unavailable</string>
     <string name="eclipse_map_title">Solar eclipse · %1$s</string>
     <string name="lunar_eclipse_map_title">Lunar eclipse · %1$s</string>
     <string name="eclipse_annularity_band">Path of annularity</string>

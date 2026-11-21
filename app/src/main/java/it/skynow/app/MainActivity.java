@@ -2623,7 +2623,7 @@ public final class MainActivity extends Activity {
         iconSize.rightMargin = dp(9);
         heading.addView(icon, iconSize);
         LinearLayout title = column();
-        title.addView(label(eclipseTypeLabel(event.type), 15, ink));
+        title.addView(label(EclipseCatalog.typeLabel(this, event.type), 15, ink));
         heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         heading.addView(skyTrackChevron());
         entry.addView(heading);
@@ -2631,7 +2631,7 @@ public final class MainActivity extends Activity {
         ZonedDateTime end = event.end.atZone(zone);
         DateTimeFormatter date = shortDate(true);
         TextView when = label(start.format(date), 13, muted);
-        localDetails.add(eclipseTypeLabel(event.type) + " · " + when.getText());
+        localDetails.add(EclipseCatalog.typeLabel(this, event.type) + " · " + when.getText());
         when.setPadding(0, dp(3), 0, 0);
         title.addView(when);
         String range = start.format(clockFormat()) + " – " + end.format(clockFormat());
@@ -3597,19 +3597,6 @@ public final class MainActivity extends Activity {
             case 96: return getString(R.string.thunderstorm_light_hail);
             case 99: return getString(R.string.thunderstorm_heavy_hail);
             default: return getString(R.string.conditions_unavailable);
-        }
-    }
-
-    private String eclipseTypeLabel(String type) {
-        switch (type) {
-            case "Partial solar eclipse": return getString(R.string.eclipse_partial_solar);
-            case "Annular solar eclipse": return getString(R.string.eclipse_annular_solar);
-            case "Total solar eclipse": return getString(R.string.eclipse_total_solar);
-            case "Hybrid solar eclipse": return getString(R.string.eclipse_hybrid_solar);
-            case "Partial lunar eclipse": return getString(R.string.eclipse_partial_lunar);
-            case "Total lunar eclipse": return getString(R.string.eclipse_total_lunar);
-            case "Penumbral lunar eclipse": return getString(R.string.eclipse_penumbral_lunar);
-            default: return type;
         }
     }
 

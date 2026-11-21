@@ -1,5 +1,7 @@
 package it.skynow.app.astronomy;
 
+import it.skynow.app.R;
+
 import android.content.Context;
 import android.util.AtomicFile;
 import org.json.JSONArray;
@@ -92,7 +94,7 @@ public final class EclipseCatalog {
         }
     }
 
-    static String localDetailsUrl(LocalDate date, double latitude, double longitude) {
+    public static String localDetailsUrl(LocalDate date, double latitude, double longitude) {
         return String.format(Locale.US, "https://www.timeanddate.com/eclipse/in/@%.5f,%.5f?iso=%s",
                 latitude, longitude, date.format(DateTimeFormatter.BASIC_ISO_DATE));
     }
@@ -124,6 +126,19 @@ public final class EclipseCatalog {
 
     private EclipseCatalog() {}
 
+    public static String typeLabel(Context context, String type) {
+        switch (type) {
+            case "Partial solar eclipse": return context.getString(R.string.eclipse_partial_solar);
+            case "Annular solar eclipse": return context.getString(R.string.eclipse_annular_solar);
+            case "Total solar eclipse": return context.getString(R.string.eclipse_total_solar);
+            case "Hybrid solar eclipse": return context.getString(R.string.eclipse_hybrid_solar);
+            case "Partial lunar eclipse": return context.getString(R.string.eclipse_partial_lunar);
+            case "Total lunar eclipse": return context.getString(R.string.eclipse_total_lunar);
+            case "Penumbral lunar eclipse": return context.getString(R.string.eclipse_penumbral_lunar);
+            default: return type;
+        }
+    }
+
     public static int yearsPerRequest(boolean lunar) {
         return lunar ? 3 : 10;
     }
@@ -142,6 +157,21 @@ public final class EclipseCatalog {
         }
         result.sort(Comparator.comparing(event -> event.start));
         return result;
+    }
+
+    public static Event atDate(Context context, LocalDate date, boolean lunar, double latitude, double longitude)
+            throws Exception {
+        int year = date.getYear();
+        String observer = String.format(Locale.US, "%.5f,%.5f", latitude, longitude);
+        String path = lunar ? "301/" + year + "?nbd=" + yearsPerRequest(true)
+                : "10/" + year + "?nbd=1&observer=" + observer;
+        String key = lunar ? "lunar-" + year : "solar-point-" + year + "-" + observer;
+        JSONArray rows = catalogRows(context, path, key, lunar);
+        for (int i = 0; i < rows.length(); i++) {
+            Event event = visibleEvent(rows.getJSONObject(i), lunar, latitude, longitude);
+            if (event != null && date.equals(event.catalogDate())) return event;
+        }
+        return null;
     }
 
     private static JSONArray catalogRows(Context context, String path, String key, boolean lunar) throws Exception {

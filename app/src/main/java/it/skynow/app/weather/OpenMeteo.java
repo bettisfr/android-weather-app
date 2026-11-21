@@ -13,6 +13,7 @@ import java.net.URLEncoder;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 public final class OpenMeteo {
@@ -118,6 +119,12 @@ public final class OpenMeteo {
     public static JSONObject search(String query, String language) throws Exception {
         return read("https://geocoding-api.open-meteo.com/v1/search?count=12&language=" + language + "&name="
                 + URLEncoder.encode(query, "UTF-8"));
+    }
+
+    public static ZoneId timeZone(double latitude, double longitude) throws Exception {
+        JSONObject result = read("https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude
+                + "&timezone=auto&forecast_days=1&daily=sunrise");
+        return ZoneId.of(result.getString("timezone"));
     }
 
     private static final String AIR_QUALITY = "https://air-quality-api.open-meteo.com/v1/air-quality?";
