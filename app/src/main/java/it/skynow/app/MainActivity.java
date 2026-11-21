@@ -1930,14 +1930,13 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         LocalDate today = now.atZone(zone).toLocalDate();
         Instant tomorrow = today.plusDays(1).atStartOfDay(zone).toInstant();
-        boolean daylight = SkyPosition.at(now, latitude, longitude, false).zenith < 90;
+        boolean sunBelowHorizon = SkyPosition.at(now, latitude, longitude, false).zenith > 90;
         for (PlanetRow row : planetRows) {
             Planets.Reading reading = Planets.at(row.body, now, latitude, longitude);
-            boolean above = reading.elevation >= 0;
-            row.magnitude.setVisibility(above ? View.VISIBLE : View.GONE);
-            if (above) {
-                setMagnitudeBadge(row.magnitude, reading.magnitude,
-                        daylight ? android.graphics.Color.TRANSPARENT : magnitudeColor(reading.magnitude));
+            boolean showMagnitude = reading.elevation > 0 && sunBelowHorizon;
+            row.magnitude.setVisibility(showMagnitude ? View.VISIBLE : View.GONE);
+            if (showMagnitude) {
+                setMagnitudeBadge(row.magnitude, reading.magnitude, magnitudeColor(reading.magnitude));
             }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
@@ -2333,8 +2332,13 @@ public final class MainActivity extends Activity {
         SkyPosition sun = SkyPosition.at(now, latitude, longitude, false);
         SkyPosition body = moon ? SkyPosition.at(now, latitude, longitude, true) : sun;
         if (planet == null && body.zenith >= 90) return;
-        double magnitude = planet != null ? Planets.at(planet, now, latitude, longitude).magnitude
-                : moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74;
+        double magnitude;
+        if (planet != null) {
+            Planets.Reading reading = Planets.at(planet, now, latitude, longitude);
+            magnitude = reading.elevation > 0 && sun.zenith > 90 ? reading.magnitude : Double.NaN;
+        } else {
+            magnitude = moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74;
+        }
         SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
         boolean nightOnly = moon || planet != null;
         ZonedDateTime localNow = now.atZone(zone);
@@ -2343,8 +2347,7 @@ public final class MainActivity extends Activity {
         if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
             period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
         }
-        int fill = planet == null ? EXTREME_MAGNITUDE_COLOR
-                : sun.zenith >= 90 ? magnitudeColor(magnitude) : android.graphics.Color.TRANSPARENT;
+        int fill = planet == null ? EXTREME_MAGNITUDE_COLOR : magnitudeColor(magnitude);
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
             if (observingWindows != null) {
                 addSpaced(panel, label(observingWindows.toString(), 13, accent), 6);
