@@ -2179,7 +2179,7 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         CompletableFuture.supplyAsync(() -> {
             try {
-                return IssPasses.upcoming(lat, lon, height, Instant.now());
+                return IssPasses.upcoming(getApplicationContext(), lat, lon, height, Instant.now());
             } catch (Exception error) {
                 android.util.Log.w("SkyHere", "ISS predictions unavailable", error);
                 return null;
@@ -2864,7 +2864,7 @@ public final class MainActivity extends Activity {
         addCredit(sources, R.string.satellite_credit, SatelliteImagery.EUMETSAT);
         addCredit(sources, R.string.satellite_mosaic_credit, SatelliteImagery.SOURCE);
         addCredit(sources, R.string.earthquake_credit, EarthquakeFeed.SOURCE);
-        addCredit(sources, R.string.iss_credit, "https://celestrak.org/NORAD/documentation/gp-data-formats.php");
+        addCredit(sources, R.string.iss_credit, "https://www.amsat.org/keplerian-elements/");
         addCredit(sources, R.string.eclipse_data, "https://opale.imcce.fr/");
         addCredit(sources, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
     }

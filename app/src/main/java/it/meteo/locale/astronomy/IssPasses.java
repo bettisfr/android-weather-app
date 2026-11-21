@@ -1,6 +1,6 @@
 package it.meteo.locale.astronomy;
 
-import it.meteo.locale.net.HttpText;
+import android.content.Context;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -12,17 +12,15 @@ import sgp4.TLE;
 
 // SGP4 from aholinch/sgp4 (552cb148), with the license in assets/licenses/sgp4.txt.
 public final class IssPasses {
-    public static final String SOURCE = "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE";
     private static final double EARTH_RADIUS_KM = 6378.137;
     private static final double EARTH_ECCENTRICITY_SQUARED = 0.00669437999014;
     private static final int STEP = 20;
     // Estimated visual magnitude at a range of 1,000 km and a phase angle of 90 degrees.
     private static final double STANDARD_MAGNITUDE = -1.3;
-    private static String[] cachedLines;
-    private static Instant fetchedAt = Instant.EPOCH;
 
-    public static List<Pass> upcoming(double latitude, double longitude, double elevationMeters, Instant now) throws IOException {
-        TLE orbit = orbit(now);
+    public static List<Pass> upcoming(Context context, double latitude, double longitude,
+                                      double elevationMeters, Instant now) throws IOException {
+        TLE orbit = IssOrbitalElements.get(context, now);
         Observer observer = new Observer(latitude, longitude, elevationMeters, orbit);
         List<Pass> passes = new ArrayList<>();
         long start = now.getEpochSecond();
@@ -67,22 +65,6 @@ public final class IssPasses {
             previous = current;
         }
         return passes;
-    }
-
-    private static synchronized TLE orbit(Instant now) throws IOException {
-        if (cachedLines == null || Duration.between(fetchedAt, now).compareTo(Duration.ofMinutes(30)) >= 0) {
-            String[] lines = HttpText.read(SOURCE).trim().split("\\r?\\n");
-            if (lines.length < 3 || !lines[1].startsWith("1 25544") || !lines[2].startsWith("2 25544")
-                    || lines[1].length() < 69 || lines[2].length() < 69) throw new IOException("Invalid ISS orbital elements");
-            cachedLines = lines;
-            fetchedAt = now;
-        }
-        TLE orbit = new TLE(cachedLines[1], cachedLines[2]);
-        if (orbit.getParseErrors() != null || orbit.getEpoch() == null
-                || Duration.between(orbit.getEpoch().toInstant(), now).abs().compareTo(Duration.ofDays(3)) > 0) {
-            throw new IOException("ISS orbital elements are stale or invalid");
-        }
-        return orbit;
     }
 
     public static final class Pass {
