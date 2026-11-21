@@ -1633,7 +1633,10 @@ public final class MainActivity extends Activity {
 
     private void sun(JSONObject daily, int index) {
         LinearLayout tile = card();
-        sunTrackHeading = addSkyTrackHeading(tile, getString(R.string.sun), () -> showDailySkyTrack(getString(R.string.sun), false, null));
+        android.widget.ImageView sunIcon = new android.widget.ImageView(this);
+        sunIcon.setImageResource(R.drawable.ic_sun_astronomy);
+        sunTrackHeading = addSkyTrackHeading(tile, sunIcon, getString(R.string.sun),
+                () -> showDailySkyTrack(getString(R.string.sun), false, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
         LinearLayout readings = row();
@@ -1726,7 +1729,8 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = card();
-        moonTrackHeading = addSkyTrackHeading(tile, getString(R.string.moon), () -> showDailySkyTrack(getString(R.string.moon), true, null));
+        moonTrackHeading = addSkyTrackHeading(tile, new MoonPhaseView(this, phase, latitude < 0), getString(R.string.moon),
+                () -> showDailySkyTrack(getString(R.string.moon), true, null));
         TextView eventLabel = label("", 13, muted);
         int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
                 textWidth(eventLabel, getString(R.string.moonrise)),
@@ -1849,9 +1853,7 @@ public final class MainActivity extends Activity {
             entry.setBackground(background(getColor(R.color.sky_subtle), 12));
             entry.setPadding(dp(11), dp(9), dp(11), dp(9));
             LinearLayout planetTitle = row();
-            LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(23), dp(23));
-            iconSize.setMarginEnd(dp(7));
-            planetTitle.addView(new PlanetIcon(this, body), iconSize);
+            addCelestialTitleIcon(planetTitle, new PlanetIcon(this, body));
             TextView name = label(getString(names[body.ordinal()]), 16, ink);
             name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             planetTitle.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
@@ -2250,9 +2252,17 @@ public final class MainActivity extends Activity {
         return chevron;
     }
 
-    private LinearLayout addSkyTrackHeading(LinearLayout panel, String name, Runnable open) {
+    private void addCelestialTitleIcon(LinearLayout heading, View icon) {
+        LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(dp(23), dp(23));
+        iconSize.setMarginEnd(dp(7));
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        heading.addView(icon, iconSize);
+    }
+
+    private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
         LinearLayout heading = row();
         heading.setMinimumHeight(dp(32));
+        addCelestialTitleIcon(heading, icon);
         heading.addView(label(name, 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
         heading.addView(skyTrackChevron());
         astronomyCardAction(heading, open);
