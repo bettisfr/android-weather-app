@@ -53,7 +53,13 @@ final class IssPasses {
                     Sample candidate = observer.at(second);
                     if (candidate.magnitude < brightest.magnitude) brightest = candidate;
                 }
-                if (set.time > rise.time) passes.add(new Pass(rise, peak, set, brightest.magnitude));
+                if (set.time > rise.time) {
+                    List<Sample> track = new ArrayList<>();
+                    track.add(rise);
+                    for (long second = rise.time + 5; second < set.time; second += 5) track.add(observer.at(second));
+                    track.add(set);
+                    passes.add(new Pass(rise, peak, set, brightest.magnitude, track));
+                }
                 rise = null;
             }
             previous = current;
@@ -80,12 +86,14 @@ final class IssPasses {
     static final class Pass {
         final Sample rise, peak, set;
         final double magnitude;
+        final List<Sample> track;
 
-        Pass(Sample rise, Sample peak, Sample set, double magnitude) {
+        Pass(Sample rise, Sample peak, Sample set, double magnitude, List<Sample> track) {
             this.rise = rise;
             this.peak = peak;
             this.set = set;
             this.magnitude = magnitude;
+            this.track = track;
         }
     }
 

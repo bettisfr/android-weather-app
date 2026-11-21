@@ -2148,8 +2148,11 @@ public final class MainActivity extends Activity {
             entry.setPadding(dp(12), dp(8), dp(12), dp(8));
             entry.setBackground(background(getColor(R.color.sky_subtle), 12));
             LinearLayout heading = row();
-            heading.addView(label(dayFormat.format(rise) + " · " + range, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
-            heading.addView(astronomyLinkIcon());
+            String headingText = dayFormat.format(rise) + " · " + range;
+            heading.addView(label(headingText, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
+            TextView chevron = label("›", 20, accent);
+            chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            heading.addView(chevron);
             entry.addView(heading);
             LinearLayout details = row();
             details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
@@ -2165,10 +2168,55 @@ public final class MainActivity extends Activity {
             TextView directions = label(getString(R.string.iss_directions_short, appears, culminates, disappears), 13, muted);
             directions.setContentDescription(getString(R.string.iss_directions, appears, culminates, disappears));
             entry.addView(directions);
-            linkAstronomyCard(entry, issPassUrl(pass, zone));
+            String url = issPassUrl(pass, zone);
+            astronomyCardAction(entry, () -> showIssPass(pass, zone, headingText, url));
             addSpaced(rows, entry, 6);
         }
         more.setVisibility(end < passes.size() ? View.VISIBLE : View.GONE);
+    }
+
+    private void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        ScrollView viewport = new ScrollView(this);
+        LinearLayout panel = column();
+        panel.setBackground(background(getColor(R.color.sky_card), 20));
+        panel.setPadding(dp(16), dp(12), dp(16), dp(12));
+        viewport.addView(panel);
+        dialog.setContentView(viewport);
+
+        LinearLayout header = row();
+        header.addView(label(getString(R.string.iss_track), 19, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView close = button("×", dialog::dismiss);
+        close.setContentDescription(getString(android.R.string.cancel));
+        header.addView(close);
+        panel.addView(header);
+        panel.addView(label(period, 14, muted));
+        String[] cardinal = {compassDirection(0), compassDirection(90), compassDirection(180), compassDirection(270)};
+        panel.addView(new IssSkyTrack(this, pass, cardinal), new LinearLayout.LayoutParams(-1, dp(236)));
+        addIssTrackPoint(panel, R.string.iss_track_start, pass.rise, IssSkyTrack.START_COLOR, zone);
+        addIssTrackPoint(panel, R.string.iss_track_peak, pass.peak, IssSkyTrack.MAX_COLOR, zone);
+        addIssTrackPoint(panel, R.string.iss_track_end, pass.set, IssSkyTrack.END_COLOR, zone);
+        addSpaced(panel, button(getString(R.string.iss_open_heavens_above), () -> openAstronomyPage(url)), 8);
+
+        android.view.Window window = dialog.getWindow();
+        window.setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.show();
+        window.setLayout(dp(Math.min(440, getResources().getConfiguration().screenWidthDp - 24)), -2);
+    }
+
+    private void addIssTrackPoint(LinearLayout panel, int title, IssPasses.Sample sample, int color, ZoneId zone) {
+        LinearLayout item = row();
+        View marker = new View(this);
+        marker.setBackground(background(color, 4));
+        LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(dp(8), dp(8));
+        markerSize.setMarginEnd(dp(8));
+        item.addView(marker, markerSize);
+        String time = clockFormat().format(Instant.ofEpochSecond(sample.time).atZone(zone));
+        String details = getString(title) + " · " + time + " · " + issBearing(sample.azimuth)
+                + " · " + Math.round(sample.elevation) + "°";
+        item.addView(label(details, 14, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        addSpaced(panel, item, 6);
     }
 
     private String issBearing(double azimuth) {
@@ -2432,9 +2480,13 @@ public final class MainActivity extends Activity {
     }
 
     private void linkAstronomyCard(View card, String url) {
+        astronomyCardAction(card, () -> openAstronomyPage(url));
+    }
+
+    private void astronomyCardAction(View card, Runnable action) {
         card.setForeground(new android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(getColor(R.color.sky_ripple)), null, background(getColor(R.color.sky_card), 12)));
-        card.setOnClickListener(v -> openAstronomyPage(url));
+        card.setOnClickListener(v -> action.run());
     }
 
     private void openAstronomyPage(String url) {
