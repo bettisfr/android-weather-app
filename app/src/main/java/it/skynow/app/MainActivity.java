@@ -1817,9 +1817,6 @@ public final class MainActivity extends Activity {
         readings.setGravity(Gravity.TOP);
         readings.setPadding(0, dp(9), 0, 0);
         content.addView(readings, new LinearLayout.LayoutParams(roomy ? -1 : readingWidth, -2));
-        ZonedDateTime startOfDay = date.atStartOfDay(zone);
-        long riseMinute = -1;
-        long setMinute = -1;
         for (String field : new String[]{"moonrise", "moonset"}) {
             boolean rise = field.equals("moonrise");
             String event = getString(rise ? R.string.moonrise : R.string.moonset);
@@ -1832,9 +1829,6 @@ public final class MainActivity extends Activity {
             addSunTime(time, event, timestamp.length() >= 16 ? clock(timestamp) : getString(R.string.unavailable));
             if (timestamp.length() >= 16) {
                 LocalDateTime eventTime = LocalDateTime.parse(timestamp);
-                long minute = Duration.between(startOfDay, eventTime.atZone(zone)).toMinutes();
-                if (rise) riseMinute = minute;
-                else setMinute = minute;
                 LocalDate eventDate = eventTime.toLocalDate();
                 String dayLabel = eventDate.equals(date) ? getString(R.string.today)
                         : eventDate.equals(date.plusDays(1)) ? getString(R.string.tomorrow)
@@ -1846,13 +1840,8 @@ public final class MainActivity extends Activity {
             if (roomy) readings.addView(time, new LinearLayout.LayoutParams(0, -2, 1));
         }
         LinearLayout chart = column();
-        if (riseMinute >= 0 && setMinute >= 0) {
-            long nowMinute = Duration.between(startOfDay, ZonedDateTime.now(zone)).toMinutes();
-            SkyPath path = SkyPath.moon(this, riseMinute, setMinute, nowMinute);
-            if (path != null) {
-                chart.addView(path, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
-            }
-        }
+        chart.addView(SkyPath.moon(this, date, zone, Instant.now(), latitude, longitude),
+                new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout phaseDetails = row();
         phaseDetails.setPadding(dp(5), dp(3), dp(5), 0);
         LinearLayout phaseLabels = column();

@@ -60,7 +60,7 @@ public final class SkyTrajectory {
         Point rise = null;
         Point set = null;
         boolean nightOnly = moon || planet != null;
-        if (nightOnly && current.elevation >= 0) {
+        if (planet != null && current.elevation >= 0) {
             rise = findHorizon(sample, current, -STEP_SECONDS);
             set = findHorizon(sample, current, STEP_SECONDS);
             if (rise != null) start = rise.time;
