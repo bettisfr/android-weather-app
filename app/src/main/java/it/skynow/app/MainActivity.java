@@ -752,8 +752,8 @@ public final class MainActivity extends Activity {
             target.post(() -> target.scrollTo(0, offset));
             if (dashboardTab == DashboardTab.ASTRONOMY) {
                 sun(daily, 0);
-                astronomicalSeasons();
                 moon(daily, 0);
+                astronomicalSeasons();
                 planets();
                 issPasses();
                 aurora();
@@ -2681,7 +2681,7 @@ public final class MainActivity extends Activity {
     private void astronomicalSeasons() {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         LinearLayout seasons = card();
-        seasons.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_sun_astronomy),
+        seasons.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_seasons_astronomy),
                 getString(R.string.astronomical_seasons)));
         LinearLayout content = column();
         content.setPadding(0, dp(6), 0, 0);
