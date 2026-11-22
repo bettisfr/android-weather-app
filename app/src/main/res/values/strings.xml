@@ -334,6 +334,7 @@
     <string name="earthquake_details">%1$s · %2$d km away · Depth %3$s km</string>
     <string name="earthquake_depth">Depth</string>
     <string name="earthquake_magnitude">Magnitude</string>
+    <string name="earthquake_minimum_magnitude">Minimum magnitude</string>
     <string name="earthquake_all_magnitudes">All magnitudes</string>
     <string name="earthquake_filter_empty">No earthquakes match this magnitude filter</string>
     <string name="map_updated">Data received</string>

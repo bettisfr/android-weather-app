@@ -138,6 +138,7 @@ public final class MainActivity extends Activity {
     static final String[] WIND_UNITS = {"km/h", "mph", "m/s", "kn"};
     private static final double[] WIND_FACTORS = {1, 0.621371, 1.0 / 3.6, 1.0 / 1.852};
     static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
+    static final int[] EARTHQUAKE_MAGNITUDE_THRESHOLDS = {0, 2, 3, 4};
     private static final double[] PRESSURE_FACTORS = {1, 1, 0.029529983, 0.750061683};
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
@@ -250,7 +251,6 @@ public final class MainActivity extends Activity {
         longitude = Double.parseDouble(prefs.getString("longitude", "12.548"));
         appliedTheme = SkyTheme.preference(this);
         readDisplayPreferences(prefs);
-        earthquakeMinimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
         if (state != null && state.containsKey("forecastPlace")) {
             place = state.getString("forecastPlace");
             latitude = state.getDouble("forecastLatitude");
@@ -1082,15 +1082,12 @@ public final class MainActivity extends Activity {
             }
             panel.removeView(status);
             Spinner filter = new Spinner(this);
-            int[] thresholds = {0, 2, 3, 4};
-            String[] options = {getString(R.string.earthquake_all_magnitudes), "M ≥ 2", "M ≥ 3", "M ≥ 4"};
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, options);
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
+                    earthquakeMagnitudeOptions(this));
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
             filter.setAdapter(adapter);
             filter.setContentDescription(getString(R.string.earthquake_magnitude));
-            for (int i = 0; i < thresholds.length; i++) {
-                if (thresholds[i] == earthquakeMinimumMagnitude) filter.setSelection(i);
-            }
+            filter.setSelection(earthquakeMagnitudeIndex(earthquakeMinimumMagnitude));
             addSpaced(panel, filter, 5);
             LinearLayout rows = column();
             panel.addView(rows);
@@ -1102,7 +1099,7 @@ public final class MainActivity extends Activity {
             panel.addView(more);
             filter.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
                 @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                    earthquakeMinimumMagnitude = thresholds[position];
+                    earthquakeMinimumMagnitude = EARTHQUAKE_MAGNITUDE_THRESHOLDS[position];
                     getPreferences(MODE_PRIVATE).edit().putInt("earthquakeMinimumMagnitude", earthquakeMinimumMagnitude).apply();
                     List<EarthquakeFeed.Event> visible = new ArrayList<>();
                     for (EarthquakeFeed.Event event : events) {
@@ -3044,14 +3041,30 @@ public final class MainActivity extends Activity {
         int wind = prefs.getInt("windUnit", 0);
         int pressure = prefs.getInt("pressureUnit", 0);
         int radius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
+        int minimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
         boolean changed = fahrenheit != useFahrenheit || clock24 != use24Hours || windUnit != wind
-                || pressureUnit != pressure || earthquakeRadius != radius;
+                || pressureUnit != pressure || earthquakeRadius != radius || earthquakeMinimumMagnitude != minimumMagnitude;
         fahrenheit = useFahrenheit;
         clock24 = use24Hours;
         windUnit = wind;
         pressureUnit = pressure;
         earthquakeRadius = radius;
+        earthquakeMinimumMagnitude = minimumMagnitude;
         return changed;
+    }
+
+    static String[] earthquakeMagnitudeOptions(android.content.Context context) {
+        String[] options = new String[EARTHQUAKE_MAGNITUDE_THRESHOLDS.length];
+        options[0] = context.getString(R.string.earthquake_all_magnitudes);
+        for (int i = 1; i < options.length; i++) options[i] = "M ≥ " + EARTHQUAKE_MAGNITUDE_THRESHOLDS[i];
+        return options;
+    }
+
+    static int earthquakeMagnitudeIndex(int threshold) {
+        for (int i = 0; i < EARTHQUAKE_MAGNITUDE_THRESHOLDS.length; i++) {
+            if (EARTHQUAKE_MAGNITUDE_THRESHOLDS[i] == threshold) return i;
+        }
+        return 0;
     }
 
     private void locations() {

@@ -75,7 +75,12 @@ public final class SettingsActivity extends Activity {
         choice(units, R.string.pressure, MainActivity.PRESSURE_UNITS,
                 () -> preferences.getInt("pressureUnit", 0), index -> preferences.edit().putInt("pressureUnit", index).apply());
 
-        addEarthquakeRadius(section(content, R.string.tab_earthquakes));
+        LinearLayout earthquakes = section(content, R.string.tab_earthquakes);
+        addEarthquakeRadius(earthquakes);
+        choice(earthquakes, R.string.earthquake_minimum_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
+                () -> MainActivity.earthquakeMagnitudeIndex(preferences.getInt("earthquakeMinimumMagnitude", 0)),
+                index -> preferences.edit()
+                        .putInt("earthquakeMinimumMagnitude", MainActivity.EARTHQUAKE_MAGNITUDE_THRESHOLDS[index]).apply());
         addCredits(content, scroller);
         setContentView(screen);
     }
