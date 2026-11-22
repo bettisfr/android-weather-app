@@ -152,6 +152,7 @@ public final class MainActivity extends Activity {
     private TextView sunCoordinates;
     private TextView moonCoordinates;
     private LinearLayout sunTrackHeading, moonTrackHeading;
+    private SkyPath sunPath, moonPath;
     private String astronomyTailKey;
     private CompletableFuture<JSONObject> astronomyTail;
     private final List<PlanetRow> planetRows = new ArrayList<>();
@@ -680,6 +681,8 @@ public final class MainActivity extends Activity {
         moonCoordinates = null;
         sunTrackHeading = null;
         moonTrackHeading = null;
+        sunPath = null;
+        moonPath = null;
         planetRows.clear();
         planetWindowDate = null;
         currentLocationTitle = null;
@@ -1706,6 +1709,9 @@ public final class MainActivity extends Activity {
         }
         LinearLayout heading = moon ? moonTrackHeading : sunTrackHeading;
         setSkyTrackAvailable(heading, heading.getChildAt(heading.getChildCount() - 1), above);
+        SkyPath path = moon ? moonPath : sunPath;
+        path.setClickable(above);
+        path.updateNow(now, 90 - position.zenith);
     }
 
     private void sun(JSONObject daily, int index) {
@@ -1765,8 +1771,9 @@ public final class MainActivity extends Activity {
         int twilight = SkyPath.civilTwilightMinutes(date, latitude);
         LinearLayout chart = column();
         content.addView(chart, new LinearLayout.LayoutParams(roomy ? -1 : 0, -2, roomy ? 0 : 1));
-        SkyPath path = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
-        chart.addView(path, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+        sunPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
+        sunPath.setOnClickListener(view -> sunTrackHeading.performClick());
+        chart.addView(sunPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout legend = row();
         legend.setGravity(Gravity.TOP);
         legend.setPadding(dp(5), 0, dp(5), 0);
@@ -1830,8 +1837,9 @@ public final class MainActivity extends Activity {
             if (roomy) readings.addView(time, new LinearLayout.LayoutParams(0, -2, 1));
         }
         LinearLayout chart = column();
-        chart.addView(new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24),
-                new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+        moonPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24);
+        moonPath.setOnClickListener(view -> moonTrackHeading.performClick());
+        chart.addView(moonPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout phaseDetails = row();
         phaseDetails.setPadding(dp(5), dp(3), dp(5), 0);
         LinearLayout phaseLabels = column();
@@ -2455,7 +2463,10 @@ public final class MainActivity extends Activity {
         Instant now = Instant.now();
         SkyPosition sun = SkyPosition.at(now, latitude, longitude, false);
         SkyPosition body = moon ? SkyPosition.at(now, latitude, longitude, true) : sun;
-        if (planet == null && body.zenith >= 90) return;
+        if (planet == null && body.zenith >= 90) {
+            setSkyCoordinates(moon ? moonCoordinates : sunCoordinates, now, moon);
+            return;
+        }
         double magnitude;
         if (planet != null) {
             Planets.Reading reading = Planets.at(planet, now, latitude, longitude);

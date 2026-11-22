@@ -23,16 +23,18 @@ public final class SkyPath extends View {
     private final float[] elevations = new float[SAMPLES + 1];
     private final float[] hourFractions = new float[HOURS.length];
     private final String[] hourLabels = new String[HOURS.length];
-    private final float nowFraction;
-    private final float nowElevation;
+    private final long start;
+    private final long span;
+    private float nowFraction;
+    private float nowElevation;
     private final boolean moon;
 
     public SkyPath(Context context, LocalDate date, ZoneId zone, Instant now,
                    double latitude, double longitude, boolean moon, boolean clock24) {
         super(context);
         this.moon = moon;
-        long start = date.atStartOfDay(zone).toEpochSecond();
-        long span = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - start;
+        start = date.atStartOfDay(zone).toEpochSecond();
+        span = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - start;
         DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h a", Locale.US);
         for (int i = 0; i < HOURS.length; i++) {
             int hour = HOURS[i];
@@ -47,6 +49,12 @@ public final class SkyPath extends View {
             elevations[i] = elevation(time, latitude, longitude, moon);
         }
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+    }
+
+    public void updateNow(Instant now, double elevation) {
+        nowFraction = (now.getEpochSecond() - start) / (float) span;
+        nowElevation = (float) elevation;
+        invalidate();
     }
 
     private static float elevation(Instant time, double latitude, double longitude, boolean moon) {
