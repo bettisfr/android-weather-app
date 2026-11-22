@@ -2328,7 +2328,10 @@ public final class MainActivity extends Activity {
     private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
         LinearLayout heading = astronomyTitle(icon, name);
         heading.setMinimumHeight(dp(32));
-        heading.addView(skyTrackChevron());
+        TextView now = observingBadge(getString(R.string.sky_track_now));
+        LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
+        badgeSize.setMarginStart(dp(6));
+        heading.addView(now, badgeSize);
         astronomyCardAction(heading, open);
         panel.addView(heading);
         return heading;
