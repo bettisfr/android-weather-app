@@ -92,7 +92,7 @@ public final class MainActivity extends Activity {
     private static final int REFRESH_PULL_DP = 72;
     private static final int DETAIL_CHART_HEIGHT_DP = 180;
     private static final int SKY_PATH_TIMES_WIDTH_DP = 93;
-    private static final int SKY_PATH_HEIGHT_DP = 90;
+    private static final int SKY_PATH_HEIGHT_DP = 108;
     private int ink;
     private int muted;
     private int accent;
@@ -1765,7 +1765,7 @@ public final class MainActivity extends Activity {
         int twilight = SkyPath.civilTwilightMinutes(date, latitude);
         LinearLayout chart = column();
         content.addView(chart, new LinearLayout.LayoutParams(roomy ? -1 : 0, -2, roomy ? 0 : 1));
-        SkyPath path = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false);
+        SkyPath path = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
         chart.addView(path, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout legend = row();
         legend.setGravity(Gravity.TOP);
@@ -1830,7 +1830,7 @@ public final class MainActivity extends Activity {
             if (roomy) readings.addView(time, new LinearLayout.LayoutParams(0, -2, 1));
         }
         LinearLayout chart = column();
-        chart.addView(new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true),
+        chart.addView(new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24),
                 new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout phaseDetails = row();
         phaseDetails.setPadding(dp(5), dp(3), dp(5), 0);

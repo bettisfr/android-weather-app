@@ -11,24 +11,35 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 
 public final class SkyPath extends View {
     private static final int SAMPLES = 96;
-    private static final float MIN_ELEVATION_RANGE = 90;
+    private static final int[] HOURS = {0, 6, 12, 18, 24};
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final Path outline = new Path();
     private final float[] elevations = new float[SAMPLES + 1];
+    private final float[] hourFractions = new float[HOURS.length];
+    private final String[] hourLabels = new String[HOURS.length];
     private final float nowFraction;
     private final float nowElevation;
     private final boolean moon;
 
     public SkyPath(Context context, LocalDate date, ZoneId zone, Instant now,
-                   double latitude, double longitude, boolean moon) {
+                   double latitude, double longitude, boolean moon, boolean clock24) {
         super(context);
         this.moon = moon;
         long start = date.atStartOfDay(zone).toEpochSecond();
         long span = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - start;
+        DateTimeFormatter time = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h a", Locale.US);
+        for (int i = 0; i < HOURS.length; i++) {
+            int hour = HOURS[i];
+            long tick = hour == 24 ? start + span : date.atTime(hour, 0).atZone(zone).toEpochSecond();
+            hourFractions[i] = (tick - start) / (float) span;
+            hourLabels[i] = clock24 && hour == 24 ? "24:00" : LocalTime.of(hour % 24, 0).format(time);
+        }
         nowFraction = (now.getEpochSecond() - start) / (float) span;
         nowElevation = elevation(now, latitude, longitude, moon);
         for (int i = 0; i <= SAMPLES; i++) {
@@ -47,18 +58,16 @@ public final class SkyPath extends View {
         float density = getResources().getDisplayMetrics().density;
         paint.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP,
                 10, getResources().getDisplayMetrics()));
-        float left = paint.measureText("−90°") + 9 * density;
+        Paint.FontMetrics metrics = paint.getFontMetrics();
+        float textHeight = metrics.descent - metrics.ascent;
+        float left = Math.max(paint.measureText("−90°"), paint.measureText("+90°")) + 9 * density;
         float width = getWidth() - left - 5 * density;
-        if (width <= 0) return;
-        float low = 0;
-        float high = 0;
-        for (float elevation : elevations) {
-            low = Math.min(low, elevation);
-            high = Math.max(high, elevation);
-        }
-        float scale = getHeight() * .76f / Math.max(MIN_ELEVATION_RANGE, high - low);
-        float horizon = getHeight() / 2f + (low + high) * scale / 2;
-        drawAxis(canvas, left, horizon, scale, density);
+        float top = Math.max(textHeight / 2, 5 * density);
+        float bottom = getHeight() - textHeight - 7 * density;
+        if (width <= 0 || bottom <= top) return;
+        float scale = (bottom - top) / 180;
+        float horizon = (top + bottom) / 2;
+        drawAxes(canvas, left, width, top, bottom, density);
         float nowX = left + width * nowFraction;
         float nowY = horizon - nowElevation * scale;
         int future = getContext().getColor(moon ? R.color.sky_path_moon_future : R.color.sky_path_sun_future);
@@ -97,27 +106,40 @@ public final class SkyPath extends View {
         }
     }
 
-    private void drawAxis(Canvas canvas, float left, float horizon, float scale, float density) {
+    private void drawAxes(Canvas canvas, float left, float width, float top, float bottom, float density) {
         Paint.FontMetrics metrics = paint.getFontMetrics();
         float textCenter = (metrics.ascent + metrics.descent) / 2;
-        float top = -metrics.ascent + textCenter;
-        float bottom = getHeight() - metrics.descent + textCenter;
+        float textHeight = metrics.descent - metrics.ascent;
         int outlineColor = getContext().getColor(R.color.sky_path_outline);
         int textColor = getContext().getColor(R.color.sky_muted);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(density);
         paint.setColor(outlineColor);
         canvas.drawLine(left, top, left, bottom, paint);
+        canvas.drawLine(left, bottom, left + width, bottom, paint);
         paint.setTextAlign(Paint.Align.RIGHT);
-        for (int degrees = -90; degrees <= 90; degrees += 30) {
-            float y = horizon - degrees * scale;
-            if (y < top || y > bottom) continue;
+        int step = (bottom - top) / 6 >= textHeight ? 30 : 90;
+        for (int degrees = -90; degrees <= 90; degrees += step) {
+            float y = bottom - (degrees + 90) * (bottom - top) / 180;
             paint.setColor(outlineColor);
             canvas.drawLine(left - 3 * density, y, left, y, paint);
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(textColor);
-            String label = degrees < 0 ? "−" + -degrees + "°" : degrees + "°";
+            String label = (degrees < 0 ? "−" : degrees > 0 ? "+" : "") + Math.abs(degrees) + "°";
             canvas.drawText(label, left - 5 * density, y - textCenter, paint);
+            paint.setStyle(Paint.Style.STROKE);
+        }
+        float widestHour = 0;
+        for (String label : hourLabels) widestHour = Math.max(widestHour, paint.measureText(label));
+        int interval = width >= 6 * widestHour ? 1 : width >= 3 * widestHour ? 2 : 4;
+        for (int i = 0; i < HOURS.length; i += interval) {
+            float x = left + hourFractions[i] * width;
+            paint.setColor(outlineColor);
+            canvas.drawLine(x, bottom, x, bottom + 3 * density, paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(textColor);
+            paint.setTextAlign(i == 0 ? Paint.Align.LEFT : i == HOURS.length - 1 ? Paint.Align.RIGHT : Paint.Align.CENTER);
+            canvas.drawText(hourLabels[i], x, bottom + 5 * density - metrics.ascent, paint);
             paint.setStyle(Paint.Style.STROKE);
         }
     }
@@ -146,31 +168,6 @@ public final class SkyPath extends View {
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(color);
         canvas.drawPath(path, paint);
-    }
-
-    private void fill(Canvas canvas, float left, float width, float center, float amplitude, float horizon, float start, float end, int color) {
-        if (end <= start) return;
-        curve(left, width, center, amplitude, start, end);
-        path.lineTo(left + width * end, horizon);
-        path.lineTo(left + width * start, horizon);
-        path.close();
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(color);
-        canvas.drawPath(path, paint);
-    }
-
-    private void curve(float left, float width, float center, float amplitude, float start, float end) {
-        path.reset();
-        path.moveTo(left + width * start, curveY(center, amplitude, start));
-        for (int i = 1; i <= 64; i++) {
-            float phase = start + (end - start) * i / 64f;
-            path.lineTo(left + width * phase, curveY(center, amplitude, phase));
-        }
-    }
-
-    private static float curveY(float center, float amplitude, float phase) {
-        double elevation = -Math.cos(phase * 2 * Math.PI);
-        return center - amplitude * (float) elevation;
     }
 
     public static int civilTwilightMinutes(LocalDate date, double latitude) {
