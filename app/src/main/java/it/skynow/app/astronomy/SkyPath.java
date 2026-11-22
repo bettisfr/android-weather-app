@@ -33,12 +33,12 @@ public final class SkyPath extends View {
         this.moon = moon;
         long start = date.atStartOfDay(zone).toEpochSecond();
         long span = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - start;
-        DateTimeFormatter time = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h a", Locale.US);
+        DateTimeFormatter hourFormat = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h a", Locale.US);
         for (int i = 0; i < HOURS.length; i++) {
             int hour = HOURS[i];
             long tick = hour == 24 ? start + span : date.atTime(hour, 0).atZone(zone).toEpochSecond();
             hourFractions[i] = (tick - start) / (float) span;
-            hourLabels[i] = clock24 && hour == 24 ? "24:00" : LocalTime.of(hour % 24, 0).format(time);
+            hourLabels[i] = clock24 && hour == 24 ? "24:00" : LocalTime.of(hour % 24, 0).format(hourFormat);
         }
         nowFraction = (now.getEpochSecond() - start) / (float) span;
         nowElevation = elevation(now, latitude, longitude, moon);
