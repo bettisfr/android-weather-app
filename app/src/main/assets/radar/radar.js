@@ -23,7 +23,7 @@ const color = Array.from({length: 256}, (_, red) => {
 });
 
 let strings, map, radar, displayedRadar, displayedIndex, displayedTime, latest, interval, timeFormat, frameCount;
-let lightningLayer, lightningRenderer;
+let lightningLayer, lightningIcon;
 let playTimer, seekTimer, finishTransition, playing = false;
 
 function status(message) {
@@ -98,7 +98,9 @@ function initialize(config) {
     const lightningPane = map.createPane('lightningPane');
     lightningPane.style.zIndex = 430;
     lightningPane.style.pointerEvents = 'none';
-    lightningRenderer = L.canvas({pane: 'lightningPane'});
+    lightningIcon = L.divIcon({
+        className: 'lightning-strike', html: '<span></span>', iconSize: [14, 16], iconAnchor: [7, 8],
+    });
     lightningLayer = L.layerGroup().addTo(map);
     map.attributionControl.addAttribution('<a href="https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/">Radar-DPC</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>');
     L.circleMarker([config.lat, config.lon], {
@@ -106,6 +108,7 @@ function initialize(config) {
         className: 'city-marker', interactive: false,
     }).addTo(map);
     map.on('movestart zoomstart', () => { if (finishTransition) finishTransition(); });
+    map.on('moveend', renderLightning);
 }
 
 function setRadarTime(time, step) {
@@ -189,6 +192,7 @@ function setLightningFrame(time, encoded) {
 function renderLightning() {
     lightningLayer.clearLayers();
     if (lightningToggle.getAttribute('aria-pressed') !== 'true' || displayedTime === undefined) return;
+    const bounds = map.getBounds().pad(0.1);
     // Draw older observations first so recent ones remain visible over them.
     const times = [...lightningFrames.keys()].sort((a, b) => a - b);
     for (const time of times) {
@@ -196,9 +200,9 @@ function renderLightning() {
         if (age < 0 || age >= strings.lightningMaxAge) continue;
         const opacity = 1 - age / strings.lightningMaxAge;
         for (const point of lightningFrames.get(time)) {
-            L.circleMarker(point, {
-                renderer: lightningRenderer, interactive: false, radius: 3.5, weight: 1,
-                color: '#4d2c09', opacity, fillColor: '#ffcf3b', fillOpacity: opacity,
+            if (!bounds.contains(point)) continue;
+            L.marker(point, {
+                pane: 'lightningPane', icon: lightningIcon, opacity, interactive: false, keyboard: false,
             }).addTo(lightningLayer);
         }
     }
