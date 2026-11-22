@@ -47,10 +47,7 @@ public final class SkyPosition {
             distance = 60.2666 * Math.hypot(orbitalX, orbitalY)
                     - 0.58 * Math.cos(evection) - 0.46 * Math.cos(2 * elongation);
         } else {
-            double eccentricity = 0.016709 - 1.151e-9 * days;
-            double eccentric = eccentricAnomaly(sunAnomaly, eccentricity);
-            eclipticLongitude = Math.atan2(Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(eccentric),
-                    Math.cos(eccentric) - eccentricity) + sunPerihelion;
+            eclipticLongitude = solarLongitude(days, sunAnomaly, sunPerihelion);
         }
 
         double x = Math.cos(eclipticLongitude) * Math.cos(eclipticLatitude);
@@ -61,6 +58,27 @@ public final class SkyPosition {
 
     static double daysSinceEpoch(Instant time) {
         return (time.getEpochSecond() - EPOCH_SECONDS) / 86400;
+    }
+
+    private static double solarLongitude(double days, double anomaly, double perihelion) {
+        double eccentricity = 0.016709 - 1.151e-9 * days;
+        double eccentric = eccentricAnomaly(anomaly, eccentricity);
+        return Math.atan2(Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(eccentric),
+                Math.cos(eccentric) - eccentricity) + perihelion;
+    }
+
+    public static long daylightMinutes(LocalDate date, ZoneId zone, double latitude) {
+        double days = daysSinceEpoch(date.atTime(12, 0).atZone(zone).toInstant());
+        double anomaly = Math.toRadians(normalize(356.0470 + 0.9856002585 * days));
+        double perihelion = Math.toRadians(282.9404 + 4.70935e-5 * days);
+        double longitude = solarLongitude(days, anomaly, perihelion);
+        double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
+        double declination = Math.asin(Math.sin(obliquity) * Math.sin(longitude));
+        double lat = Math.toRadians(latitude);
+        // Standard sunrise/sunset zenith includes refraction and the solar radius.
+        double cosine = (Math.cos(Math.toRadians(90.833)) - Math.sin(lat) * Math.sin(declination))
+                / (Math.cos(lat) * Math.cos(declination));
+        return Math.round(1440 * Math.acos(Math.max(-1, Math.min(1, cosine))) / Math.PI);
     }
 
     static SkyPosition fromEcliptic(double x, double y, double z, double days, double sunMeanLongitude,

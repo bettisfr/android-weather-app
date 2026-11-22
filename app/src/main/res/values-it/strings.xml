@@ -110,6 +110,7 @@
     <string name="next_new_moon">Prossima luna nuova</string>
     <string name="eclipses">Eclissi</string>
     <string name="astronomical_seasons">Stagioni astronomiche</string>
+    <string name="season_day_night">Dì %1$s · Notte %2$s</string>
     <string name="march_equinox">Equinozio di marzo</string>
     <string name="june_solstice">Solstizio di giugno</string>
     <string name="september_equinox">Equinozio di settembre</string>
