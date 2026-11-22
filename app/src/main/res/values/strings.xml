@@ -6,7 +6,8 @@
     <string name="seismogram_source">View source on IESN</string>
     <string name="seismogram_unavailable">Seismogram unavailable. Retrying shortly.</string>
     <string name="seismogram_loading">Loading seismogram…</string>
-    <string name="app_version">Version %1$s · %2$s</string>
+    <string name="app_name" translatable="false">SkyHere</string>
+    <string name="app_version">%1$s · Version %2$s · %3$s</string>
     <string name="settings_display">Display</string>
     <string name="settings_measurement_units">Measurement units</string>
     <string name="settings_about">About</string>

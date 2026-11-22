@@ -102,7 +102,8 @@ public final class SettingsActivity extends Activity {
         Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
         String date = LocalDate.parse(getString(R.string.sky_version_date))
                 .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
-        TextView version = text(getString(R.string.app_version, getString(R.string.sky_version_name), date), 12, R.color.sky_muted);
+        TextView version = text(getString(R.string.app_version, getString(R.string.app_name),
+                getString(R.string.sky_version_name), date), 12, R.color.sky_muted);
         version.setPadding(0, dp(3), 0, 0);
         titles.addView(version);
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));

@@ -2,7 +2,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
-    <application android:icon="@mipmap/ic_weather" android:label="SkyHere" android:theme="@style/SkyHereTheme">
+    <application android:icon="@mipmap/ic_weather" android:label="@string/app_name" android:theme="@style/SkyHereTheme">
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".maps.RadarActivity" android:exported="false" />
         <activity android:name=".seismic.SeismogramActivity" android:exported="false" />

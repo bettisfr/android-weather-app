@@ -6,7 +6,7 @@
     <string name="seismogram_source">Vedi fonte su IESN</string>
     <string name="seismogram_unavailable">Sismogramma non disponibile. Nuovo tentativo a breve.</string>
     <string name="seismogram_loading">Caricamento sismogramma…</string>
-    <string name="app_version">Versione %1$s · %2$s</string>
+    <string name="app_version">%1$s · Versione %2$s · %3$s</string>
     <string name="settings_display">Visualizzazione</string>
     <string name="settings_measurement_units">Unità di misura</string>
     <string name="settings_about">Informazioni</string>
