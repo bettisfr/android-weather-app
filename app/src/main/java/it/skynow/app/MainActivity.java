@@ -2686,7 +2686,7 @@ public final class MainActivity extends Activity {
         LinearLayout content = column();
         content.setPadding(0, dp(6), 0, 0);
         seasons.addView(content);
-        Instant now = Instant.now();
+        LocalDate today = LocalDate.now(zone);
         DateTimeFormatter date = DateTimeFormatter.ofPattern("EEE d MMM uuuu", appLocale());
         DateTimeFormatter time = clock24 ? CLOCK_24 : CLOCK;
         // UTC timestamps from the US Naval Observatory Earth Seasons API.
@@ -2695,7 +2695,9 @@ public final class MainActivity extends Activity {
             String line;
             while (content.getChildCount() < 4 && (line = reader.readLine()) != null) {
                 Instant event = Instant.parse(line);
-                if (event.isBefore(now)) continue;
+                ZonedDateTime local = event.atZone(zone);
+                LocalDate eventDate = local.toLocalDate();
+                if (eventDate.isBefore(today)) continue;
                 int title;
                 switch (event.atZone(java.time.ZoneOffset.UTC).getMonth()) {
                     case MARCH: title = R.string.march_equinox; break;
@@ -2704,12 +2706,19 @@ public final class MainActivity extends Activity {
                     case DECEMBER: title = R.string.december_solstice; break;
                     default: continue;
                 }
-                ZonedDateTime local = event.atZone(zone);
                 LinearLayout item = column();
                 item.setPadding(0, dp(5), 0, dp(5));
-                item.addView(label(getString(title), 15, ink));
+                LinearLayout heading = row();
+                heading.setGravity(Gravity.CENTER_VERTICAL);
+                heading.addView(label(getString(title), 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
+                TextView badge = nowBadge();
+                badge.setVisibility(eventDate.equals(today) ? View.VISIBLE : View.GONE);
+                heading.addView(badge);
+                visibilityBadges.add(new VisibilityBadge(eventDate.atStartOfDay(zone).toEpochSecond(),
+                        eventDate.plusDays(1).atStartOfDay(zone).toEpochSecond() - 1, badge, null));
+                item.addView(heading);
                 item.addView(label(date.format(local) + " · " + time.format(local), 13, muted));
-                long daylight = SkyPosition.daylightMinutes(local.toLocalDate(), zone, latitude);
+                long daylight = SkyPosition.daylightMinutes(eventDate, zone, latitude);
                 item.addView(label(getString(R.string.season_day_night,
                         durationText(daylight), durationText(1440 - daylight)), 13, muted));
                 content.addView(item);
@@ -2719,6 +2728,7 @@ public final class MainActivity extends Activity {
         }
         if (content.getChildCount() == 0) content.addView(label(getString(R.string.unavailable), 14, muted));
         addSpaced(page, seasons, 9);
+        refreshAstronomyVisibility();
     }
 
     private void appendTransits(LinearLayout list, List<TransitCatalog.Event> items, ZoneId zone, int start) {
