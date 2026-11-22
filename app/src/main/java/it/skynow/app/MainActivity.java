@@ -2021,11 +2021,7 @@ public final class MainActivity extends Activity {
         heading.setBaselineAligned(false);
         LinearLayout summary = column();
         summary.setPaddingRelative(0, 0, dp(8), 0);
-        LinearLayout title = astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), getString(R.string.aurora));
-        auroraNow = nowBadge();
-        auroraNow.setVisibility(View.GONE);
-        title.addView(auroraNow);
-        summary.addView(title);
+        summary.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), getString(R.string.aurora)));
         auroraStatus = label("", 15, ink);
         auroraStatus.setPadding(0, dp(10), 0, 0);
         summary.addView(auroraStatus);
@@ -2033,6 +2029,12 @@ public final class MainActivity extends Activity {
         Button map = mapButton(R.string.aurora_map_short, () -> openMap(RadarActivity.Layer.AURORA));
         map.setContentDescription(getString(R.string.aurora_map));
         heading.addView(map);
+        auroraNow = nowBadge();
+        auroraNow.setVisibility(View.GONE);
+        LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
+        badgeSize.setMarginStart(dp(6));
+        badgeSize.topMargin = dp(3);
+        heading.addView(auroraNow, badgeSize);
         tile.addView(heading);
         auroraTimes = label("", 12, muted);
         auroraTimes.setPadding(0, dp(4), 0, 0);
