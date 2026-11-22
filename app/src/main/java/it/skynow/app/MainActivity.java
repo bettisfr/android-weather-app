@@ -1096,10 +1096,9 @@ public final class MainActivity extends Activity {
         stations.setMinimumHeight(dp(44));
         controls.addView(stations, new LinearLayout.LayoutParams(0, -2, 1));
 
-        Button open = actionButton(getString(R.string.seismogram_open), getColor(R.color.sky_action), 24);
-        open.setTextColor(getColor(R.color.sky_on_action));
-        open.setOnClickListener(view -> startActivity(SeismogramActivity.intent(this,
-                (SeismogramActivity.Station) stations.getSelectedItem())));
+        Button open = iconActionButton(R.string.seismogram_open, R.drawable.ic_seismic_wave,
+                () -> startActivity(SeismogramActivity.intent(this,
+                        (SeismogramActivity.Station) stations.getSelectedItem())));
         LinearLayout.LayoutParams buttonSize = new LinearLayout.LayoutParams(-2, -2);
         buttonSize.setMarginStart(dp(8));
         controls.addView(open, buttonSize);
