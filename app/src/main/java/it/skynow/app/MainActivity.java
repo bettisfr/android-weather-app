@@ -114,7 +114,7 @@ public final class MainActivity extends Activity {
     private List<MeteoAlarm.Warning> warnings = List.of();
     private long warningsAttempt;
     private boolean warningsLoading;
-    private Instant renderedWarningUntil;
+    private Instant nextWarningChange;
     private AuroraForecast auroraForecast;
     private long auroraAttempt;
     private boolean auroraLoading;
@@ -207,7 +207,7 @@ public final class MainActivity extends Activity {
             if (sunCoordinates != null) setSkyCoordinates(sunCoordinates, now, false);
             if (moonCoordinates != null) setSkyCoordinates(moonCoordinates, now, true);
             if (!planetRows.isEmpty()) updatePlanets(now);
-            if (renderedWarningUntil != null && !now.isBefore(renderedWarningUntil)) renderWarnings(now);
+            if (nextWarningChange != null && !now.isBefore(nextWarningChange)) renderWarnings(now);
             refreshWarnings();
             refreshAurora();
             if (kpTable != null && kpTable.isShown()) refreshKp();
@@ -1255,7 +1255,7 @@ public final class MainActivity extends Activity {
     }
 
     private void renderWarnings(Instant now) {
-        renderedWarningUntil = null;
+        nextWarningChange = null;
         if (regionalWarnings == null) return;
         regionalWarnings.removeAllViews();
         if (!inItaly() || selectedRegion.isEmpty()) return;
@@ -1264,8 +1264,10 @@ public final class MainActivity extends Activity {
                 .withZone(ZoneId.of("Europe/Rome"));
         for (MeteoAlarm.Warning warning : warnings) {
             if (!MeteoAlarm.regionKey(warning.area).equals(region) || !now.isBefore(warning.expires)) continue;
-            if (renderedWarningUntil == null || warning.expires.isBefore(renderedWarningUntil)) {
-                renderedWarningUntil = warning.expires;
+            boolean active = !now.isBefore(warning.start);
+            Instant change = active ? warning.expires : warning.start;
+            if (nextWarningChange == null || change.isBefore(nextWarningChange)) {
+                nextWarningChange = change;
             }
             LinearLayout banner = card();
             String event = warning.event.toLowerCase(Locale.ROOT);
@@ -1274,7 +1276,15 @@ public final class MainActivity extends Activity {
             banner.setBackground(background(SignalColors.tint(color), 12));
             TextView heading = label(warningTitle(warning.event), 16, ink);
             heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-            banner.addView(heading);
+            LinearLayout titleRow = row();
+            titleRow.setGravity(Gravity.TOP);
+            titleRow.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
+            if (active) {
+                LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
+                badgeSize.setMarginStart(dp(8));
+                titleRow.addView(nowBadge(), badgeSize);
+            }
+            banner.addView(titleRow);
             TextView details = label(getString(R.string.regional_warning_validity, warning.area,
                     validity.format(warning.start), validity.format(warning.expires)), 13, ink);
             details.setPadding(0, dp(4), 0, 0);
