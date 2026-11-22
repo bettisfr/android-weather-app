@@ -73,7 +73,7 @@ function setAurora(encoded, validTime) {
         const offset = (90 - latitude) * 360;
         for (let column = 0; column < 360; column++) {
             const value = cells.charCodeAt(offset + column);
-            if (value < 5) continue;
+            if (value < strings.minActivity) continue;
             context.fillStyle = colors[value];
             const x = column * 2 - 1;
             context.fillRect(x, top, 2, bottom - top);

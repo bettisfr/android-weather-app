@@ -119,6 +119,7 @@ public final class MainActivity extends Activity {
     private long auroraAttempt;
     private boolean auroraLoading;
     private TextView auroraStatus;
+    private TextView auroraNow;
     private TextView auroraTimes;
     private TextView currentKpView;
     private View currentKpBar;
@@ -666,6 +667,7 @@ public final class MainActivity extends Activity {
         placeHeader = null;
         regionalWarnings = null;
         auroraStatus = null;
+        auroraNow = null;
         auroraTimes = null;
         currentKpView = null;
         currentKpBar = null;
@@ -2019,7 +2021,11 @@ public final class MainActivity extends Activity {
         heading.setBaselineAligned(false);
         LinearLayout summary = column();
         summary.setPaddingRelative(0, 0, dp(8), 0);
-        summary.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), getString(R.string.aurora)));
+        LinearLayout title = astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), getString(R.string.aurora));
+        auroraNow = nowBadge();
+        auroraNow.setVisibility(View.GONE);
+        title.addView(auroraNow);
+        summary.addView(title);
         auroraStatus = label("", 15, ink);
         auroraStatus.setPadding(0, dp(10), 0, 0);
         summary.addView(auroraStatus);
@@ -2180,8 +2186,10 @@ public final class MainActivity extends Activity {
     private void updateAurora(Instant now) {
         if (auroraStatus == null) return;
         updateCurrentKp(now);
-        if (auroraForecast == null || now.isAfter(auroraForecast.forecastTime.plusSeconds(1800))
-                || now.isAfter(auroraForecast.observationTime.plusSeconds(7200))) {
+        boolean night = SkyPosition.at(now, latitude, longitude, false).zenith > 90;
+        auroraStatus.setVisibility(night ? View.VISIBLE : View.GONE);
+        auroraNow.setVisibility(View.GONE);
+        if (auroraForecast == null || !auroraForecast.isCurrentAt(now)) {
             auroraStatus.setText(auroraLoading ? R.string.aurora_loading : R.string.aurora_unavailable);
             auroraTimes.setVisibility(View.GONE);
             return;
@@ -2194,14 +2202,17 @@ public final class MainActivity extends Activity {
         auroraTimes.setText(getString(R.string.aurora_times,
                 auroraTimestamp(auroraForecast.observationTime.atZone(zone), today),
                 auroraTimestamp(forecastTime.atZone(zone), today)));
+        if (!night) return;
+        boolean covered = auroraForecast.coversOnMap(latitude, longitude);
+        auroraNow.setVisibility(covered ? View.VISIBLE : View.GONE);
         double direction = auroraForecast.estimatedDirection(latitude, longitude);
-        if (!Double.isFinite(direction)) {
+        if (!covered && !Double.isFinite(direction)) {
             auroraStatus.setText(R.string.aurora_unlikely);
         } else if (SkyPosition.at(viewingTime, latitude, longitude, false).zenith < 96) {
             auroraStatus.setText(R.string.aurora_too_light);
         } else if (auroraCloudCover(viewingTime, zone) >= 80) {
             auroraStatus.setText(R.string.aurora_cloudy);
-        } else if (direction < 0) {
+        } else if (covered || direction < 0) {
             auroraStatus.setText(R.string.aurora_possible);
         } else {
             auroraStatus.setText(getString(R.string.aurora_direction, compassDirection(direction)));

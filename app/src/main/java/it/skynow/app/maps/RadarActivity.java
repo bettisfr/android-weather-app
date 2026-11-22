@@ -271,6 +271,7 @@ public final class RadarActivity extends Activity {
                 return result;
             }
             if (layer == Layer.AURORA) {
+                result.put("minActivity", AuroraForecast.MAP_MIN_ACTIVITY);
                 result.put("source", AuroraForecast.MAP);
                 result.put("mapLabel", getString(R.string.aurora_map));
                 result.put("forecast", getString(R.string.aurora_map_forecast));
@@ -410,7 +411,7 @@ public final class RadarActivity extends Activity {
     private void loadAurora() {
         try {
             AuroraForecast forecast = AuroraForecast.load();
-            if (java.time.Instant.now().isAfter(forecast.forecastTime.plusSeconds(1800))) {
+            if (!forecast.isCurrentAt(java.time.Instant.now())) {
                 runOnUiThread(() -> evaluate("status(" + JSONObject.quote(getString(R.string.aurora_unavailable)) + ")"));
                 return;
             }

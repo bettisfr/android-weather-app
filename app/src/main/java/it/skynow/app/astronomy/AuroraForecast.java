@@ -16,6 +16,7 @@ import java.util.List;
 
 public final class AuroraForecast {
     public static final String MAP = "https://www.spaceweather.gov/products/aurora-30-minute-forecast";
+    public static final int MAP_MIN_ACTIVITY = 5;
     private static final String FEED = "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json";
     private static final String CURRENT_KP = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json";
     private static final String KP_FEED = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
@@ -25,11 +26,13 @@ public final class AuroraForecast {
     public final Instant observationTime;
     public final Instant forecastTime;
     private final JSONArray grid;
+    private final byte[] mapCells = new byte[360 * 181];
 
     private AuroraForecast(JSONObject response) throws Exception {
         observationTime = Instant.parse(response.getString("Observation Time"));
         forecastTime = Instant.parse(response.getString("Forecast Time"));
         grid = response.getJSONArray("coordinates");
+        populateMapCells();
     }
 
     public static AuroraForecast load() throws Exception {
@@ -104,8 +107,7 @@ public final class AuroraForecast {
         }
     }
 
-    public String mapGrid() {
-        byte[] cells = new byte[360 * 181];
+    private void populateMapCells() {
         for (int i = 0; i < grid.length(); i++) {
             JSONArray point = grid.optJSONArray(i);
             if (point == null) continue;
@@ -115,9 +117,24 @@ public final class AuroraForecast {
             if (longitude < 0 || longitude >= 360 || latitude < -90 || latitude > 90
                     || activity < 0 || activity > 100) continue;
             int column = (longitude + 180) % 360;
-            cells[(90 - latitude) * 360 + column] = (byte) activity;
+            mapCells[(90 - latitude) * 360 + column] = (byte) activity;
         }
-        return android.util.Base64.encodeToString(cells, android.util.Base64.NO_WRAP);
+    }
+
+    public String mapGrid() {
+        return android.util.Base64.encodeToString(mapCells, android.util.Base64.NO_WRAP);
+    }
+
+    public boolean isCurrentAt(Instant now) {
+        return !now.isAfter(forecastTime.plusSeconds(1800))
+                && !now.isAfter(observationTime.plusSeconds(7200));
+    }
+
+    public boolean coversOnMap(double latitude, double longitude) {
+        if (!(Math.abs(latitude) <= 85.05112878) || !Double.isFinite(longitude)) return false;
+        int row = 90 - (int) Math.round(latitude);
+        int column = Math.floorMod((int) Math.round(longitude) + 180, 360);
+        return mapCells[row * 360 + column] >= MAP_MIN_ACTIVITY;
     }
 
     public double estimatedDirection(double latitude, double longitude) {
