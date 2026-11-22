@@ -2244,16 +2244,16 @@ public final class MainActivity extends Activity {
             TextView magnitude = astronomyBadge("");
             setMagnitudeBadge(magnitude, pass.magnitude, magnitudeColor(pass.magnitude));
             details.addView(magnitude);
-            entry.addView(details);
+            addSpaced(entry, details, 4);
             String appears = issBearing(pass.rise.azimuth);
             String culminates = issBearing(pass.peak.azimuth);
             String disappears = issBearing(pass.set.azimuth);
             TextView directions = label(getString(R.string.iss_directions_short, appears, culminates, disappears), 13, muted);
             directions.setContentDescription(getString(R.string.iss_directions, appears, culminates, disappears));
-            entry.addView(directions);
+            addSpaced(entry, directions, 3);
             String url = issPassUrl(pass, zone);
             astronomyCardAction(entry, () -> showIssPass(pass, zone, headingText, url));
-            addSpaced(rows, entry, 6);
+            addSpaced(rows, entry, 8);
         }
         more.setVisibility(end < passes.size() ? View.VISIBLE : View.GONE);
         refreshIssVisibility();
