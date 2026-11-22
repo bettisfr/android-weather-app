@@ -7,7 +7,8 @@ const timeline = document.getElementById('timeline');
 const play = document.getElementById('play');
 const label = document.getElementById('label');
 const frame = document.getElementById('frame');
-const frameCount = 13;
+const lightningToggle = document.getElementById('lightning');
+const lightningFrames = new Map();
 const radarRoot = 'https://s3-prod-dpc-radar-webp-cache.s3.eu-south-1.amazonaws.com/SRI';
 const intensity = [
     {min: 0.4, label: '< 2', rgb: [62, 151, 224]},
@@ -21,7 +22,8 @@ const color = Array.from({length: 256}, (_, red) => {
     return intensity.reduce((current, level) => mmPerHour >= level.min ? level.rgb : current, null);
 });
 
-let strings, map, radar, displayedRadar, displayedIndex, latest, interval, timeFormat;
+let strings, map, radar, displayedRadar, displayedIndex, displayedTime, latest, interval, timeFormat, frameCount;
+let lightningLayer, lightningRenderer;
 let playTimer, seekTimer, finishTransition, playing = false;
 
 function status(message) {
@@ -66,9 +68,12 @@ const RadarTiles = L.TileLayer.extend({
 
 function initialize(config) {
     strings = config;
+    frameCount = config.frameCount;
+    timeline.max = frameCount - 1;
     document.documentElement.lang = config.language;
     document.documentElement.classList.toggle('dark', config.dark);
     label.textContent = config.observed;
+    document.getElementById('lightning-label').textContent = config.lightning;
     document.getElementById('latest').textContent = config.latest;
     mapElement.setAttribute('aria-label', config.mapLabel);
     timeline.setAttribute('aria-label', config.timelineLabel);
@@ -90,6 +95,11 @@ function initialize(config) {
     }
 
     map = createWeatherMap(mapElement, [config.lat, config.lon], 9);
+    const lightningPane = map.createPane('lightningPane');
+    lightningPane.style.zIndex = 430;
+    lightningPane.style.pointerEvents = 'none';
+    lightningRenderer = L.canvas({pane: 'lightningPane'});
+    lightningLayer = L.layerGroup().addTo(map);
     map.attributionControl.addAttribution('<a href="https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/">Radar-DPC</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>');
     L.circleMarker([config.lat, config.lon], {
         radius: 7, color: '#fff', weight: 3, fillColor: '#273b6a', fillOpacity: 1,
@@ -134,8 +144,10 @@ function showFrame(index) {
             if (displayedRadar) displayedRadar.remove();
             displayedRadar = layer;
             displayedIndex = index;
+            displayedTime = at.getTime();
             layer.setOpacity(1);
             frame.textContent = frameTime;
+            renderLightning();
             if (available.size && document.getElementById('map-updated').hidden) showMapUpdate(strings);
             status(available.size ? '' : strings.noTiles);
             if (playing) {
@@ -151,6 +163,45 @@ function showFrame(index) {
         }
     });
     layer.addTo(map);
+}
+
+function setLightningFrame(time, encoded) {
+    // Radar-DPC Blitz v2 uses big-endian coordinates with 18 bits per axis.
+    const raw = atob(encoded);
+    if (raw.length < 3 || raw.charCodeAt(0) !== 2) return;
+    const uint16 = offset => raw.charCodeAt(offset) * 256 + raw.charCodeAt(offset + 1);
+    const count = uint16(1);
+    const points = [];
+    let offset = 3;
+    for (let i = 0; i < count; i++) {
+        if (offset + 6 > raw.length) return;
+        const high = raw.charCodeAt(offset + 4);
+        const longitude = (uint16(offset) + ((high >> 6) & 3) * 65536) * 360 / 262144 - 180;
+        const latitude = (uint16(offset + 2) + ((high >> 4) & 3) * 65536) * 180 / 262144 - 90;
+        points.push([latitude, longitude]);
+        offset += raw.charCodeAt(offset + 5) === 255 ? 8 : 6;
+        if (offset > raw.length) return;
+    }
+    lightningFrames.set(time, points);
+    if (time <= displayedTime && displayedTime - time < strings.lightningMaxAge) renderLightning();
+}
+
+function renderLightning() {
+    lightningLayer.clearLayers();
+    if (lightningToggle.getAttribute('aria-pressed') !== 'true' || displayedTime === undefined) return;
+    // Draw older observations first so recent ones remain visible over them.
+    const times = [...lightningFrames.keys()].sort((a, b) => a - b);
+    for (const time of times) {
+        const age = displayedTime - time;
+        if (age < 0 || age >= strings.lightningMaxAge) continue;
+        const opacity = 1 - age / strings.lightningMaxAge;
+        for (const point of lightningFrames.get(time)) {
+            L.circleMarker(point, {
+                renderer: lightningRenderer, interactive: false, radius: 3.5, weight: 1,
+                color: '#4d2c09', opacity, fillColor: '#ffcf3b', fillOpacity: opacity,
+            }).addTo(lightningLayer);
+        }
+    }
 }
 
 function setPlaying(active) {
@@ -199,3 +250,7 @@ timeline.addEventListener('input', () => {
     seekTimer = setTimeout(() => showFrame(Number(timeline.value)), 120);
 });
 play.addEventListener('click', () => setPlaying(!playing));
+lightningToggle.addEventListener('click', () => {
+    lightningToggle.setAttribute('aria-pressed', lightningToggle.getAttribute('aria-pressed') !== 'true');
+    renderLightning();
+});

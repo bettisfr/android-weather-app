@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="radar_lightning">Lightning</string>
     <string name="seismograms">Seismograms</string>
     <string name="seismogram_open">Trace</string>
     <string name="seismogram_station">Seismic station</string>

@@ -25,6 +25,10 @@
   #frame { font-variant-numeric:tabular-nums; font-weight:600; }
   button { min-width:44px; min-height:44px; border:0; border-radius:10px; color:var(--accent); background:var(--page); font-size:18px; }
   button:disabled { opacity:.45; }
+  #lightning { min-height:36px; padding:0 10px; font-size:13px; white-space:nowrap; }
+  #lightning[aria-pressed="true"] { color:var(--ink); background:var(--page); }
+  #lightning[aria-pressed="false"] { color:var(--muted); background:transparent; }
+  .lightning-icon { color:#e49414; }
   input { width:100%; margin:0; accent-color:var(--accent); }
   .range { padding-right:22px; }
   .range-labels { padding:0 22px 0 54px; display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }
@@ -38,7 +42,7 @@
   <div id="map"></div>
   <div id="status" role="status"></div>
   <section class="controls">
-    <div class="line"><span id="label"></span><output id="frame" for="timeline">—</output></div>
+    <div class="line"><span id="label"></span><button id="lightning" type="button" aria-pressed="true"><span class="lightning-icon" aria-hidden="true">⚡</span> <span id="lightning-label"></span></button><output id="frame" for="timeline">—</output></div>
     <div style="min-height:1.4em;font-size:12px"><output id="map-updated" hidden></output></div>
     <div class="range"><button id="play" disabled>▶</button><input id="timeline" type="range" min="0" max="12" value="12" disabled></div>
     <div class="range-labels"><span>−60 min</span><span id="latest"></span></div>

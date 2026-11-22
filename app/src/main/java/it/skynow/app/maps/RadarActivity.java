@@ -60,6 +60,10 @@ public final class RadarActivity extends Activity {
         }
     }
     private static final String METADATA = "https://radar-api.protezionecivile.it/findLastProductByType?type=SRI";
+    private static final String LIGHTNING_ROOT = "https://s3-prod-dpc-radar-webp-cache.s3.eu-south-1.amazonaws.com/LGT/lgt_5min_";
+    private static final int RADAR_FRAME_COUNT = 13;
+    private static final long LIGHTNING_STEP_MS = Duration.ofMinutes(5).toMillis();
+    private static final long LIGHTNING_MAX_AGE_MS = Duration.ofMinutes(20).toMillis();
     private static final String USER_AGENT_PROJECT = " (+https://github.com/bettisfr/android-weather-app)";
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WebView web;
@@ -289,6 +293,9 @@ public final class RadarActivity extends Activity {
             result.put("timelineLabel", getString(R.string.radar_timeline));
             result.put("play", getString(R.string.radar_play));
             result.put("pause", getString(R.string.radar_pause));
+            result.put("frameCount", RADAR_FRAME_COUNT);
+            result.put("lightning", getString(R.string.radar_lightning));
+            result.put("lightningMaxAge", LIGHTNING_MAX_AGE_MS);
         } catch (JSONException error) {
             throw new IllegalStateException(error);
         }
@@ -446,9 +453,42 @@ public final class RadarActivity extends Activity {
             long time = product.getLong("time");
             long step = Duration.parse(product.getString("period")).toMillis();
             runOnUiThread(() -> evaluate("setRadarTime(" + time + "," + step + ")"));
+            loadLightning(time, step);
         } catch (Exception error) {
             android.util.Log.w("SkyHere", "Radar-DPC metadata unavailable", error);
             runOnUiThread(() -> evaluate("status(" + JSONObject.quote(getString(R.string.radar_unavailable)) + ")"));
+        }
+    }
+
+    private void loadLightning(long latest, long radarStep) {
+        long newestBin = Math.floorDiv(latest, LIGHTNING_STEP_MS) * LIGHTNING_STEP_MS;
+        long oldest = latest - (RADAR_FRAME_COUNT - 1) * radarStep - LIGHTNING_MAX_AGE_MS;
+        for (long time = newestBin; time >= oldest && !Thread.currentThread().isInterrupted();
+             time -= LIGHTNING_STEP_MS) {
+            try {
+                HttpURLConnection connection = (HttpURLConnection) new URL(LIGHTNING_ROOT + time + ".bin").openConnection();
+                connection.setConnectTimeout(2000);
+                connection.setReadTimeout(2000);
+                connection.setRequestProperty("User-Agent", userAgent());
+                try {
+                    int status = connection.getResponseCode();
+                    // The public bucket can return either status for a missing time slot.
+                    if (status == 403 || status == 404) continue;
+                    if (status != 200) continue;
+                    try (InputStream stream = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+                        byte[] buffer = new byte[8192];
+                        int count;
+                        while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
+                        String encoded = android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP);
+                        long binTime = time;
+                        runOnUiThread(() -> evaluate("setLightningFrame(" + binTime + "," + JSONObject.quote(encoded) + ")"));
+                    }
+                } finally {
+                    connection.disconnect();
+                }
+            } catch (IOException error) {
+                android.util.Log.d("SkyHere", "Radar-DPC lightning frame unavailable", error);
+            }
         }
     }
 

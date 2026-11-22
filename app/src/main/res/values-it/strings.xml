@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="radar_lightning">Fulmini</string>
     <string name="seismograms">Sismogrammi</string>
     <string name="seismogram_open">Tracciato</string>
     <string name="seismogram_station">Stazione sismica</string>
