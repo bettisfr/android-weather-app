@@ -57,7 +57,7 @@ public final class SeismogramActivity extends Activity {
     public static List<Station> nearestStations(double latitude, double longitude) {
         List<Station> stations = new ArrayList<>(Arrays.asList(STATIONS));
         if (Double.isFinite(latitude) && Double.isFinite(longitude)) {
-            stations.sort(Comparator.comparingDouble(station -> station.distanceFrom(latitude, longitude)));
+            stations.sort(Comparator.comparingDouble(station -> station.distanceKm(latitude, longitude)));
         }
         return stations.subList(0, 5);
     }
@@ -171,10 +171,11 @@ public final class SeismogramActivity extends Activity {
             this.url = url;
         }
 
-        double distanceFrom(double latitude, double longitude) {
+        public double distanceKm(double latitude, double longitude) {
+            if (!Double.isFinite(latitude) || !Double.isFinite(longitude)) return Double.NaN;
             float[] result = new float[1];
             Location.distanceBetween(latitude, longitude, this.latitude, this.longitude, result);
-            return result[0];
+            return result[0] / 1000.0;
         }
 
         @Override public String toString() {

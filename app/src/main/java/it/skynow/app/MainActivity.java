@@ -1058,8 +1058,27 @@ public final class MainActivity extends Activity {
         controls.setPadding(0, dp(6), 0, 0);
         Spinner stations = new Spinner(this, Spinner.MODE_DROPDOWN);
         seismogramStation = stations;
+        double latitude = deviceLatitude;
+        double longitude = deviceLongitude;
         ArrayAdapter<SeismogramActivity.Station> adapter =
-                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, nearest);
+                new ArrayAdapter<SeismogramActivity.Station>(this, android.R.layout.simple_spinner_item, nearest) {
+                    private View showDistance(View view, int position) {
+                        SeismogramActivity.Station station = getItem(position);
+                        double distance = station.distanceKm(latitude, longitude);
+                        if (Double.isFinite(distance)) {
+                            ((TextView) view).setText(String.format(appLocale(), "%s · %.1f km", station, distance));
+                        }
+                        return view;
+                    }
+
+                    @Override public View getView(int position, View recycled, android.view.ViewGroup parent) {
+                        return showDistance(super.getView(position, recycled, parent), position);
+                    }
+
+                    @Override public View getDropDownView(int position, View recycled, android.view.ViewGroup parent) {
+                        return showDistance(super.getDropDownView(position, recycled, parent), position);
+                    }
+                };
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         stations.setAdapter(adapter);
         stations.setSelection(Math.max(0, nearest.indexOf(selected)));
