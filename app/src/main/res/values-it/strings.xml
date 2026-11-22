@@ -265,7 +265,7 @@
     <string name="aurora_map">Mappa aurora</string>
     <string name="aurora_loading">Caricamento previsione aurora…</string>
     <string name="aurora_unavailable">Previsione aurora recente non disponibile</string>
-    <string name="aurora_unlikely">Aurora improbabile dalla località scelta</string>
+    <string name="aurora_unlikely">Aurora improbabile</string>
     <string name="aurora_too_light">Cielo troppo luminoso all’ora prevista</string>
     <string name="aurora_cloudy">Attività aurorale vicina · Le nuvole possono coprire la visuale</string>
     <string name="aurora_possible">Aurora possibile in zona con cielo sereno</string>

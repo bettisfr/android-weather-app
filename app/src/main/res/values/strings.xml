@@ -267,7 +267,7 @@
     <string name="aurora_map">Aurora map</string>
     <string name="aurora_loading">Loading aurora forecast…</string>
     <string name="aurora_unavailable">Recent aurora forecast unavailable</string>
-    <string name="aurora_unlikely">Aurora unlikely from the selected location</string>
+    <string name="aurora_unlikely">Aurora unlikely</string>
     <string name="aurora_too_light">Sky too bright at forecast time</string>
     <string name="aurora_cloudy">Aurora activity nearby · Cloud cover may block the view</string>
     <string name="aurora_possible">Aurora possible nearby with clear skies</string>
