@@ -2226,8 +2226,15 @@ public final class MainActivity extends Activity {
             entry.setPadding(dp(12), dp(8), dp(12), dp(8));
             entry.setBackground(background(getColor(R.color.sky_subtle), 12));
             LinearLayout heading = row();
+            heading.setGravity(Gravity.TOP);
             String headingText = dayFormat.format(rise) + " · " + range;
-            heading.addView(label(headingText, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
+            TextView period = label(headingText.replace(" – ", "\u00a0–\u00a0"), 15, ink);
+            heading.addView(period, new LinearLayout.LayoutParams(0, -2, 1));
+            TextView magnitude = astronomyBadge("");
+            setMagnitudeBadge(magnitude, pass.magnitude, magnitudeColor(pass.magnitude));
+            LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
+            magnitudeSize.setMarginStart(dp(6));
+            heading.addView(magnitude, magnitudeSize);
             TextView live = nowBadge();
             live.setContentDescription(getString(R.string.iss_visible_now));
             live.setVisibility(View.GONE);
@@ -2236,14 +2243,12 @@ public final class MainActivity extends Activity {
             heading.addView(live, liveSize);
             View arrow = skyTrackChevron();
             liveIssBadges.add(new LiveIssBadge(pass, live, arrow));
-            heading.addView(arrow);
+            LinearLayout.LayoutParams arrowSize = new LinearLayout.LayoutParams(-2, -2);
+            arrowSize.setMarginStart(dp(6));
+            heading.addView(arrow, arrowSize);
             addSpaced(entry, heading, 4);
-            LinearLayout details = row();
-            details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
-                    Math.round(pass.peak.elevation)), 13, muted), new LinearLayout.LayoutParams(0, -2, 1));
-            TextView magnitude = astronomyBadge("");
-            setMagnitudeBadge(magnitude, pass.magnitude, magnitudeColor(pass.magnitude));
-            details.addView(magnitude);
+            TextView details = label(getString(R.string.iss_details, duration / 60, duration % 60,
+                    Math.round(pass.peak.elevation)), 13, muted);
             addSpaced(entry, details, 3);
             String appears = issBearing(pass.rise.azimuth);
             String culminates = issBearing(pass.peak.azimuth);
