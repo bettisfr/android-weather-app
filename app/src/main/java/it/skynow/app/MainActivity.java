@@ -1123,13 +1123,17 @@ public final class MainActivity extends Activity {
             magnitude.setBackground(background(SignalColors.tint(EarthquakeFeed.magnitudeColor(event.magnitude)), 6));
             heading.addView(magnitude);
             TextView zone = label(event.zone, 15, ink);
+            zone.setSingleLine(true);
+            zone.setEllipsize(android.text.TextUtils.TruncateAt.END);
             LinearLayout.LayoutParams zoneSize = new LinearLayout.LayoutParams(0, -2, 1);
             zoneSize.setMarginStart(dp(6));
             heading.addView(zone, zoneSize);
             heading.addView(skyTrackChevron());
             entry.addView(heading);
-            entry.addView(label(getString(R.string.earthquake_details, date.format(event.time), Math.round(distance[0] / 1000),
-                    number(event.depth, "%.1f")), 13, muted));
+            TextView details = label(getString(R.string.earthquake_details, date.format(event.time), Math.round(distance[0] / 1000),
+                    number(event.depth, "%.1f")), 13, muted);
+            details.setPadding(0, dp(2), 0, 0);
+            entry.addView(details);
             astronomyCardAction(entry, () -> openEarthquake(event));
             addSpaced(rows, entry, 5);
         }
