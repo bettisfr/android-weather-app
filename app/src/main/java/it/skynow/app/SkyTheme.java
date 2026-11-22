@@ -3,7 +3,10 @@ package it.skynow.app;
 import android.app.Activity;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.os.Build;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowInsetsController;
 
 public final class SkyTheme {
     static final int SYSTEM = 0;
@@ -36,10 +39,29 @@ public final class SkyTheme {
     }
 
     public static void applySystemBars(Activity activity) {
-        int background = activity.getColor(R.color.sky_background);
-        activity.getWindow().setStatusBarColor(background);
-        activity.getWindow().setNavigationBarColor(background);
-        activity.getWindow().getDecorView().setSystemUiVisibility(isDark(activity) ? 0
-                : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        applySystemBars(activity.getWindow(), activity, activity.getColor(R.color.sky_background));
+    }
+
+    static void applySystemBars(Window window, Context context, int background) {
+        window.setStatusBarColor(background);
+        window.setNavigationBarColor(background);
+        boolean light = !isDark(context);
+        if (Build.VERSION.SDK_INT >= 30) {
+            WindowInsetsController controller = window.getDecorView().getWindowInsetsController();
+            if (controller != null) {
+                int mask = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(light ? mask : 0, mask);
+            }
+        } else {
+            applyLegacyBarAppearance(window, light);
+        }
+    }
+
+    @SuppressWarnings("deprecation") // Required on Android 8–10.
+    private static void applyLegacyBarAppearance(Window window, boolean light) {
+        View decor = window.getDecorView();
+        int mask = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        decor.setSystemUiVisibility((decor.getSystemUiVisibility() & ~mask) | (light ? mask : 0));
     }
 }

@@ -400,7 +400,9 @@ public final class RadarActivity extends Activity {
         } else {
             CompletableFuture.runAsync(() -> {
                 try {
-                    resolved.accept(geocoder.getFromLocation(latitude, longitude, 1));
+                    @SuppressWarnings("deprecation") // Synchronous fallback before Android 13.
+                    List<Address> addresses = geocoder.getFromLocation(latitude, longitude, 1);
+                    resolved.accept(addresses);
                 } catch (IOException ignored) {
                     // The popup already displays the selected coordinates.
                 }

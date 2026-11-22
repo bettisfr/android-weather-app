@@ -149,6 +149,7 @@ public final class MainActivity extends Activity {
     private Button earthquakeTabButton;
     private int homeScroll;
     private boolean choosingLocation;
+    private android.window.OnBackInvokedCallback appBackCallback;
     private final Handler main = new Handler(Looper.getMainLooper());
     private TextView sunCoordinates;
     private TextView moonCoordinates;
@@ -357,7 +358,9 @@ public final class MainActivity extends Activity {
                 load(manual);
             }
 
-            @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
+            @Override
+            @SuppressWarnings("deprecation") // Required by LocationListener before Android 11.
+            public void onStatusChanged(String provider, int status, Bundle extras) {}
             @Override public void onProviderEnabled(String provider) {}
             @Override public void onProviderDisabled(String provider) {}
         };
@@ -418,7 +421,9 @@ public final class MainActivity extends Activity {
         } else {
             network.execute(() -> {
                 try {
-                    resolved.accept(geocoder.getFromLocation(lat, lon, 1));
+                    @SuppressWarnings("deprecation") // Synchronous fallback before Android 13.
+                    List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+                    resolved.accept(addresses);
                 } catch (java.io.IOException error) {
                     android.util.Log.d("MeteoLocale", "Location name unavailable", error);
                 }
@@ -742,6 +747,7 @@ public final class MainActivity extends Activity {
         } else {
             setContentView(forecastView);
         }
+        updateAppBackCallback();
     }
 
     private void render() {
@@ -2567,11 +2573,9 @@ public final class MainActivity extends Activity {
         android.view.Window window = dialog.getWindow();
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(surfaceColor);
-        window.setNavigationBarColor(surfaceColor);
-        window.getDecorView().setSystemUiVisibility(getWindow().getDecorView().getSystemUiVisibility());
         dialog.show();
         window.setLayout(-1, -1);
+        SkyTheme.applySystemBars(window, this, surfaceColor);
         startPhoneOrientation();
     }
 
@@ -3486,13 +3490,43 @@ public final class MainActivity extends Activity {
         }
     }
 
-    @Override public void onBackPressed() {
+    private boolean handlesAppBack() {
+        return day >= 0 || choosingLocation || (data != null && dashboardTab != DashboardTab.WEATHER);
+    }
+
+    private void handleAppBack() {
         if (day >= 0 || choosingLocation) home();
         else if (data != null && dashboardTab != DashboardTab.WEATHER) switchDashboardTab(DashboardTab.WEATHER);
+    }
+
+    private void updateAppBackCallback() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return;
+        if (handlesAppBack()) {
+            if (appBackCallback != null) return;
+            appBackCallback = this::handleAppBack;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                    android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, appBackCallback);
+        } else {
+            unregisterAppBackCallback();
+        }
+    }
+
+    private void unregisterAppBackCallback() {
+        if (android.os.Build.VERSION.SDK_INT >= 33 && appBackCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(appBackCallback);
+            appBackCallback = null;
+        }
+    }
+
+    @Override
+    @SuppressWarnings("deprecation") // Back dispatch on Android 12 and earlier.
+    public void onBackPressed() {
+        if (handlesAppBack()) handleAppBack();
         else super.onBackPressed();
     }
 
     @Override protected void onDestroy() {
+        unregisterAppBackCallback();
         stopLocating();
         if (pendingSearch != null) main.removeCallbacks(pendingSearch);
         network.shutdownNow();
