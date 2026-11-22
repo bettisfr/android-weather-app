@@ -112,6 +112,8 @@
     <string name="eclipses">Eclipses</string>
     <string name="astronomical_seasons">Astronomical seasons</string>
     <string name="season_day_night">Daylight %1$s · Night %2$s</string>
+    <string name="season_coordinates">Lat %1$s° · Lon %2$s°</string>
+    <string name="earth_rotation_speed">Earth rotation · %1$s km/h eastward</string>
     <string name="march_equinox">March equinox</string>
     <string name="june_solstice">June solstice</string>
     <string name="september_equinox">September equinox</string>

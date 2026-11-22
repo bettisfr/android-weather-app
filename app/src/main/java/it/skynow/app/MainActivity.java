@@ -2727,6 +2727,18 @@ public final class MainActivity extends Activity {
             android.util.Log.w("SkyHere", "Season calendar unavailable", error);
         }
         if (content.getChildCount() == 0) content.addView(label(getString(R.string.unavailable), 14, muted));
+        View divider = new View(this);
+        divider.setBackgroundColor(getColor(R.color.sky_card_outline));
+        LinearLayout.LayoutParams dividerSize = new LinearLayout.LayoutParams(-1, dp(1));
+        dividerSize.setMargins(0, dp(7), 0, dp(8));
+        seasons.addView(divider, dividerSize);
+
+        seasons.addView(label(getString(R.string.season_coordinates,
+                number(latitude, "%.4f"), number(longitude, "%.4f")), 13, muted));
+        TextView rotation = label(getString(R.string.earth_rotation_speed,
+                number(SkyPosition.rotationSpeedKmh(latitude), "%,.0f")), 14, ink);
+        rotation.setPadding(0, dp(4), 0, 0);
+        seasons.addView(rotation);
         addSpaced(page, seasons, 9);
         refreshAstronomyVisibility();
     }

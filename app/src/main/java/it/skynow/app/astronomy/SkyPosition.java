@@ -81,6 +81,15 @@ public final class SkyPosition {
         return Math.round(1440 * Math.acos(Math.max(-1, Math.min(1, cosine))) / Math.PI);
     }
 
+    public static double rotationSpeedKmh(double latitude) {
+        double lat = Math.toRadians(latitude);
+        // Distance from the rotation axis on the WGS 84 reference ellipsoid.
+        double sin = Math.sin(lat);
+        double radiusKm = 6378.137 * Math.cos(lat) / Math.sqrt(1 - 0.00669438 * sin * sin);
+        double radiansPerSecond = 7.292115e-5;
+        return radiusKm * radiansPerSecond * 3600;
+    }
+
     static SkyPosition fromEcliptic(double x, double y, double z, double days, double sunMeanLongitude,
             double latitude, double longitude, double observerRadius) {
         double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
