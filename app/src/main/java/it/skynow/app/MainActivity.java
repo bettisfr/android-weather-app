@@ -1082,38 +1082,21 @@ public final class MainActivity extends Activity {
                 status.setText(events == null ? R.string.earthquake_unavailable : R.string.earthquake_empty);
                 return;
             }
+            List<EarthquakeFeed.Event> visible = new ArrayList<>();
+            for (EarthquakeFeed.Event event : events) {
+                if (event.matchesMagnitude(earthquakeMinimumMagnitude)) visible.add(event);
+            }
+            if (visible.isEmpty()) {
+                status.setText(R.string.earthquake_filter_empty);
+                return;
+            }
             panel.removeView(status);
-            Spinner filter = new Spinner(this);
-            ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
-                    earthquakeMagnitudeOptions(this));
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-            filter.setAdapter(adapter);
-            filter.setContentDescription(getString(R.string.earthquake_magnitude));
-            filter.setSelection(earthquakeMagnitudeIndex(earthquakeMinimumMagnitude));
-            addSpaced(panel, filter, 5);
             LinearLayout rows = column();
             panel.addView(rows);
-            TextView empty = label(getString(R.string.earthquake_filter_empty), 13, muted);
-            empty.setVisibility(View.GONE);
-            panel.addView(empty);
             Button more = moreButton();
-            more.setVisibility(View.GONE);
             panel.addView(more);
-            filter.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-                @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                    earthquakeMinimumMagnitude = EARTHQUAKE_MAGNITUDE_THRESHOLDS[position];
-                    getPreferences(MODE_PRIVATE).edit().putInt("earthquakeMinimumMagnitude", earthquakeMinimumMagnitude).apply();
-                    List<EarthquakeFeed.Event> visible = new ArrayList<>();
-                    for (EarthquakeFeed.Event event : events) {
-                        if (event.matchesMagnitude(earthquakeMinimumMagnitude)) visible.add(event);
-                    }
-                    rows.removeAllViews();
-                    empty.setVisibility(visible.isEmpty() ? View.VISIBLE : View.GONE);
-                    more.setOnClickListener(v -> appendEarthquakes(rows, more, visible, lat, lon, 15));
-                    appendEarthquakes(rows, more, visible, lat, lon, 5);
-                }
-                @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-            });
+            more.setOnClickListener(v -> appendEarthquakes(rows, more, visible, lat, lon, 15));
+            appendEarthquakes(rows, more, visible, lat, lon, 5);
         }));
     }
 
