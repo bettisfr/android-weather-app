@@ -2369,7 +2369,9 @@ public final class MainActivity extends Activity {
     }
 
     private void setMagnitudeBadge(TextView badge, double magnitude, int fill) {
-        badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
+        String value = number(magnitude, "%+.1f");
+        badge.setText(getString(R.string.astronomy_magnitude, value));
+        badge.setContentDescription(getString(R.string.astronomy_magnitude_description, value));
         badge.setBackground(background(SignalColors.tint(fill), 8));
     }
 

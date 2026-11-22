@@ -53,7 +53,8 @@
     <string name="iss_track_end">Fine</string>
     <string name="iss_open_heavens_above">Apri su Heavens‑Above</string>
     <string name="iss_details">%1$d min %2$02d s · Elevazione max %3$d°</string>
-    <string name="iss_magnitude">Magnitudine %1$s</string>
+    <string name="astronomy_magnitude">Magn. %1$s</string>
+    <string name="astronomy_magnitude_description">Magnitudine %1$s</string>
     <string name="iss_directions">Compare %1$s · Culmina %2$s · Scompare %3$s</string>
     <string name="iss_directions_short">Inizio %1$s · Max %2$s · Fine %3$s</string>
     <string name="iss_credit">Dati orbitali ISS · AMSAT</string>

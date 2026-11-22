@@ -53,7 +53,8 @@
     <string name="iss_track_end">End</string>
     <string name="iss_open_heavens_above">Open on Heavens‑Above</string>
     <string name="iss_details">%1$d min %2$02d s · Max elevation %3$d°</string>
-    <string name="iss_magnitude">Peak mag. %1$s</string>
+    <string name="astronomy_magnitude">Magn. %1$s</string>
+    <string name="astronomy_magnitude_description">Magnitude %1$s</string>
     <string name="iss_directions">Appears %1$s · Peak %2$s · Disappears %3$s</string>
     <string name="iss_directions_short">Start %1$s · Max %2$s · End %3$s</string>
     <string name="iss_credit">ISS orbital data · AMSAT</string>
