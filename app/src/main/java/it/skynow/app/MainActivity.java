@@ -757,6 +757,7 @@ public final class MainActivity extends Activity {
                 issPasses();
                 aurora();
                 eclipsesAndTransits();
+                astronomicalSeasons();
                 return;
             }
             if (dashboardTab == DashboardTab.EARTHQUAKES) {
@@ -2675,6 +2676,45 @@ public final class MainActivity extends Activity {
         card.addView(toggle, new LinearLayout.LayoutParams(-1, -2));
         card.addView(content);
         return card;
+    }
+
+    private void astronomicalSeasons() {
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        LinearLayout seasons = astronomyAccordion(R.string.astronomical_seasons, content -> {
+            content.setPadding(0, dp(8), 0, 0);
+            Instant now = Instant.now();
+            DateTimeFormatter date = DateTimeFormatter.ofPattern("EEE d MMM uuuu", appLocale());
+            DateTimeFormatter time = clock24 ? CLOCK_24 : CLOCK;
+            // UTC timestamps from the US Naval Observatory Earth Seasons API.
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(
+                    getAssets().open("astronomical-seasons-utc.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+                String line;
+                while (content.getChildCount() < 4 && (line = reader.readLine()) != null) {
+                    Instant event = Instant.parse(line);
+                    if (event.isBefore(now)) continue;
+                    int title;
+                    switch (event.atZone(java.time.ZoneOffset.UTC).getMonth()) {
+                        case MARCH: title = R.string.march_equinox; break;
+                        case JUNE: title = R.string.june_solstice; break;
+                        case SEPTEMBER: title = R.string.september_equinox; break;
+                        case DECEMBER: title = R.string.december_solstice; break;
+                        default: continue;
+                    }
+                    ZonedDateTime local = event.atZone(zone);
+                    LinearLayout item = column();
+                    item.setPadding(0, dp(5), 0, dp(5));
+                    item.addView(label(getString(title), 15, ink));
+                    item.addView(label(date.format(local) + " · " + time.format(local), 13, muted));
+                    content.addView(item);
+                }
+            } catch (java.io.IOException error) {
+                android.util.Log.w("SkyHere", "Season calendar unavailable", error);
+            }
+            if (content.getChildCount() == 0) content.addView(label(getString(R.string.unavailable), 14, muted));
+        });
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);
+        size.topMargin = dp(12);
+        page.addView(seasons, size);
     }
 
     private void appendTransits(LinearLayout list, List<TransitCatalog.Event> items, ZoneId zone, int start) {

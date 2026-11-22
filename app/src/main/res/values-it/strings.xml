@@ -109,6 +109,12 @@
     <string name="next_full_moon">Prossima luna piena</string>
     <string name="next_new_moon">Prossima luna nuova</string>
     <string name="eclipses">Eclissi</string>
+    <string name="astronomical_seasons">Stagioni astronomiche</string>
+    <string name="march_equinox">Equinozio di marzo</string>
+    <string name="june_solstice">Solstizio di giugno</string>
+    <string name="september_equinox">Equinozio di settembre</string>
+    <string name="december_solstice">Solstizio di dicembre</string>
+    <string name="seasons_credit">Stagioni astronomiche · US Naval Observatory</string>
     <string name="collapsed">Chiuso</string>
     <string name="expanded">Aperto</string>
     <string name="lunar_eclipses">Eclissi lunari</string>

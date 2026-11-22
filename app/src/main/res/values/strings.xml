@@ -109,6 +109,12 @@
     <string name="next_full_moon">Next full moon</string>
     <string name="next_new_moon">Next new moon</string>
     <string name="eclipses">Eclipses</string>
+    <string name="astronomical_seasons">Astronomical seasons</string>
+    <string name="march_equinox">March equinox</string>
+    <string name="june_solstice">June solstice</string>
+    <string name="september_equinox">September equinox</string>
+    <string name="december_solstice">December solstice</string>
+    <string name="seasons_credit">Astronomical seasons · US Naval Observatory</string>
     <string name="collapsed">Collapsed</string>
     <string name="expanded">Expanded</string>
     <string name="lunar_eclipses">Lunar</string>

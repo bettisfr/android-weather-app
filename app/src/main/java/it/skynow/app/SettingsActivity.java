@@ -208,6 +208,7 @@ public final class SettingsActivity extends Activity {
         addCredit(links, R.string.iss_credit, "https://www.amsat.org/keplerian-elements/");
         addCredit(links, R.string.eclipse_data, "https://opale.imcce.fr/");
         addCredit(links, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
+        addCredit(links, R.string.seasons_credit, "https://aa.usno.navy.mil/data/Earth_Seasons");
     }
 
     private void addCredit(LinearLayout section, int title, String url) {
