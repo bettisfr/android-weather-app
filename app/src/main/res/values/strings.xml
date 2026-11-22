@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="seismograms">Seismograms</string>
-    <string name="seismogram_open">Seismogram</string>
+    <string name="seismogram_open">Trace</string>
     <string name="seismogram_station">Seismic station</string>
     <string name="seismogram_source">View source on IESN</string>
     <string name="seismogram_unavailable">Seismogram unavailable. Retrying shortly.</string>

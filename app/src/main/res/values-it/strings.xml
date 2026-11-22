@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="seismograms">Sismogrammi</string>
-    <string name="seismogram_open">Sismogramma</string>
+    <string name="seismogram_open">Tracciato</string>
     <string name="seismogram_station">Stazione sismica</string>
     <string name="seismogram_source">Vedi fonte su IESN</string>
     <string name="seismogram_unavailable">Sismogramma non disponibile. Nuovo tentativo a breve.</string>
