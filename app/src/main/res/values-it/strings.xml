@@ -108,7 +108,7 @@
     <string name="tomorrow">Domani</string>
     <string name="next_full_moon">Prossima luna piena</string>
     <string name="next_new_moon">Prossima luna nuova</string>
-    <string name="eclipses_transits">Eclissi e transiti</string>
+    <string name="eclipses">Eclissi</string>
     <string name="collapsed">Chiuso</string>
     <string name="expanded">Aperto</string>
     <string name="lunar_eclipses">Eclissi lunari</string>

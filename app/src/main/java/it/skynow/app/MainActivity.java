@@ -2639,18 +2639,10 @@ public final class MainActivity extends Activity {
     }
 
     private void eclipsesAndTransits() {
-        LinearLayout card = card();
-        LinearLayout content = column();
-        content.setVisibility(View.GONE);
-        Button toggle = accordionButton(getString(R.string.eclipses_transits));
         double lat = latitude;
         double lon = longitude;
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        toggle.setOnClickListener(v -> {
-            boolean open = content.getVisibility() != View.VISIBLE;
-            content.setVisibility(open ? View.VISIBLE : View.GONE);
-            updateAccordion(toggle, open);
-            if (!open || content.getChildCount() != 0) return;
+        LinearLayout eclipses = astronomyAccordion(R.string.eclipses, content -> {
             for (boolean lunar : new boolean[]{false, true}) {
                 TextView heading = label(lunar ? getString(R.string.lunar_eclipses) : getString(R.string.solar_eclipses), 16, ink);
                 heading.setPadding(0, dp(10), 0, dp(4));
@@ -2659,20 +2651,30 @@ public final class MainActivity extends Activity {
                 content.addView(events);
                 new EclipseList(events, lunar, lat, lon, zone).showNext();
             }
-            TextView heading = label(getString(R.string.planetary_transits), 16, ink);
-            heading.setPadding(0, dp(14), 0, dp(6));
-            content.addView(heading);
+        });
+        addSpaced(page, eclipses, 12);
+        page.addView(astronomyAccordion(R.string.planetary_transits, content -> {
+            content.setPadding(0, dp(10), 0, 0);
             List<TransitCatalog.Event> transits = TransitCatalog.upcoming(lat, lon, Instant.now());
             if (transits.isEmpty()) content.addView(label(getString(R.string.no_transits), 14, muted));
-            else {
-                LinearLayout list = column();
-                content.addView(list);
-                appendTransits(list, transits, zone, 0);
-            }
+            else appendTransits(content, transits, zone, 0);
+        }));
+    }
+
+    private LinearLayout astronomyAccordion(int title, java.util.function.Consumer<LinearLayout> populate) {
+        LinearLayout card = card();
+        LinearLayout content = column();
+        content.setVisibility(View.GONE);
+        Button toggle = accordionButton(getString(title));
+        toggle.setOnClickListener(v -> {
+            boolean open = content.getVisibility() != View.VISIBLE;
+            content.setVisibility(open ? View.VISIBLE : View.GONE);
+            updateAccordion(toggle, open);
+            if (open && content.getChildCount() == 0) populate.accept(content);
         });
         card.addView(toggle, new LinearLayout.LayoutParams(-1, -2));
         card.addView(content);
-        page.addView(card);
+        return card;
     }
 
     private void appendTransits(LinearLayout list, List<TransitCatalog.Event> items, ZoneId zone, int start) {
