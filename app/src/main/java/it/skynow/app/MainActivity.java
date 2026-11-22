@@ -151,6 +151,8 @@ public final class MainActivity extends Activity {
     private TextView sunCoordinates;
     private TextView moonCoordinates;
     private LinearLayout sunTrackHeading, moonTrackHeading;
+    private String astronomyTailKey;
+    private CompletableFuture<JSONObject> astronomyTail;
     private final List<PlanetRow> planetRows = new ArrayList<>();
     private LocalDate planetWindowDate;
     private double magneticDeclination = Double.NaN;
@@ -1742,7 +1744,7 @@ public final class MainActivity extends Activity {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = card();
-        moonTrackHeading = addSkyTrackHeading(tile, new MoonPhaseView(this, phase, latitude < 0), getString(R.string.moon),
+        moonTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_moon_astronomy), getString(R.string.moon),
                 () -> showDailySkyTrack(getString(R.string.moon), true, null, null));
         TextView eventLabel = label("", 13, muted);
         int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
@@ -1835,15 +1837,14 @@ public final class MainActivity extends Activity {
 
     private static final class PlanetRow {
         final Planets.Body body;
-        final View entry, chevron;
+        final View entry;
         final TextView now, magnitude, position, windows;
         List<Planets.Window> observingWindows = List.of();
 
-        PlanetRow(Planets.Body body, View entry, View chevron, TextView now, TextView magnitude,
+        PlanetRow(Planets.Body body, View entry, TextView now, TextView magnitude,
                   TextView position, TextView windows) {
             this.body = body;
             this.entry = entry;
-            this.chevron = chevron;
             this.now = now;
             this.magnitude = magnitude;
             this.position = position;
@@ -1874,22 +1875,19 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
             magnitudeSize.setMarginStart(dp(6));
             planetTitle.addView(magnitude, magnitudeSize);
-            TextView chevron = skyTrackChevron();
-            LinearLayout.LayoutParams chevronSize = new LinearLayout.LayoutParams(-2, -2);
-            chevronSize.setMarginStart(dp(5));
-            planetTitle.addView(chevron, chevronSize);
-            entry.addView(planetTitle);
-            TextView now = observingBadge(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
+            TextView now = nowBadge();
+            now.setContentDescription(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
             LinearLayout.LayoutParams nowSize = new LinearLayout.LayoutParams(-2, -2);
-            nowSize.topMargin = dp(5);
-            entry.addView(now, nowSize);
+            nowSize.setMarginStart(dp(6));
+            planetTitle.addView(now, nowSize);
+            entry.addView(planetTitle);
             TextView position = label("", 13, ink);
             position.setPadding(0, dp(4), 0, 0);
             entry.addView(position);
             TextView windows = label("", 12, muted);
             windows.setPadding(0, dp(5), 0, 0);
             entry.addView(windows);
-            PlanetRow planet = new PlanetRow(body, entry, chevron, now, magnitude, position, windows);
+            PlanetRow planet = new PlanetRow(body, entry, now, magnitude, position, windows);
             planetRows.add(planet);
             astronomyCardAction(entry, () -> {
                 if (planet.observesAt(Instant.now())) {
@@ -1949,8 +1947,7 @@ public final class MainActivity extends Activity {
                         : getString(R.string.planet_today_windows, android.text.TextUtils.join(" · ", hours)));
             }
             boolean observingNow = row.observesAt(now);
-            row.now.setVisibility(observingNow ? View.VISIBLE : View.GONE);
-            setSkyTrackAvailable(row.entry, row.chevron, observingNow);
+            setSkyTrackAvailable(row.entry, row.now, observingNow);
             row.position.setVisibility(observingNow ? View.VISIBLE : View.GONE);
             if (observingNow) {
                 row.position.setText(getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
@@ -2231,13 +2228,15 @@ public final class MainActivity extends Activity {
             LinearLayout heading = row();
             String headingText = dayFormat.format(rise) + " · " + range;
             heading.addView(label(headingText, 15, ink), new LinearLayout.LayoutParams(0, -2, 1));
-            TextView live = issVisibilityBadge();
+            TextView live = nowBadge();
+            live.setContentDescription(getString(R.string.iss_visible_now));
+            live.setVisibility(View.GONE);
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.setMarginStart(dp(6));
-            liveSize.setMarginEnd(dp(6));
             heading.addView(live, liveSize);
-            liveIssBadges.add(new LiveIssBadge(pass, live));
-            heading.addView(skyTrackChevron());
+            View arrow = skyTrackChevron();
+            liveIssBadges.add(new LiveIssBadge(pass, live, arrow));
+            heading.addView(arrow);
             entry.addView(heading);
             LinearLayout details = row();
             details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
@@ -2263,14 +2262,18 @@ public final class MainActivity extends Activity {
     private static final class LiveIssBadge {
         final IssPasses.Pass pass;
         final TextView badge;
+        final View inactiveArrow;
 
-        LiveIssBadge(IssPasses.Pass pass, TextView badge) {
+        LiveIssBadge(IssPasses.Pass pass, TextView badge, View inactiveArrow) {
             this.pass = pass;
             this.badge = badge;
+            this.inactiveArrow = inactiveArrow;
         }
 
         long update(long nowMillis, long second) {
-            badge.setVisibility(pass.visibleAt(second) ? View.VISIBLE : View.GONE);
+            boolean visible = pass.visibleAt(second);
+            badge.setVisibility(visible ? View.VISIBLE : View.GONE);
+            if (inactiveArrow != null) inactiveArrow.setVisibility(visible ? View.GONE : View.VISIBLE);
             if (second < pass.rise.time) return pass.rise.time * 1000L - nowMillis;
             if (second <= pass.set.time) return (pass.set.time + 1) * 1000L - nowMillis;
             return Long.MAX_VALUE;
@@ -2328,7 +2331,7 @@ public final class MainActivity extends Activity {
     private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
         LinearLayout heading = astronomyTitle(icon, name);
         heading.setMinimumHeight(dp(32));
-        TextView now = observingBadge(getString(R.string.sky_track_now));
+        TextView now = nowBadge();
         LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
         badgeSize.setMarginStart(dp(6));
         heading.addView(now, badgeSize);
@@ -2337,10 +2340,10 @@ public final class MainActivity extends Activity {
         return heading;
     }
 
-    private void setSkyTrackAvailable(View target, View chevron, boolean available) {
+    private void setSkyTrackAvailable(View target, View indicator, boolean available) {
         target.setClickable(available);
         target.setFocusable(available);
-        chevron.setVisibility(available ? View.VISIBLE : View.GONE);
+        indicator.setVisibility(available ? View.VISIBLE : View.GONE);
     }
 
     private TextView astronomyBadge(String text) {
@@ -2356,6 +2359,10 @@ public final class MainActivity extends Activity {
         return badge;
     }
 
+    private TextView nowBadge() {
+        return observingBadge(getString(R.string.sky_track_now));
+    }
+
     private void setMagnitudeBadge(TextView badge, double magnitude, int fill) {
         badge.setText(getString(R.string.iss_magnitude, number(magnitude, "%+.1f")));
         badge.setBackground(background(SignalColors.tint(fill), 8));
@@ -2368,7 +2375,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.topMargin = dp(6);
             panel.addView(live, liveSize);
-            trackedIss = new LiveIssBadge(pass, live);
+            trackedIss = new LiveIssBadge(pass, live, null);
             addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
             addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
@@ -2876,25 +2883,48 @@ public final class MainActivity extends Activity {
     }
 
     private void addUpcomingTimes(LinearLayout tile, JSONObject daily, int index, boolean moon) {
-        int end = Math.min(length(daily), index + OpenMeteo.UPCOMING_ASTRONOMY_DAYS + 1);
-        if (end <= index + 1) return;
-        String title = getString(R.string.next_days, end - index - 1);
+        int count = OpenMeteo.UPCOMING_ASTRONOMY_DAYS;
+        int end = Math.min(length(daily), index + count + 1);
+        LocalDate date = LocalDate.parse(at(daily, "time", index));
+        LocalDate last = date.plusDays(count);
+        LocalDate firstMissing = date.plusDays(end - index);
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        String title = getString(R.string.next_days, count);
+        LinearLayout collapsible = column();
         LinearLayout table = column();
-        View collapsible = table;
+        collapsible.addView(table);
+        TextView status = label("", 12, muted);
+        addSpaced(collapsible, status, 6);
+        status.setVisibility(View.GONE);
+        boolean[] loading = {false};
+        boolean[] complete = {firstMissing.isAfter(last)};
         collapsible.setVisibility(View.GONE);
         Button toggle = accordionButton(title);
         toggle.setOnClickListener(v -> {
             boolean open = collapsible.getVisibility() != View.VISIBLE;
             collapsible.setVisibility(open ? View.VISIBLE : View.GONE);
             updateAccordion(toggle, open);
+            if (!open || complete[0] || loading[0]) return;
+            loading[0] = true;
+            status.setText(R.string.upcoming_astronomy_loading);
+            status.setVisibility(View.VISIBLE);
+            loadAstronomyTail(firstMissing, last).thenAccept(extra -> main.post(() -> {
+                if (isDestroyed() || !table.isAttachedToWindow()) return;
+                loading[0] = false;
+                if (extra == null || length(extra) != count + index + 1 - end) {
+                    status.setText(R.string.upcoming_astronomy_unavailable);
+                    return;
+                }
+                appendUpcomingTimeRows(table, extra, 0, length(extra), moon, zone);
+                if (!moon) sizeSolarColumns(table, tile);
+                complete[0] = true;
+                status.setVisibility(View.GONE);
+            }));
         });
         LinearLayout.LayoutParams toggleSize = new LinearLayout.LayoutParams(-1, -2);
         toggleSize.topMargin = dp(8);
         tile.addView(toggle, toggleSize);
         tile.addView(collapsible);
-        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        String rise = moon ? "moonrise" : "sunrise";
-        String set = moon ? "moonset" : "sunset";
         if (moon) {
             addEventTableRow(table, getString(R.string.date), label(getString(R.string.phase), 12, muted), muted,
                     getString(R.string.moonrise_column), getString(R.string.moonset_column));
@@ -2902,8 +2932,34 @@ public final class MainActivity extends Activity {
             addEventTableRow(table, getString(R.string.date), null, muted, getString(R.string.sunrise),
                     getString(R.string.sunset), getString(R.string.daylight_column), getString(R.string.max_elevation));
         }
+        appendUpcomingTimeRows(table, daily, index + 1, end, moon, zone);
+        if (!moon) sizeSolarColumns(table, tile);
+    }
+
+    private CompletableFuture<JSONObject> loadAstronomyTail(LocalDate start, LocalDate end) {
+        double lat = latitude;
+        double lon = longitude;
+        String key = lat + "," + lon + ":" + start + ":" + end;
+        if (!key.equals(astronomyTailKey) || astronomyTail == null
+                || (astronomyTail.isDone() && astronomyTail.getNow(null) == null)) {
+            astronomyTailKey = key;
+            astronomyTail = CompletableFuture.supplyAsync(() -> {
+                try {
+                    return OpenMeteo.astronomyDays(lat, lon, start, end);
+                } catch (Exception error) {
+                    android.util.Log.w("SkyHere", "Additional Sun and Moon dates unavailable", error);
+                    return null;
+                }
+            });
+        }
+        return astronomyTail;
+    }
+
+    private void appendUpcomingTimeRows(LinearLayout table, JSONObject daily, int from, int end, boolean moon, ZoneId zone) {
+        String rise = moon ? "moonrise" : "sunrise";
+        String set = moon ? "moonset" : "sunset";
         DateTimeFormatter dateFormat = shortDate(false);
-        for (int i = index + 1; i < end; i++) {
+        for (int i = from; i < end; i++) {
             LocalDate day = LocalDate.parse(at(daily, "time", i));
             String date = day.format(dateFormat);
             if (!moon) {
@@ -2939,7 +2995,6 @@ public final class MainActivity extends Activity {
             }
             addEventTableRow(table, date, phaseIcon, ink, eventClock(at(daily, rise, i)), eventClock(at(daily, set, i)));
         }
-        if (!moon) sizeSolarColumns(table, tile);
     }
 
     private void sizeSolarColumns(LinearLayout table, LinearLayout tile) {

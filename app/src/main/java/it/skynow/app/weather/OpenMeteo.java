@@ -11,13 +11,15 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.net.URLEncoder;
 import java.time.Instant;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 public final class OpenMeteo {
-    public static final int UPCOMING_ASTRONOMY_DAYS = 15;
+    public static final int UPCOMING_ASTRONOMY_DAYS = 16;
+    private static final int FORECAST_DAYS = 16;
+    private static final String ASTRONOMY = "sunrise,sunset,moonrise,moonset,moon_phase";
     private static final String CURRENT = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,is_day";
     private static final String HOURLY = "temperature_2m,apparent_temperature,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,dew_point_2m,uv_index,is_day,cloud_cover";
     private static final String DAILY = "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,moonrise,moonset,moon_phase,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,relative_humidity_2m_mean";
@@ -26,8 +28,8 @@ public final class OpenMeteo {
     public static JSONObject forecast(double latitude, double longitude) throws Exception {
         // The regional model covers Italy and surrounding land, and only provides three days.
         boolean nearItaly = latitude >= 35.4 && latitude <= 47.2 && longitude >= 6.5 && longitude <= 19.0;
-        CompletableFuture<JSONObject> best = request(latitude, longitude, "best_match", UPCOMING_ASTRONOMY_DAYS + 1);
-        CompletableFuture<JSONObject> ecmwf = request(latitude, longitude, "ecmwf_ifs", UPCOMING_ASTRONOMY_DAYS + 1);
+        CompletableFuture<JSONObject> best = request(latitude, longitude, "best_match", FORECAST_DAYS);
+        CompletableFuture<JSONObject> ecmwf = request(latitude, longitude, "ecmwf_ifs", FORECAST_DAYS);
         CompletableFuture<JSONObject> regional = nearItaly
                 ? request(latitude, longitude, "italia_meteo_arpae_icon_2i", 3)
                 : CompletableFuture.completedFuture(null);
@@ -77,19 +79,31 @@ public final class OpenMeteo {
         JSONObject current = forecast.getJSONObject("current");
         current.put("time", Instant.ofEpochSecond(current.getLong("time")).atOffset(offset).format(WEATHER_TIME));
         formatTimes(forecast.getJSONObject("hourly").getJSONArray("time"), offset, WEATHER_TIME);
-        JSONObject daily = forecast.getJSONObject("daily");
+        formatDailyTimes(forecast.getJSONObject("daily"), offset, offset);
+    }
+
+    public static JSONObject astronomyDays(double latitude, double longitude, LocalDate start, LocalDate end) throws Exception {
+        JSONObject response = read("https://seasonal-api.open-meteo.com/v1/seasonal?latitude=" + latitude
+                + "&longitude=" + longitude + "&timezone=auto&timeformat=unixtime&start_date=" + start
+                + "&end_date=" + end + "&daily=" + ASTRONOMY);
+        JSONObject daily = response.getJSONObject("daily");
+        ZoneOffset dateOffset = ZoneOffset.ofTotalSeconds(response.getInt("utc_offset_seconds"));
+        formatDailyTimes(daily, dateOffset, ZoneId.of(response.getString("timezone")));
+        return daily;
+    }
+
+    private static void formatDailyTimes(JSONObject daily, ZoneOffset offset, ZoneId eventZone) throws org.json.JSONException {
         formatTimes(daily.getJSONArray("time"), offset, DateTimeFormatter.ISO_LOCAL_DATE);
         for (String event : new String[]{"sunrise", "sunset", "moonrise", "moonset"}) {
             JSONArray times = daily.optJSONArray(event);
-            if (times != null) formatTimes(times, offset, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+            if (times != null) formatTimes(times, eventZone, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         }
     }
 
-    private static void formatTimes(JSONArray times, ZoneOffset offset, DateTimeFormatter format) throws org.json.JSONException {
+    private static void formatTimes(JSONArray times, ZoneId zone, DateTimeFormatter format) throws org.json.JSONException {
         for (int i = 0; i < times.length(); i++) {
             if (times.isNull(i)) continue;
-            OffsetDateTime time = Instant.ofEpochSecond(times.getLong(i)).atOffset(offset);
-            times.put(i, time.format(format));
+            times.put(i, Instant.ofEpochSecond(times.getLong(i)).atZone(zone).format(format));
         }
     }
 

@@ -174,6 +174,8 @@
     <string name="high_low">High %1$s · Low %2$s</string>
     <string name="from_bearing">From %1$s · %2$d°</string>
     <string name="dew_point">Dew point %1$s</string>
+    <string name="upcoming_astronomy_loading">Loading the remaining dates…</string>
+    <string name="upcoming_astronomy_unavailable">The remaining dates are unavailable</string>
     <string name="next_days">Next %1$d days</string>
     <string name="no_eclipses_until">No visible events through %1$d</string>
     <string name="transit_of">Transit of %1$s</string>
