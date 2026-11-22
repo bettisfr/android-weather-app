@@ -7,13 +7,15 @@ import android.content.Intent;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
-import android.view.View;
 import android.webkit.WebView;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.Spinner;
+import android.widget.TextView;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 import it.skynow.app.R;
 import it.skynow.app.SkyTheme;
@@ -24,12 +26,22 @@ public final class SeismogramActivity extends Activity {
         new Station("Perugia", 43.112, 12.389,
                 "https://www.osservatoriometeoesismicoperugia.it/elf/drum_UPRP_EHN.gif"),
         new Station("Valfabbrica", 43.158, 12.601,
-                "https://www.sara.pg.it/drums/drum_UVLF_EHZ.gif")
+                "https://www.sara.pg.it/drums/drum_UVLF_EHZ.gif"),
+        new Station("Casalina", 42.993, 12.407,
+                "https://www.osservatoriometeoesismicoperugia.it/elf/drum_UCAS_LHN.gif"),
+        new Station("Olmeto", 42.983, 12.307,
+                "https://www.osservatoriometeoesismicoperugia.it/elf/drum_UOLM_EHZ.gif"),
+        new Station("Gubbio", 43.353, 12.573,
+                "https://www.osservatoriometeoesismicoperugia.it/elf/drum_MCRS_EHZ.gif"),
+        new Station("Colfiorito", 43.027, 12.887,
+                "https://www.sara.pg.it/drums/drum_UORV_EHE.gif"),
+        new Station("Sellano", 42.889, 12.926,
+                "https://www.iesn.it/drum/drum_USLL_EHN.gif"),
+        new Station("Norcia", 42.793, 13.096,
+                "https://www.osservatoriometeoesismicoperugia.it/elf/drum_UNRC_EHZ.gif")
     };
 
     private WebView chart;
-    private Spinner stations;
-    private int loadedStation = -1;
     private final Runnable refresh = new Runnable() {
         @Override public void run() {
             chart.evaluateJavascript("refresh()", null);
@@ -37,10 +49,17 @@ public final class SeismogramActivity extends Activity {
         }
     };
 
-    public static Intent intent(Context context, double latitude, double longitude) {
+    public static Intent intent(Context context, Station station) {
         return new Intent(context, SeismogramActivity.class)
-                .putExtra("latitude", latitude)
-                .putExtra("longitude", longitude);
+                .putExtra("station", Arrays.asList(STATIONS).indexOf(station));
+    }
+
+    public static List<Station> nearestStations(double latitude, double longitude) {
+        List<Station> stations = new ArrayList<>(Arrays.asList(STATIONS));
+        if (Double.isFinite(latitude) && Double.isFinite(longitude)) {
+            stations.sort(Comparator.comparingDouble(station -> station.distanceFrom(latitude, longitude)));
+        }
+        return stations.subList(0, 5);
     }
 
     @Override protected void attachBaseContext(Context base) {
@@ -65,13 +84,13 @@ public final class SeismogramActivity extends Activity {
         back.setOnClickListener(view -> finish());
         header.addView(back);
 
-        stations = new Spinner(this);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_item,
-                new String[]{STATIONS[0].name, STATIONS[1].name});
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        stations.setAdapter(adapter);
-        stations.setContentDescription(getString(R.string.seismograms));
-        header.addView(stations, new LinearLayout.LayoutParams(0, -1, 1));
+        Station station = STATIONS[getIntent().getIntExtra("station", 0)];
+        TextView stationName = new TextView(this);
+        stationName.setText(station.name);
+        stationName.setTextColor(getColor(R.color.sky_text));
+        stationName.setTextSize(18);
+        stationName.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        header.addView(stationName, new LinearLayout.LayoutParams(0, -1, 1));
         page.addView(header);
 
         chart = new WebView(this);
@@ -95,37 +114,10 @@ public final class SeismogramActivity extends Activity {
         page.addView(source);
         setContentView(page);
 
-        stations.setSelection(state == null ? closestStation() : state.getInt("station"));
-        stations.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (loadedStation != position) loadStation(position);
-            }
-
-            @Override public void onNothingSelected(AdapterView<?> parent) {}
-        });
+        loadStation(station);
     }
 
-    private int closestStation() {
-        double latitude = getIntent().getDoubleExtra("latitude", Double.NaN);
-        double longitude = getIntent().getDoubleExtra("longitude", Double.NaN);
-        if (!Double.isFinite(latitude) || !Double.isFinite(longitude)) return 0;
-        float[] distance = new float[1];
-        float closest = Float.POSITIVE_INFINITY;
-        int nearest = 0;
-        for (int index = 0; index < STATIONS.length; index++) {
-            Station station = STATIONS[index];
-            Location.distanceBetween(latitude, longitude, station.latitude, station.longitude, distance);
-            if (distance[0] < closest) {
-                closest = distance[0];
-                nearest = index;
-            }
-        }
-        return nearest;
-    }
-
-    private void loadStation(int position) {
-        loadedStation = position;
-        Station station = STATIONS[position];
+    private void loadStation(Station station) {
         String loading = android.text.TextUtils.htmlEncode(getString(R.string.seismogram_loading));
         String unavailable = org.json.JSONObject.quote(getString(R.string.seismogram_unavailable));
         String html = "<!doctype html><meta name='viewport' content='width=device-width, initial-scale=1'>"
@@ -152,7 +144,6 @@ public final class SeismogramActivity extends Activity {
 
     @Override protected void onStart() {
         super.onStart();
-        if (loadedStation >= 0) chart.evaluateJavascript("refresh()", null);
         chart.postDelayed(refresh, 60_000);
     }
 
@@ -161,18 +152,13 @@ public final class SeismogramActivity extends Activity {
         super.onStop();
     }
 
-    @Override protected void onSaveInstanceState(Bundle state) {
-        state.putInt("station", stations.getSelectedItemPosition());
-        super.onSaveInstanceState(state);
-    }
-
     @Override protected void onDestroy() {
         ((LinearLayout) chart.getParent()).removeView(chart);
         chart.destroy();
         super.onDestroy();
     }
 
-    private static final class Station {
+    public static final class Station {
         final String name;
         final double latitude;
         final double longitude;
@@ -183,6 +169,16 @@ public final class SeismogramActivity extends Activity {
             this.latitude = latitude;
             this.longitude = longitude;
             this.url = url;
+        }
+
+        double distanceFrom(double latitude, double longitude) {
+            float[] result = new float[1];
+            Location.distanceBetween(latitude, longitude, this.latitude, this.longitude, result);
+            return result[0];
+        }
+
+        @Override public String toString() {
+            return name;
         }
     }
 }

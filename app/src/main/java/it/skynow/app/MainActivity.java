@@ -227,6 +227,8 @@ public final class MainActivity extends Activity {
     private Button airQualityMapButton;
     private TextView earthquakeTitle;
     private LinearLayout earthquakePanel;
+    private LinearLayout seismogramPanel;
+    private Spinner seismogramStation;
     private int earthquakeRadius;
     private int earthquakeMinimumMagnitude;
     private double deviceLatitude = Double.NaN;
@@ -671,6 +673,8 @@ public final class MainActivity extends Activity {
         airQualityMapButton = null;
         earthquakeTitle = null;
         earthquakePanel = null;
+        seismogramPanel = null;
+        seismogramStation = null;
         earthquakeTabButton = null;
         sunCoordinates = null;
         moonCoordinates = null;
@@ -758,12 +762,9 @@ public final class MainActivity extends Activity {
             if (dashboardTab == DashboardTab.EARTHQUAKES) {
                 earthquakeTitle = title(getString(R.string.seismic_activity));
                 earthquakePanel = card();
-                LinearLayout seismograms = card();
-                seismograms.addView(label(getString(R.string.seismograms), 16, ink));
-                addSpaced(seismograms, mapButton(R.string.seismogram_open, () ->
-                        startActivity(SeismogramActivity.intent(this, deviceLatitude, deviceLongitude))), 8);
-                page.addView(seismograms);
-                addSpaced(page, earthquakePanel, 12);
+                seismogramPanel = card();
+                addSpaced(page, seismogramPanel, 12);
+                page.addView(earthquakePanel);
                 renderEarthquakes();
                 return;
             }
@@ -1043,10 +1044,44 @@ public final class MainActivity extends Activity {
                 .putExtra("timeZone", data.optString("timezone", "UTC")).putExtra("clock24", clock24));
     }
 
+    private void renderSeismograms(boolean show) {
+        seismogramPanel.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (!show) return;
+
+        Object selected = seismogramStation == null ? null : seismogramStation.getSelectedItem();
+        List<SeismogramActivity.Station> nearest =
+                SeismogramActivity.nearestStations(deviceLatitude, deviceLongitude);
+        seismogramPanel.removeAllViews();
+        seismogramPanel.addView(label(getString(R.string.seismograms), 16, ink));
+        LinearLayout controls = row();
+        controls.setGravity(Gravity.CENTER_VERTICAL);
+        controls.setPadding(0, dp(6), 0, 0);
+        Spinner stations = new Spinner(this, Spinner.MODE_DROPDOWN);
+        seismogramStation = stations;
+        ArrayAdapter<SeismogramActivity.Station> adapter =
+                new ArrayAdapter<>(this, android.R.layout.simple_spinner_item, nearest);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        stations.setAdapter(adapter);
+        stations.setSelection(Math.max(0, nearest.indexOf(selected)));
+        stations.setContentDescription(getString(R.string.seismogram_station));
+        stations.setMinimumHeight(dp(44));
+        controls.addView(stations, new LinearLayout.LayoutParams(0, -2, 1));
+
+        Button open = actionButton(getString(R.string.seismogram_open), getColor(R.color.sky_action), 24);
+        open.setTextColor(getColor(R.color.sky_on_action));
+        open.setOnClickListener(view -> startActivity(SeismogramActivity.intent(this,
+                (SeismogramActivity.Station) stations.getSelectedItem())));
+        LinearLayout.LayoutParams buttonSize = new LinearLayout.LayoutParams(-2, -2);
+        buttonSize.setMarginStart(dp(8));
+        controls.addView(open, buttonSize);
+        seismogramPanel.addView(controls);
+    }
+
     private void renderEarthquakes() {
         LinearLayout panel = earthquakePanel;
         if (panel == null) return;
         boolean show = showsEarthquakeTab();
+        renderSeismograms(show);
         earthquakeTitle.setVisibility(show ? View.VISIBLE : View.GONE);
         panel.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
