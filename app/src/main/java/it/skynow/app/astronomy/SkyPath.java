@@ -14,7 +14,8 @@ import java.time.ZoneId;
 
 public final class SkyPath extends View {
     private static final int SAMPLES = 96;
-    private static final float MIN_ELEVATION_RANGE = 10;
+    private static final float MIN_LUNAR_ELEVATION_RANGE = 10;
+    private static final float MIN_SOLAR_ELEVATION_RANGE = 90;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final Path outline = new Path();
@@ -54,7 +55,8 @@ public final class SkyPath extends View {
             low = Math.min(low, elevation);
             high = Math.max(high, elevation);
         }
-        float scale = getHeight() * .76f / Math.max(MIN_ELEVATION_RANGE, high - low);
+        float minimumRange = moon ? MIN_LUNAR_ELEVATION_RANGE : MIN_SOLAR_ELEVATION_RANGE;
+        float scale = getHeight() * .76f / Math.max(minimumRange, high - low);
         float horizon = getHeight() / 2f + (low + high) * scale / 2;
         float nowX = left + width * nowFraction;
         float nowY = horizon - nowElevation * scale;
