@@ -21,6 +21,8 @@ public final class SkyTrack extends View {
     public static final int BRIGHTEST_COLOR = SignalColors.PURPLE;
     public static final int NOW_COLOR = SignalColors.BLUE;
     private static final float MAX_ZOOM = 4;
+    private static final float EVENT_MARKER_RADIUS = 4.5f;
+    private static final float NOW_MARKER_RADIUS = 6.5f;
     private final List<? extends SkyTrajectory.Point> points;
     private final SkyTrajectory.Point start, peak, end, brightest;
     private SkyTrajectory.Point now;
@@ -186,13 +188,18 @@ public final class SkyTrack extends View {
         canvas.drawPath(path, paint);
         paint.setStyle(Paint.Style.FILL);
         marker(canvas, brightest, BRIGHTEST_COLOR, 8.5f);
-        marker(canvas, start, START_COLOR, 4.5f);
-        marker(canvas, peak, MAX_COLOR, 6.5f);
-        marker(canvas, end, END_COLOR, 4.5f);
+        marker(canvas, start, START_COLOR, EVENT_MARKER_RADIUS);
+        marker(canvas, end, END_COLOR, EVENT_MARKER_RADIUS);
+        marker(canvas, peak, MAX_COLOR, EVENT_MARKER_RADIUS);
+        if (peak != null) {
+            // Keep both event colors visible when maximum occurs at a boundary.
+            if (end != null && peak.time == end.time) halfMarker(canvas, peak, END_COLOR);
+            else if (start != null && peak.time == start.time) halfMarker(canvas, peak, START_COLOR);
+        }
         drawDirection(canvas, accent);
         paint.setStyle(Paint.Style.FILL);
-        if (brightest != null) marker(canvas, now, getContext().getColor(R.color.sky_card), 7);
-        marker(canvas, now, NOW_COLOR, brightest == null ? 4.5f : 5.5f);
+        if (brightest != null) marker(canvas, now, getContext().getColor(R.color.sky_card), NOW_MARKER_RADIUS + 1.5f);
+        marker(canvas, now, NOW_COLOR, NOW_MARKER_RADIUS);
         drawAim(canvas);
         canvas.restore();
     }
@@ -272,5 +279,12 @@ public final class SkyTrack extends View {
         if (sample == null || sample.elevation < 0) return;
         paint.setColor(color);
         canvas.drawCircle(x(sample), y(sample), size * density, paint);
+    }
+
+    private void halfMarker(Canvas canvas, SkyTrajectory.Point sample, int color) {
+        float px = x(sample), py = y(sample);
+        float size = EVENT_MARKER_RADIUS * density;
+        paint.setColor(color);
+        canvas.drawArc(px - size, py - size, px + size, py + size, 0, 180, true, paint);
     }
 }
