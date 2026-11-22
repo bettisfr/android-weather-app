@@ -1044,6 +1044,15 @@ public final class MainActivity extends Activity {
                 .putExtra("timeZone", data.optString("timezone", "UTC")).putExtra("clock24", clock24));
     }
 
+    private TextView seismicPanelTitle(int title) {
+        TextView view = label(getString(title), 16, ink);
+        android.graphics.drawable.Drawable icon = getDrawable(R.drawable.ic_seismic_wave).mutate();
+        icon.setTint(ink);
+        view.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null);
+        view.setCompoundDrawablePadding(dp(6));
+        return view;
+    }
+
     private void renderSeismograms(boolean show) {
         seismogramPanel.setVisibility(show ? View.VISIBLE : View.GONE);
         if (!show) return;
@@ -1052,7 +1061,7 @@ public final class MainActivity extends Activity {
         List<SeismogramActivity.Station> nearest =
                 SeismogramActivity.nearestStations(deviceLatitude, deviceLongitude);
         seismogramPanel.removeAllViews();
-        seismogramPanel.addView(label(getString(R.string.seismograms), 16, ink));
+        seismogramPanel.addView(seismicPanelTitle(R.string.seismograms));
         LinearLayout controls = row();
         controls.setGravity(Gravity.CENTER_VERTICAL);
         controls.setPadding(0, dp(6), 0, 0);
@@ -1109,12 +1118,7 @@ public final class MainActivity extends Activity {
         LinearLayout heading = row();
         heading.setGravity(Gravity.TOP);
         heading.setBaselineAligned(false);
-        TextView recentTitle = label(getString(R.string.earthquakes), 16, ink);
-        android.graphics.drawable.Drawable seismicIcon = getDrawable(R.drawable.ic_seismic_wave).mutate();
-        seismicIcon.setTint(ink);
-        recentTitle.setCompoundDrawablesRelativeWithIntrinsicBounds(seismicIcon, null, null, null);
-        recentTitle.setCompoundDrawablePadding(dp(6));
-        heading.addView(recentTitle, new LinearLayout.LayoutParams(0, -2, 1));
+        heading.addView(seismicPanelTitle(R.string.earthquakes), new LinearLayout.LayoutParams(0, -2, 1));
         panel.addView(heading);
         if (!"IT".equalsIgnoreCase(deviceCountry) || !Double.isFinite(deviceLatitude) || !Double.isFinite(deviceLongitude)) {
             panel.addView(label(getString(R.string.earthquake_location_required), 13, muted));
