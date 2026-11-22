@@ -5,6 +5,7 @@
     <application android:icon="@mipmap/ic_weather" android:label="SkyHere" android:theme="@style/SkyHereTheme">
         <activity android:name=".SettingsActivity" android:exported="false" />
         <activity android:name=".maps.RadarActivity" android:exported="false" />
+        <activity android:name=".seismic.SeismogramActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

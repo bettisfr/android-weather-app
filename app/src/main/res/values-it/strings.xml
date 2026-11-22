@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="seismograms">Sismogrammi</string>
+    <string name="seismogram_open">Apri sismogramma</string>
+    <string name="seismogram_source">Vedi fonte su IESN</string>
+    <string name="seismogram_unavailable">Sismogramma non disponibile. Nuovo tentativo a breve.</string>
+    <string name="seismogram_loading">Caricamento sismogramma…</string>
     <string name="app_version">Versione %1$s · %2$s</string>
     <string name="settings_display">Visualizzazione</string>
     <string name="settings_measurement_units">Unità di misura</string>

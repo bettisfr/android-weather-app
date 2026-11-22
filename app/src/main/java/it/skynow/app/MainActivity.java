@@ -16,6 +16,7 @@ import it.skynow.app.astronomy.TransitCatalog;
 import it.skynow.app.maps.RadarActivity;
 import it.skynow.app.maps.SatelliteImagery;
 import it.skynow.app.seismic.EarthquakeFeed;
+import it.skynow.app.seismic.SeismogramActivity;
 import it.skynow.app.ui.SignalColors;
 import it.skynow.app.weather.AirQualityBand;
 import it.skynow.app.weather.ForecastCache;
@@ -757,7 +758,12 @@ public final class MainActivity extends Activity {
             if (dashboardTab == DashboardTab.EARTHQUAKES) {
                 earthquakeTitle = title(getString(R.string.seismic_activity));
                 earthquakePanel = card();
-                page.addView(earthquakePanel);
+                LinearLayout seismograms = card();
+                seismograms.addView(label(getString(R.string.seismograms), 16, ink));
+                addSpaced(seismograms, mapButton(R.string.seismogram_open, () ->
+                        startActivity(SeismogramActivity.intent(this, deviceLatitude, deviceLongitude))), 8);
+                page.addView(seismograms);
+                addSpaced(page, earthquakePanel, 12);
                 renderEarthquakes();
                 return;
             }
@@ -1049,7 +1055,12 @@ public final class MainActivity extends Activity {
         LinearLayout heading = row();
         heading.setGravity(Gravity.TOP);
         heading.setBaselineAligned(false);
-        heading.addView(label(getString(R.string.earthquakes), 16, ink), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView recentTitle = label(getString(R.string.earthquakes), 16, ink);
+        android.graphics.drawable.Drawable seismicIcon = getDrawable(R.drawable.ic_seismic_wave).mutate();
+        seismicIcon.setTint(ink);
+        recentTitle.setCompoundDrawablesRelativeWithIntrinsicBounds(seismicIcon, null, null, null);
+        recentTitle.setCompoundDrawablePadding(dp(6));
+        heading.addView(recentTitle, new LinearLayout.LayoutParams(0, -2, 1));
         panel.addView(heading);
         if (!"IT".equalsIgnoreCase(deviceCountry) || !Double.isFinite(deviceLatitude) || !Double.isFinite(deviceLongitude)) {
             panel.addView(label(getString(R.string.earthquake_location_required), 13, muted));
@@ -1098,8 +1109,9 @@ public final class MainActivity extends Activity {
             panel.addView(rows);
             Button more = moreButton();
             panel.addView(more);
-            more.setOnClickListener(v -> appendEarthquakes(rows, more, visible, lat, lon, 15));
-            appendEarthquakes(rows, more, visible, lat, lon, 5);
+            int pageSize = 10;
+            more.setOnClickListener(v -> appendEarthquakes(rows, more, visible, lat, lon, pageSize));
+            appendEarthquakes(rows, more, visible, lat, lon, pageSize);
         }));
     }
 
