@@ -2237,20 +2237,20 @@ public final class MainActivity extends Activity {
             View arrow = skyTrackChevron();
             liveIssBadges.add(new LiveIssBadge(pass, live, arrow));
             heading.addView(arrow);
-            entry.addView(heading);
+            addSpaced(entry, heading, 4);
             LinearLayout details = row();
             details.addView(label(getString(R.string.iss_details, duration / 60, duration % 60,
                     Math.round(pass.peak.elevation)), 13, muted), new LinearLayout.LayoutParams(0, -2, 1));
             TextView magnitude = astronomyBadge("");
             setMagnitudeBadge(magnitude, pass.magnitude, magnitudeColor(pass.magnitude));
             details.addView(magnitude);
-            addSpaced(entry, details, 4);
+            addSpaced(entry, details, 3);
             String appears = issBearing(pass.rise.azimuth);
             String culminates = issBearing(pass.peak.azimuth);
             String disappears = issBearing(pass.set.azimuth);
             TextView directions = label(getString(R.string.iss_directions_short, appears, culminates, disappears), 13, muted);
             directions.setContentDescription(getString(R.string.iss_directions, appears, culminates, disappears));
-            addSpaced(entry, directions, 3);
+            entry.addView(directions);
             String url = issPassUrl(pass, zone);
             astronomyCardAction(entry, () -> showIssPass(pass, zone, headingText, url));
             addSpaced(rows, entry, 8);
