@@ -45,8 +45,10 @@ public final class SkyPath extends View {
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float density = getResources().getDisplayMetrics().density;
-        float left = 5 * density;
-        float width = getWidth() - 2 * left;
+        paint.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP,
+                10, getResources().getDisplayMetrics()));
+        float left = paint.measureText("−90°") + 9 * density;
+        float width = getWidth() - left - 5 * density;
         if (width <= 0) return;
         float low = 0;
         float high = 0;
@@ -56,6 +58,7 @@ public final class SkyPath extends View {
         }
         float scale = getHeight() * .76f / Math.max(MIN_ELEVATION_RANGE, high - low);
         float horizon = getHeight() / 2f + (low + high) * scale / 2;
+        drawAxis(canvas, left, horizon, scale, density);
         float nowX = left + width * nowFraction;
         float nowY = horizon - nowElevation * scale;
         int future = getContext().getColor(moon ? R.color.sky_path_moon_future : R.color.sky_path_sun_future);
@@ -91,6 +94,31 @@ public final class SkyPath extends View {
             int dot = getContext().getColor(moon ? R.color.sky_accent : R.color.sky_path_sun_dot);
             paint.setColor(nowElevation > 0 ? dot : below);
             canvas.drawCircle(nowX, nowY, 4.5f * density, paint);
+        }
+    }
+
+    private void drawAxis(Canvas canvas, float left, float horizon, float scale, float density) {
+        Paint.FontMetrics metrics = paint.getFontMetrics();
+        float textCenter = (metrics.ascent + metrics.descent) / 2;
+        float top = -metrics.ascent + textCenter;
+        float bottom = getHeight() - metrics.descent + textCenter;
+        int outlineColor = getContext().getColor(R.color.sky_path_outline);
+        int textColor = getContext().getColor(R.color.sky_muted);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(density);
+        paint.setColor(outlineColor);
+        canvas.drawLine(left, top, left, bottom, paint);
+        paint.setTextAlign(Paint.Align.RIGHT);
+        for (int degrees = -90; degrees <= 90; degrees += 30) {
+            float y = horizon - degrees * scale;
+            if (y < top || y > bottom) continue;
+            paint.setColor(outlineColor);
+            canvas.drawLine(left - 3 * density, y, left, y, paint);
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(textColor);
+            String label = degrees < 0 ? "−" + -degrees + "°" : degrees + "°";
+            canvas.drawText(label, left - 5 * density, y - textCenter, paint);
+            paint.setStyle(Paint.Style.STROKE);
         }
     }
 
