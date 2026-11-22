@@ -33,7 +33,7 @@
     <string name="now">Adesso</string>
     <string name="current_conditions">Condizioni attuali</string>
     <string name="astronomy">Astronomia</string>
-    <string name="iss_visible_now">Visibile ora</string>
+    <string name="astronomy_visible_now">Visibile ora</string>
     <string name="iss_passes">Passaggi visibili della ISS</string>
     <string name="iss_scope">Prossimi 7 giorni · Stime per cielo sereno</string>
     <string name="iss_loading">Calcolo dei passaggi della ISS…</string>

@@ -159,9 +159,9 @@ public final class MainActivity extends Activity {
     private boolean resumed;
     private TextView skyTrackDirection;
     private SkyTrack aimedSkyTrack;
-    private final List<LiveIssBadge> liveIssBadges = new ArrayList<>();
+    private final List<VisibilityBadge> visibilityBadges = new ArrayList<>();
     private LiveIssBadge trackedIss;
-    private final Runnable updateIssVisibility = this::refreshIssVisibility;
+    private final Runnable updateAstronomyVisibility = this::refreshAstronomyVisibility;
     private boolean phoneOrientationActive;
     private long lastPhoneReadingNanos;
     private final float[] phoneRotation = new float[9];
@@ -518,7 +518,7 @@ public final class MainActivity extends Activity {
         super.onResume();
         resumed = true;
         refreshWarnings();
-        refreshIssVisibility();
+        refreshAstronomyVisibility();
         startPhoneOrientation();
         updateSkyCoordinates.run();
         if (data == null || choosingLocation || locationListener != null || forecastLoading) return;
@@ -530,7 +530,7 @@ public final class MainActivity extends Activity {
 
     @Override protected void onPause() {
         resumed = false;
-        main.removeCallbacks(updateIssVisibility);
+        main.removeCallbacks(updateAstronomyVisibility);
         stopPhoneOrientation();
         main.removeCallbacks(updateSkyCoordinates);
         super.onPause();
@@ -657,8 +657,8 @@ public final class MainActivity extends Activity {
     }
 
     private void layout() {
-        liveIssBadges.clear();
-        refreshIssVisibility();
+        visibilityBadges.clear();
+        refreshAstronomyVisibility();
         placeHeader = null;
         regionalWarnings = null;
         auroraStatus = null;
@@ -2236,13 +2236,13 @@ public final class MainActivity extends Activity {
             magnitudeSize.setMarginStart(dp(6));
             heading.addView(magnitude, magnitudeSize);
             TextView live = nowBadge();
-            live.setContentDescription(getString(R.string.iss_visible_now));
+            live.setContentDescription(getString(R.string.astronomy_visible_now));
             live.setVisibility(View.GONE);
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.setMarginStart(dp(6));
             heading.addView(live, liveSize);
             View arrow = skyTrackChevron();
-            liveIssBadges.add(new LiveIssBadge(pass, live, arrow));
+            visibilityBadges.add(new VisibilityBadge(pass.rise.time, pass.set.time, live, arrow));
             LinearLayout.LayoutParams arrowSize = new LinearLayout.LayoutParams(-2, -2);
             arrowSize.setMarginStart(dp(6));
             heading.addView(arrow, arrowSize);
@@ -2261,50 +2261,61 @@ public final class MainActivity extends Activity {
             addSpaced(rows, entry, 8);
         }
         more.setVisibility(end < passes.size() ? View.VISIBLE : View.GONE);
-        refreshIssVisibility();
+        refreshAstronomyVisibility();
     }
 
-    private static final class LiveIssBadge {
-        final IssPasses.Pass pass;
+    private static class VisibilityBadge {
+        final long start;
+        final long end;
         final TextView badge;
         final View inactiveArrow;
 
-        LiveIssBadge(IssPasses.Pass pass, TextView badge, View inactiveArrow) {
-            this.pass = pass;
+        VisibilityBadge(long start, long end, TextView badge, View inactiveArrow) {
+            this.start = start;
+            this.end = end;
             this.badge = badge;
             this.inactiveArrow = inactiveArrow;
         }
 
         long update(long nowMillis, long second) {
-            boolean visible = pass.visibleAt(second);
+            boolean visible = second >= start && second <= end;
             badge.setVisibility(visible ? View.VISIBLE : View.GONE);
             if (inactiveArrow != null) inactiveArrow.setVisibility(visible ? View.GONE : View.VISIBLE);
-            if (second < pass.rise.time) return pass.rise.time * 1000L - nowMillis;
-            if (second <= pass.set.time) return (pass.set.time + 1) * 1000L - nowMillis;
+            if (second < start) return start * 1000L - nowMillis;
+            if (second <= end) return (end + 1) * 1000L - nowMillis;
             return Long.MAX_VALUE;
         }
     }
 
+    private static final class LiveIssBadge extends VisibilityBadge {
+        final IssPasses.Pass pass;
+
+        LiveIssBadge(IssPasses.Pass pass, TextView badge) {
+            super(pass.rise.time, pass.set.time, badge, null);
+            this.pass = pass;
+        }
+    }
+
     private TextView issVisibilityBadge() {
-        TextView badge = observingBadge(getString(R.string.iss_visible_now));
+        TextView badge = observingBadge(getString(R.string.astronomy_visible_now));
         badge.setVisibility(View.GONE);
         return badge;
     }
 
-    private void refreshIssVisibility() {
-        main.removeCallbacks(updateIssVisibility);
+    private void refreshAstronomyVisibility() {
+        main.removeCallbacks(updateAstronomyVisibility);
         if (!resumed) return;
         long millis = System.currentTimeMillis();
         long second = Math.floorDiv(millis, 1000L);
         long delay = Long.MAX_VALUE;
-        for (LiveIssBadge live : liveIssBadges) delay = Math.min(delay, live.update(millis, second));
+        for (VisibilityBadge live : visibilityBadges) delay = Math.min(delay, live.update(millis, second));
         if (trackedIss != null && aimedSkyTrack != null) {
             delay = Math.min(delay, trackedIss.update(millis, second));
             SkyTrajectory.Point position = trackedIss.pass.positionAt(second);
             aimedSkyTrack.setCurrentPosition(position);
             if (position != null) delay = Math.min(delay, 1000L - Math.floorMod(millis, 1000L));
         }
-        if (delay != Long.MAX_VALUE) main.postDelayed(updateIssVisibility, delay);
+        if (delay != Long.MAX_VALUE) main.postDelayed(updateAstronomyVisibility, delay);
     }
 
     private TextView skyTrackChevron() {
@@ -2382,7 +2393,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.topMargin = dp(6);
             panel.addView(live, liveSize);
-            trackedIss = new LiveIssBadge(pass, live, null);
+            trackedIss = new LiveIssBadge(pass, live);
             addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
             addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
@@ -2396,7 +2407,7 @@ public final class MainActivity extends Activity {
             size.gravity = Gravity.CENTER_HORIZONTAL;
             panel.addView(link, size);
         });
-        refreshIssVisibility();
+        refreshAstronomyVisibility();
     }
 
     private void showDailySkyTrack(String name, boolean moon, Planets.Body planet, CharSequence observingWindows) {
@@ -2482,7 +2493,7 @@ public final class MainActivity extends Activity {
         dialog.setOnDismissListener(ignored -> {
             aimedSkyTrack = null;
             trackedIss = null;
-            refreshIssVisibility();
+            refreshAstronomyVisibility();
             skyTrackDirection = null;
             stopPhoneOrientation();
         });
@@ -2650,6 +2661,7 @@ public final class MainActivity extends Activity {
             footer.removeAllViews();
             int available = Math.min(goal, items.size());
             while (shown < available) addEclipse(events, items.get(shown++), zone);
+            refreshAstronomyVisibility();
             if (shown < goal && requestsLeft > 0) {
                 fetch(requestsLeft);
                 return;
@@ -2700,7 +2712,15 @@ public final class MainActivity extends Activity {
         LinearLayout title = column();
         title.addView(label(EclipseCatalog.typeLabel(this, event.type), 15, ink));
         heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        heading.addView(skyTrackChevron());
+        TextView live = nowBadge();
+        live.setContentDescription(getString(R.string.astronomy_visible_now));
+        live.setVisibility(View.GONE);
+        LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
+        liveSize.setMarginStart(dp(6));
+        heading.addView(live, liveSize);
+        View arrow = skyTrackChevron();
+        heading.addView(arrow);
+        visibilityBadges.add(new VisibilityBadge(event.start.getEpochSecond(), event.end.getEpochSecond(), live, arrow));
         entry.addView(heading);
         ZonedDateTime start = event.start.atZone(zone);
         ZonedDateTime end = event.end.atZone(zone);
