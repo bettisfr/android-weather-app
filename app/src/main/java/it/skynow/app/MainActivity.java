@@ -1066,7 +1066,10 @@ public final class MainActivity extends Activity {
                 .putExtra("timeZone", "Europe/Rome").putExtra("clock24", clock24)));
         map.setContentDescription(getString(R.string.earthquake_map));
         heading.addView(map);
-        addSpaced(panel, label(getString(R.string.earthquake_scope, radius), 13, muted), 8);
+        String magnitudeFilter = earthquakeMinimumMagnitude == 0 ? getString(R.string.earthquake_all_magnitudes)
+                : getString(R.string.earthquake_minimum_magnitude_value, earthquakeMinimumMagnitude);
+        String scope = getString(R.string.earthquake_scope, radius) + "\n" + magnitudeFilter;
+        addSpaced(panel, label(scope, 13, muted), 8);
         TextView status = label(getString(R.string.earthquake_loading), 13, muted);
         panel.addView(status);
         CompletableFuture.supplyAsync(() -> {
