@@ -13,142 +13,69 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 
 public final class SkyPath extends View {
-    private static final float MINUTES_PER_DAY = 24 * 60;
-    private static final int MOON_SAMPLES = 96;
+    private static final int SAMPLES = 96;
+    private static final float MIN_ELEVATION_RANGE = 10;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final Path outline = new Path();
-    private final float nowMinute;
-    private final float riseMinute;
-    private final float setMinute;
-    private final float cycleMinutes;
-    private final float polarHorizon;
-    private float[] lunarElevations;
-    private float lunarNowElevation;
+    private final float[] elevations = new float[SAMPLES + 1];
+    private final float nowFraction;
+    private final float nowElevation;
+    private final boolean moon;
 
-    public SkyPath(Context context, LocalTime sunrise, LocalTime sunset, LocalTime time) {
-        this(context, minutes(sunrise), minutes(sunset), time == null ? Float.NaN : minutes(time), MINUTES_PER_DAY, Float.NaN);
-    }
-
-    public static SkyPath moon(Context context, LocalDate date, ZoneId zone, Instant now,
-                               double latitude, double longitude) {
+    public SkyPath(Context context, LocalDate date, ZoneId zone, Instant now,
+                   double latitude, double longitude, boolean moon) {
+        super(context);
+        this.moon = moon;
         long start = date.atStartOfDay(zone).toEpochSecond();
         long span = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - start;
-        SkyPath chart = new SkyPath(context, 0, 0, now.getEpochSecond() - start, span, Float.NaN);
-        chart.lunarElevations = new float[MOON_SAMPLES + 1];
-        for (int i = 0; i <= MOON_SAMPLES; i++) {
-            Instant time = Instant.ofEpochSecond(start + span * i / MOON_SAMPLES);
-            chart.lunarElevations[i] = moonElevation(time, latitude, longitude);
+        nowFraction = (now.getEpochSecond() - start) / (float) span;
+        nowElevation = elevation(now, latitude, longitude, moon);
+        for (int i = 0; i <= SAMPLES; i++) {
+            Instant time = Instant.ofEpochSecond(start + span * i / SAMPLES);
+            elevations[i] = elevation(time, latitude, longitude, moon);
         }
-        chart.lunarNowElevation = moonElevation(now, latitude, longitude);
-        return chart;
-    }
-
-    private static float moonElevation(Instant time, double latitude, double longitude) {
-        return (float) (90 - SkyPosition.at(time, latitude, longitude, true).zenith);
-    }
-
-    public static SkyPath polarSun(Context context, LocalTime noon, LocalTime time, boolean daylight,
-                            double noonElevation, double midnightElevation) {
-        double center = (noonElevation + midnightElevation) / 2;
-        double amplitude = Math.max(0.1, (noonElevation - midnightElevation) / 2);
-        float horizon = (float) Math.max(1.2, Math.abs(center) / amplitude);
-        float midpoint = minutes(noon);
-        return new SkyPath(context, midpoint, midpoint, minutes(time), MINUTES_PER_DAY,
-                daylight ? horizon : -horizon);
-    }
-
-    private SkyPath(Context context, float rise, float set, float now, float cycleMinutes, float polarHorizon) {
-        super(context);
-        riseMinute = rise;
-        setMinute = set;
-        nowMinute = now;
-        this.cycleMinutes = cycleMinutes;
-        this.polarHorizon = polarHorizon;
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+    }
+
+    private static float elevation(Instant time, double latitude, double longitude, boolean moon) {
+        return (float) (90 - SkyPosition.at(time, latitude, longitude, moon).zenith);
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         float density = getResources().getDisplayMetrics().density;
         float left = 5 * density;
-        float width = getWidth() - 10 * density;
+        float width = getWidth() - 2 * left;
         if (width <= 0) return;
-        if (lunarElevations != null) {
-            drawMoon(canvas, left, width, density);
-            return;
-        }
-        boolean polar = Float.isFinite(polarHorizon);
-        if (!polar && (riseMinute < 0 || setMinute <= riseMinute
-                || setMinute - riseMinute >= cycleMinutes)) return;
-        float center = getHeight() * .5f;
-        float amplitude = getHeight() * .35f;
-        float daylightFraction = (setMinute - riseMinute) / cycleMinutes;
-        float sunrisePhase = .5f - daylightFraction / 2;
-        float sunsetPhase = .5f + daylightFraction / 2;
-        float horizon = curveY(center, amplitude, sunrisePhase);
-        if (polar) {
-            amplitude /= Math.max(1, Math.abs(polarHorizon) / 1.25f);
-            horizon = center + amplitude * polarHorizon;
-            sunrisePhase = 0;
-            sunsetPhase = polarHorizon > 0 ? 1 : 0;
-        }
-        float midpoint = (riseMinute + setMinute) / 2f;
-        float phase = .5f + (nowMinute - midpoint) / cycleMinutes;
-        if (polar) phase -= (float) Math.floor(phase);
-        float elapsed = Math.max(0, Math.min(1, phase));
-
-        fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, sunsetPhase, getContext().getColor(R.color.sky_path_sun_future));
-        if (Float.isFinite(nowMinute)) {
-            fill(canvas, left, width, center, amplitude, horizon, 0, Math.min(sunrisePhase, elapsed), getContext().getColor(R.color.sky_path_below));
-            fill(canvas, left, width, center, amplitude, horizon, sunrisePhase, Math.min(sunsetPhase, elapsed),
-                    getContext().getColor(R.color.sky_path_sun_elapsed));
-            fill(canvas, left, width, center, amplitude, horizon, sunsetPhase, elapsed, getContext().getColor(R.color.sky_path_below));
-        }
-        curve(left, width, center, amplitude, 0, 1);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(density);
-        paint.setColor(getContext().getColor(R.color.sky_path_outline));
-        canvas.drawPath(path, paint);
-        canvas.drawLine(left, horizon, left + width, horizon, paint);
-        if (Float.isFinite(nowMinute) && phase >= 0 && phase <= 1) {
-            paint.setStyle(Paint.Style.FILL);
-            paint.setColor((polar ? polarHorizon > 0 : phase >= sunrisePhase && phase <= sunsetPhase)
-                    ? getContext().getColor(R.color.sky_path_sun_dot) : getContext().getColor(R.color.sky_path_below));
-            canvas.drawCircle(left + width * phase, curveY(center, amplitude, phase), 4.5f * density, paint);
-        }
-    }
-
-    private void drawMoon(Canvas canvas, float left, float width, float density) {
         float low = 0;
         float high = 0;
-        for (float elevation : lunarElevations) {
+        for (float elevation : elevations) {
             low = Math.min(low, elevation);
             high = Math.max(high, elevation);
         }
-        float scale = getHeight() * .76f / Math.max(1, high - low);
+        float scale = getHeight() * .76f / Math.max(MIN_ELEVATION_RANGE, high - low);
         float horizon = getHeight() / 2f + (low + high) * scale / 2;
-        float elapsed = nowMinute / cycleMinutes;
-        float nowX = left + width * elapsed;
-        float nowY = horizon - lunarNowElevation * scale;
-        int future = getContext().getColor(R.color.sky_path_moon_future);
-        int above = getContext().getColor(R.color.sky_path_moon_elapsed);
+        float nowX = left + width * nowFraction;
+        float nowY = horizon - nowElevation * scale;
+        int future = getContext().getColor(moon ? R.color.sky_path_moon_future : R.color.sky_path_sun_future);
+        int above = getContext().getColor(moon ? R.color.sky_path_moon_elapsed : R.color.sky_path_sun_elapsed);
         int below = getContext().getColor(R.color.sky_path_below);
         outline.reset();
         float x = left;
-        float y = horizon - lunarElevations[0] * scale;
+        float y = horizon - elevations[0] * scale;
         outline.moveTo(x, y);
-        for (int i = 1; i <= MOON_SAMPLES; i++) {
-            float nextX = left + width * i / MOON_SAMPLES;
-            float nextY = horizon - lunarElevations[i] * scale;
+        for (int i = 1; i <= SAMPLES; i++) {
+            float nextX = left + width * i / SAMPLES;
+            float nextY = horizon - elevations[i] * scale;
             if (x < nowX && nowX < nextX) {
-                fillMoonSegment(canvas, x, y, nowX, nowY, horizon, above, below);
+                fillSegment(canvas, x, y, nowX, nowY, horizon, above, below);
                 outline.lineTo(nowX, nowY);
                 x = nowX;
                 y = nowY;
             }
             boolean past = nextX <= nowX;
-            fillMoonSegment(canvas, x, y, nextX, nextY, horizon, past ? above : future,
+            fillSegment(canvas, x, y, nextX, nextY, horizon, past ? above : future,
                     past ? below : android.graphics.Color.TRANSPARENT);
             outline.lineTo(nextX, nextY);
             x = nextX;
@@ -159,27 +86,28 @@ public final class SkyPath extends View {
         paint.setColor(getContext().getColor(R.color.sky_path_outline));
         canvas.drawPath(outline, paint);
         canvas.drawLine(left, horizon, left + width, horizon, paint);
-        if (elapsed >= 0 && elapsed <= 1) {
+        if (nowFraction >= 0 && nowFraction < 1) {
             paint.setStyle(Paint.Style.FILL);
-            paint.setColor(lunarNowElevation >= 0 ? getContext().getColor(R.color.sky_accent) : below);
+            int dot = getContext().getColor(moon ? R.color.sky_accent : R.color.sky_path_sun_dot);
+            paint.setColor(nowElevation > 0 ? dot : below);
             canvas.drawCircle(nowX, nowY, 4.5f * density, paint);
         }
     }
 
-    private void fillMoonSegment(Canvas canvas, float x, float y, float endX, float endY,
+    private void fillSegment(Canvas canvas, float x, float y, float endX, float endY,
                                  float horizon, int above, int below) {
         boolean startsAbove = y <= horizon;
         boolean endsAbove = endY <= horizon;
         if (startsAbove == endsAbove) {
-            fillMoonArea(canvas, x, y, endX, endY, horizon, startsAbove ? above : below);
+            fillArea(canvas, x, y, endX, endY, horizon, startsAbove ? above : below);
             return;
         }
         float crossing = x + (endX - x) * (horizon - y) / (endY - y);
-        fillMoonArea(canvas, x, y, crossing, horizon, horizon, startsAbove ? above : below);
-        fillMoonArea(canvas, crossing, horizon, endX, endY, horizon, endsAbove ? above : below);
+        fillArea(canvas, x, y, crossing, horizon, horizon, startsAbove ? above : below);
+        fillArea(canvas, crossing, horizon, endX, endY, horizon, endsAbove ? above : below);
     }
 
-    private void fillMoonArea(Canvas canvas, float x, float y, float endX, float endY, float horizon, int color) {
+    private void fillArea(Canvas canvas, float x, float y, float endX, float endY, float horizon, int color) {
         if (color == android.graphics.Color.TRANSPARENT) return;
         path.reset();
         path.moveTo(x, horizon);
@@ -246,7 +174,4 @@ public final class SkyPath extends View {
         return 2 * Math.PI * (date.getDayOfYear() - 1) / date.lengthOfYear();
     }
 
-    private static int minutes(LocalTime time) {
-        return time == null ? -1 : time.toSecondOfDay() / 60;
-    }
 }

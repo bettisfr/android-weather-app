@@ -1760,21 +1760,12 @@ public final class MainActivity extends Activity {
         daylight.setSingleLine(true);
         boolean daylightFits = !roomy && textWidth(daylight, daylight.getText().toString()) <= dp(SKY_PATH_TIMES_WIDTH_DP);
         if (daylightFits) (polar ? timeRow : evening).addView(daylight);
-        int twilight = SkyPath.civilTwilightMinutes(LocalDate.parse(at(daily, "time", index)), latitude);
+        LocalDate date = LocalDate.parse(at(daily, "time", index));
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        int twilight = SkyPath.civilTwilightMinutes(date, latitude);
         LinearLayout chart = column();
         content.addView(chart, new LinearLayout.LayoutParams(roomy ? -1 : 0, -2, roomy ? 0 : 1));
-        SkyPath path;
-        if (polar) {
-            LocalDate date = LocalDate.parse(at(daily, "time", index));
-            ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-            LocalTime noon = SkyPath.solarNoon(date, longitude, zone);
-            Instant transit = date.atTime(noon).atZone(zone).toInstant();
-            double noonElevation = 90 - SkyPosition.at(transit, latitude, longitude, false).zenith;
-            double midnightElevation = 90 - SkyPosition.at(transit.minusSeconds(43200), latitude, longitude, false).zenith;
-            path = SkyPath.polarSun(this, noon, LocalTime.now(zone), seconds == 86400, noonElevation, midnightElevation);
-        } else {
-            path = new SkyPath(this, sunrise, sunset, localTime(data.optJSONObject("current").optString("time")));
-        }
+        SkyPath path = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false);
         chart.addView(path, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout legend = row();
         legend.setGravity(Gravity.TOP);
@@ -1839,7 +1830,7 @@ public final class MainActivity extends Activity {
             if (roomy) readings.addView(time, new LinearLayout.LayoutParams(0, -2, 1));
         }
         LinearLayout chart = column();
-        chart.addView(SkyPath.moon(this, date, zone, Instant.now(), latitude, longitude),
+        chart.addView(new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true),
                 new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout phaseDetails = row();
         phaseDetails.setPadding(dp(5), dp(3), dp(5), 0);
