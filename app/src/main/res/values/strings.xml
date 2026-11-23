@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="aurora_local_intensity">Local intensity</string>
     <string name="radar_lightning">Lightning</string>
     <string name="seismograms">Seismograms</string>
     <string name="seismogram_open">Trace</string>
@@ -206,6 +207,10 @@
     <string name="venus">Venus</string>
     <string name="sun">Sun</string>
     <string name="planets">Planets</string>
+    <string name="uranus">Uranus</string>
+    <string name="uranus_binoculars">Binoculars recommended</string>
+    <string name="planets_visible_only">Visible now only</string>
+    <string name="planets_none_visible_now">No planets are observable now</string>
     <string name="mars">Mars</string>
     <string name="jupiter">Jupiter</string>
     <string name="saturn">Saturn</string>

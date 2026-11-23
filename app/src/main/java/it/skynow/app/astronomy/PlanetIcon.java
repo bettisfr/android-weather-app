@@ -60,6 +60,12 @@ public final class PlanetIcon extends View {
                 ring(canvas, 0xffeac996, 3.5f, 0, 180);
                 ring(canvas, 0xffb3895e, .8f, 0, 180);
                 break;
+            case URANUS:
+                sphere(canvas, 0xff83bfc5);
+                oval(canvas, 1, 3, 31, 15, 0xffa6d8db);
+                oval(canvas, 1, 17, 33, 25, 0xff74b1bb);
+                oval(canvas, 4, 11, 28, 18, 0xff95cdd0);
+                break;
         }
         canvas.restoreToCount(saved);
     }

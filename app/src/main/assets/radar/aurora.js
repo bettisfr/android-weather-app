@@ -4,6 +4,8 @@ const limit = 85.05112878;
 let map;
 let strings;
 let timeFormat;
+let auroraCells, auroraKp;
+let auroraPopup;
 
 function status(message) {
     const element = document.getElementById('status');
@@ -48,6 +50,11 @@ function initialize(config) {
     }).addTo(map);
     pin.bringToFront();
     if (config.airQuality) initializeAirQuality();
+    else map.on('click', ({latlng}) => {
+        auroraPopup = {latlng, content: document.createElement('div')};
+        fillAuroraPopup();
+        L.popup().setLatLng(latlng).setContent(auroraPopup.content).openOn(map);
+    });
 }
 
 function mercatorY(latitude, height) {
@@ -57,6 +64,7 @@ function mercatorY(latitude, height) {
 
 function setAurora(encoded, validTime) {
     const cells = atob(encoded);
+    auroraCells = cells;
     const canvas = document.createElement('canvas');
     canvas.width = 720;
     canvas.height = 1024;
@@ -85,6 +93,27 @@ function setAurora(encoded, validTime) {
     document.getElementById('forecast').textContent = strings.forecast + ' · ' + timeFormat.format(validTime);
     showMapUpdate(strings);
     status('');
+    fillAuroraPopup();
+}
+
+function setAuroraKp(label) {
+    auroraKp = label;
+    fillAuroraPopup();
+}
+
+function fillAuroraPopup() {
+    if (!auroraPopup) return;
+    const {latlng, content} = auroraPopup;
+    const position = latlng.wrap();
+    const row = 90 - Math.round(position.lat);
+    const column = ((Math.round(position.lng) + 180) % 360 + 360) % 360;
+    const value = auroraCells && Math.abs(position.lat) <= limit
+        ? auroraCells.charCodeAt(row * 360 + column) : NaN;
+    const intensity = document.createElement('div');
+    intensity.textContent = strings.localIntensity + ' · ' + (Number.isFinite(value) ? value + '/100' : '—');
+    const kp = document.createElement('div');
+    kp.textContent = auroraKp ?? strings.kpUnavailable;
+    content.replaceChildren(intensity, kp);
 }
 
 const aqiEndpoint = 'https://air-quality-api.open-meteo.com/v1/air-quality';

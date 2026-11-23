@@ -159,6 +159,8 @@ public final class MainActivity extends Activity {
     private String astronomyTailKey;
     private CompletableFuture<JSONObject> astronomyTail;
     private final List<PlanetRow> planetRows = new ArrayList<>();
+    private boolean observablePlanetsOnly;
+    private TextView noObservablePlanets;
     private LocalDate planetWindowDate;
     private double magneticDeclination = Double.NaN;
     private boolean resumed;
@@ -695,6 +697,7 @@ public final class MainActivity extends Activity {
         sunPath = null;
         moonPath = null;
         planetRows.clear();
+        noObservablePlanets = null;
         planetWindowDate = null;
         currentLocationTitle = null;
         currentLocationWeather = null;
@@ -1965,10 +1968,23 @@ public final class MainActivity extends Activity {
 
     private void planets() {
         LinearLayout tile = card();
+        LinearLayout title = row();
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        title.setPadding(0, 0, 0, dp(8));
         TextView heading = label(getString(R.string.planets), 16, ink);
-        heading.setPadding(0, 0, 0, dp(8));
-        tile.addView(heading);
-        int[] names = {R.string.mercury, R.string.venus, R.string.mars, R.string.jupiter, R.string.saturn};
+        title.addView(heading, new LinearLayout.LayoutParams(0, -2, 1));
+        CheckBox visibleOnly = new CheckBox(this);
+        visibleOnly.setText(R.string.planets_visible_only);
+        visibleOnly.setTextSize(13);
+        visibleOnly.setTextColor(ink);
+        visibleOnly.setChecked(observablePlanetsOnly);
+        visibleOnly.setOnCheckedChangeListener((button, checked) -> {
+            observablePlanetsOnly = checked;
+            updatePlanets(Instant.now());
+        });
+        title.addView(visibleOnly);
+        tile.addView(title);
+        int[] names = {R.string.mercury, R.string.venus, R.string.mars, R.string.jupiter, R.string.saturn, R.string.uranus};
         for (Planets.Body body : Planets.Body.values()) {
             LinearLayout entry = column();
             entry.setBackground(background(getColor(R.color.sky_subtle), 12));
@@ -1994,6 +2010,11 @@ public final class MainActivity extends Activity {
             TextView windows = label("", 12, muted);
             windows.setPadding(0, dp(5), 0, 0);
             entry.addView(windows);
+            if (body == Planets.Body.URANUS) {
+                TextView optics = label(getString(R.string.uranus_binoculars), 12, muted);
+                optics.setPadding(0, dp(4), 0, 0);
+                entry.addView(optics);
+            }
             PlanetRow planet = new PlanetRow(body, entry, now, magnitude, position, windows);
             planetRows.add(planet);
             astronomyCardAction(entry, () -> {
@@ -2003,6 +2024,8 @@ public final class MainActivity extends Activity {
             });
             addSpaced(tile, entry, 7);
         }
+        noObservablePlanets = label(getString(R.string.planets_none_visible_now), 13, muted);
+        tile.addView(noObservablePlanets);
         TextView note = label(getString(R.string.planets_clear_sky), 11, muted);
         note.setPadding(0, dp(8), 0, 0);
         tile.addView(note);
@@ -2035,6 +2058,7 @@ public final class MainActivity extends Activity {
         LocalDate today = now.atZone(zone).toLocalDate();
         Instant tomorrow = today.plusDays(1).atStartOfDay(zone).toInstant();
         boolean sunBelowHorizon = SkyPosition.at(now, latitude, longitude, false).zenith > 90;
+        boolean anyObservable = false;
         for (PlanetRow row : planetRows) {
             Planets.Reading reading = Planets.at(row.body, now, latitude, longitude);
             boolean showMagnitude = reading.elevation > 0 && sunBelowHorizon;
@@ -2054,6 +2078,8 @@ public final class MainActivity extends Activity {
                         : getString(R.string.planet_today_windows, android.text.TextUtils.join(" · ", hours)));
             }
             boolean observingNow = row.observesAt(now);
+            anyObservable |= observingNow;
+            row.entry.setVisibility(!observablePlanetsOnly || observingNow ? View.VISIBLE : View.GONE);
             setSkyTrackAvailable(row.entry, row.now, observingNow);
             row.position.setVisibility(observingNow ? View.VISIBLE : View.GONE);
             if (observingNow) {
@@ -2061,6 +2087,7 @@ public final class MainActivity extends Activity {
                         compassDirection(reading.azimuth), Math.round(reading.elevation)));
             }
         }
+        noObservablePlanets.setVisibility(observablePlanetsOnly && !anyObservable ? View.VISIBLE : View.GONE);
         planetWindowDate = today;
     }
 
@@ -2821,6 +2848,7 @@ public final class MainActivity extends Activity {
         dividerSize.setMargins(0, dp(7), 0, dp(8));
         seasons.addView(divider, dividerSize);
 
+        seasons.addView(label(place, 14, ink));
         seasons.addView(label(getString(R.string.season_coordinates,
                 number(latitude, "%.4f"), number(longitude, "%.4f")), 13, muted));
         TextView rotation = label(getString(R.string.earth_rotation_speed,

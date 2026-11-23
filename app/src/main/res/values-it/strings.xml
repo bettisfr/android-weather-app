@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="aurora_local_intensity">Intensità locale</string>
     <string name="radar_lightning">Fulmini</string>
     <string name="seismograms">Sismogrammi</string>
     <string name="seismogram_open">Tracciato</string>
@@ -205,6 +206,10 @@
     <string name="venus">Venere</string>
     <string name="sun">Sole</string>
     <string name="planets">Pianeti</string>
+    <string name="uranus">Urano</string>
+    <string name="uranus_binoculars">Binocolo consigliato</string>
+    <string name="planets_visible_only">Solo visibili ora</string>
+    <string name="planets_none_visible_now">Nessun pianeta osservabile ora</string>
     <string name="mars">Marte</string>
     <string name="jupiter">Giove</string>
     <string name="saturn">Saturno</string>

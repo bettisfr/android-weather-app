@@ -14,7 +14,8 @@ public final class Planets {
         VENUS(76.6799, 2.46590e-5, 3.3946, 2.75e-8, 54.8910, 1.38374e-5, .723330, .006773, -1.302e-9, 48.0052, 1.6021302244),
         MARS(49.5574, 2.11081e-5, 1.8497, -1.78e-8, 286.5016, 2.92961e-5, 1.523688, .093405, 2.516e-9, 18.6021, .5240207766),
         JUPITER(100.4542, 2.76854e-5, 1.3030, -1.557e-7, 273.8777, 1.64505e-5, 5.20256, .048498, 4.469e-9, 19.8950, .0830853001),
-        SATURN(113.6634, 2.38980e-5, 2.4886, -1.081e-7, 339.3939, 2.97661e-5, 9.55475, .055546, -9.499e-9, 316.9670, .0334442282);
+        SATURN(113.6634, 2.38980e-5, 2.4886, -1.081e-7, 339.3939, 2.97661e-5, 9.55475, .055546, -9.499e-9, 316.9670, .0334442282),
+        URANUS(74.0005, 1.3978e-5, .7733, 1.9e-8, 96.6612, 3.0565e-5, 19.18171, .047318, 7.45e-9, 142.5905, .011725806);
 
         private final double node, nodeRate, inclination, inclinationRate, perihelion, perihelionRate;
         private final double semiMajor, eccentricity, eccentricityRate, anomaly, anomalyRate;
@@ -44,13 +45,15 @@ public final class Planets {
         public final double azimuth, elevation, magnitude;
         public final boolean favorable;
 
-        Reading(SkyPosition sky, double magnitude, double elongation, double sunElevation) {
+        Reading(Body body, SkyPosition sky, double magnitude, double elongation, double sunElevation) {
             azimuth = sky.azimuth;
             elevation = 90 - sky.zenith;
             this.magnitude = magnitude;
             // Clear-sky rule of thumb. Bright planets can be seen earlier in twilight.
-            favorable = elevation >= 5 && elongation >= 10 && magnitude <= 5
-                    && sunElevation <= (magnitude <= -2 ? -3 : -6);
+            boolean binoculars = body == Body.URANUS;
+            double twilightLimit = binoculars ? -12 : magnitude <= -2 ? -3 : -6;
+            favorable = elevation >= 5 && elongation >= 10 && magnitude <= (binoculars ? 6.5 : 5)
+                    && sunElevation <= twilightLimit;
         }
     }
 
@@ -107,6 +110,13 @@ public final class Planets {
                 planetLatitude += Math.toRadians(-.020 * Math.cos(secondaryTerm)
                         + .018 * Math.sin(2 * jupiter - 6 * saturn - Math.toRadians(49)));
             }
+        } else if (body == Body.URANUS) {
+            double uranus = body.meanAnomaly(days);
+            double saturn = Body.SATURN.meanAnomaly(days);
+            double jupiter = Body.JUPITER.meanAnomaly(days);
+            planetLongitude += Math.toRadians(.040 * Math.sin(saturn - 2 * uranus + Math.toRadians(6))
+                    + .035 * Math.sin(saturn - 3 * uranus + Math.toRadians(33))
+                    - .015 * Math.sin(jupiter - uranus + Math.toRadians(20)));
         }
 
         double x = distance * Math.cos(planetLatitude) * Math.cos(planetLongitude) + sunX;
@@ -119,7 +129,7 @@ public final class Planets {
         double magnitude = magnitude(body, phase, distance, range, days, x, y, z);
         SkyPosition sky = SkyPosition.fromEcliptic(x, y, z, days, sunMeanLongitude, latitude, longitude, 4.2635e-5);
         SkyPosition sun = SkyPosition.fromEcliptic(sunX, sunY, 0, days, sunMeanLongitude, latitude, longitude, 0);
-        return new Reading(sky, magnitude, elongation, 90 - sun.zenith);
+        return new Reading(body, sky, magnitude, elongation, 90 - sun.zenith);
     }
 
     public static List<Window> windows(Body body, LocalDate date, ZoneId zone, double latitude, double longitude) {
@@ -163,6 +173,7 @@ public final class Planets {
             case VENUS: return -4.34 + correction + .013 * phase + 4.2e-7 * Math.pow(phase, 3);
             case MARS: return -1.51 + correction + .016 * phase;
             case JUPITER: return -9.25 + correction + .014 * phase;
+            case URANUS: return -7.15 + correction + .001 * phase;
             case SATURN:
                 double ringInclination = Math.toRadians(28.06);
                 double ringNode = Math.toRadians(169.51 + 3.82e-5 * days);
