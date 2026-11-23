@@ -4,6 +4,7 @@ import it.skynow.app.R;
 import it.skynow.app.SkyTheme;
 import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.EclipseCatalog;
+import it.skynow.app.astronomy.TransitCatalog;
 import it.skynow.app.seismic.EarthquakeFeed;
 import it.skynow.app.weather.AirQualityBand;
 import it.skynow.app.weather.OpenMeteo;
@@ -372,38 +373,27 @@ public final class RadarActivity extends Activity {
         String label = getString(useCatalog ? R.string.transit_open_nasa : R.string.eclipse_open_timeanddate);
         if (visibilityRequest != null) visibilityRequest.cancel(true);
         resolveVisibilityPlace(sequence, latitude, longitude);
-        visibilityRequest = network.submit(() -> {
-            String kind = options.getStringExtra("visibilityKind");
-            boolean clock24 = options.getBooleanExtra("clock24", true);
-            if ("solar".equals(kind)) {
-                showSolarVisibilityPoint(sequence, date, latitude, longitude, clock24, url, label);
-                return;
-            }
-            CompletableFuture<ZoneId> zone = CompletableFuture.supplyAsync(() -> {
-                try {
-                    return OpenMeteo.timeZone(latitude, longitude);
-                } catch (Exception error) {
-                    return ZoneOffset.UTC;
-                }
-            });
-            JSONArray lines;
-            try {
-                lines = VisibilityPointDetails.lookup(this, kind, date, latitude, longitude, zone::join, clock24);
-            } catch (Exception error) {
-                android.util.Log.w("SkyHere", "Map point details unavailable", error);
-                lines = new JSONArray().put(getString(R.string.visibility_point_unavailable));
-            }
-            sendVisibilityPoint(sequence, lines, url, label);
-        });
+        visibilityRequest = network.submit(() -> showOfflineVisibilityPoint(sequence, date, latitude, longitude,
+                options.getBooleanExtra("clock24", true), url, label));
     }
 
-    private void showSolarVisibilityPoint(int sequence, LocalDate date, double latitude, double longitude,
-                                          boolean clock24, String url, String label) {
-        EclipseCatalog.Event event;
+    private void showOfflineVisibilityPoint(int sequence, LocalDate date, double latitude, double longitude,
+                                            boolean clock24, String url, String label) {
+        java.util.function.Function<ZoneId, JSONArray> describe;
+        boolean visible;
         try {
-            event = EclipseCatalog.atDate(this, date, false, latitude, longitude);
+            String kind = getIntent().getStringExtra("visibilityKind");
+            if ("transit".equals(kind)) {
+                TransitCatalog.Event event = TransitCatalog.atDate(date, latitude, longitude);
+                visible = event != null;
+                describe = zone -> VisibilityPointDetails.transit(this, event, zone, clock24);
+            } else {
+                EclipseCatalog.Event event = EclipseCatalog.atDate(this, date, "lunar".equals(kind), latitude, longitude);
+                visible = event != null;
+                describe = zone -> VisibilityPointDetails.eclipse(this, event, zone, clock24);
+            }
         } catch (Exception error) {
-            android.util.Log.w("SkyHere", "Offline solar eclipse details unavailable", error);
+            android.util.Log.w("SkyHere", "Offline visibility details unavailable", error);
             sendVisibilityPoint(sequence, new JSONArray().put(getString(R.string.visibility_point_unavailable)), url, label);
             return;
         }
@@ -411,13 +401,13 @@ public final class RadarActivity extends Activity {
                 && Math.abs(longitude - getIntent().getDoubleExtra("lon", Double.NaN)) < .0001;
         String placeZone = getIntent().getStringExtra("timeZone");
         ZoneId initialZone = atPlace && placeZone != null ? ZoneId.of(placeZone) : ZoneOffset.UTC;
-        sendVisibilityPoint(sequence, VisibilityPointDetails.eclipse(this, event, initialZone, clock24), url, label);
-        if (event == null || atPlace) return;
+        sendVisibilityPoint(sequence, describe.apply(initialZone), url, label);
+        if (!visible || atPlace) return;
         CompletableFuture.runAsync(() -> {
             try {
                 ZoneId zone = OpenMeteo.timeZone(latitude, longitude);
                 if (!zone.equals(initialZone)) {
-                    sendVisibilityPoint(sequence, VisibilityPointDetails.eclipse(this, event, zone, clock24), url, label);
+                    sendVisibilityPoint(sequence, describe.apply(zone), url, label);
                 }
             } catch (Exception error) {
                 // UTC circumstances are already displayed when a local zone is unavailable offline.

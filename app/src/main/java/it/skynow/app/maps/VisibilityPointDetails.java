@@ -3,12 +3,10 @@ package it.skynow.app.maps;
 import android.content.Context;
 
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
-import java.util.function.Supplier;
 
 import org.json.JSONArray;
 
@@ -19,24 +17,14 @@ import it.skynow.app.astronomy.TransitCatalog;
 final class VisibilityPointDetails {
     private VisibilityPointDetails() {}
 
-    static JSONArray lookup(Context context, String kind, LocalDate date, double latitude, double longitude,
-                            Supplier<ZoneId> timeZone, boolean clock24) throws Exception {
-        Locale locale = Locale.forLanguageTag(context.getString(R.string.app_language_tag));
-        DateTimeFormatter clock = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h:mm a", locale);
+    static JSONArray transit(Context context, TransitCatalog.Event event, ZoneId zone, boolean clock24) {
         JSONArray lines = new JSONArray();
-        ZoneId zone;
-        if ("transit".equals(kind)) {
-            TransitCatalog.Event event = TransitCatalog.atDate(date, latitude, longitude);
-            if (event == null) return lines.put(context.getString(R.string.visibility_point_hidden));
-            zone = timeZone.get();
-            clock = clock.withZone(zone);
-            lines.put(context.getString(R.string.estimated_visible_range,
-                    range(context, event.visibleStart, event.visibleEnd, zone, clock)));
-        } else {
-            EclipseCatalog.Event event = EclipseCatalog.atDate(context, date, "lunar".equals(kind), latitude, longitude);
-            return eclipse(context, event, event == null ? null : timeZone.get(), clock24);
-        }
-        return lines.put(zone.getId().replace('_', ' '));
+        if (event == null) return lines.put(context.getString(R.string.visibility_point_hidden));
+        Locale locale = Locale.forLanguageTag(context.getString(R.string.app_language_tag));
+        DateTimeFormatter clock = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h:mm a", locale).withZone(zone);
+        lines.put(context.getString(R.string.estimated_visible_range,
+                range(context, event.visibleStart, event.visibleEnd, zone, clock)));
+        return lines.put(zoneLabel(zone));
     }
 
     static JSONArray eclipse(Context context, EclipseCatalog.Event event, ZoneId zone, boolean clock24) {
@@ -56,7 +44,11 @@ final class VisibilityPointDetails {
         }
         String centralDuration = EclipseCatalog.centralPhaseDuration(context, event);
         if (centralDuration != null) lines.put(centralDuration);
-        return lines.put(java.time.ZoneOffset.UTC.equals(zone) ? "UTC" : zone.getId().replace('_', ' '));
+        return lines.put(zoneLabel(zone));
+    }
+
+    private static String zoneLabel(ZoneId zone) {
+        return java.time.ZoneOffset.UTC.equals(zone) ? "UTC" : zone.getId().replace('_', ' ');
     }
 
     private static String range(Context context, Instant start, Instant end, ZoneId zone, DateTimeFormatter clock) {

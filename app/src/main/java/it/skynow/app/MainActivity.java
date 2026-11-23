@@ -2906,13 +2906,14 @@ public final class MainActivity extends Activity {
             int available = Math.min(goal, items.size());
             while (shown < available) addEclipse(events, items.get(shown++), zone);
             refreshAstronomyVisibility();
-            boolean hasMoreYears = lunar || year <= EclipseCatalog.LAST_OFFLINE_SOLAR_YEAR;
+            int catalogLastYear = lunar ? EclipseCatalog.LAST_OFFLINE_LUNAR_YEAR : EclipseCatalog.LAST_OFFLINE_SOLAR_YEAR;
+            boolean hasMoreYears = year <= catalogLastYear;
             if (shown < goal && requestsLeft > 0 && hasMoreYears) {
                 fetch(requestsLeft);
                 return;
             }
             if (shown == 0) {
-                int lastYear = lunar ? year - 1 : Math.min(year - 1, EclipseCatalog.LAST_OFFLINE_SOLAR_YEAR);
+                int lastYear = Math.min(year - 1, catalogLastYear);
                 footer.addView(label(getString(R.string.no_eclipses_until, lastYear), 14, muted));
             }
             if (!hasMoreYears && shown >= items.size()) return;

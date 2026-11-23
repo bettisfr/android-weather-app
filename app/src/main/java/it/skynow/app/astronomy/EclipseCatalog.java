@@ -3,18 +3,12 @@ package it.skynow.app.astronomy;
 import it.skynow.app.R;
 
 import android.content.Context;
-import android.util.AtomicFile;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,8 +21,8 @@ import java.util.Locale;
 
 public final class EclipseCatalog {
     public static final int LAST_OFFLINE_SOLAR_YEAR = SolarEclipses.LAST_YEAR;
-    private static final String ENDPOINT = "https://opale.imcce.fr/api/v1/phenomena/eclipses/";
-    private static final long CACHE_AGE_MS = Duration.ofDays(30).toMillis();
+    public static final int LAST_OFFLINE_LUNAR_YEAR = 2055;
+    private static JSONArray lunarContacts;
     private static final double REFRACTION_DEGREES = .57;
 
     public static final class Event {
@@ -166,10 +160,13 @@ public final class EclipseCatalog {
             }
             return result;
         }
-        JSONArray rows = lunarRows(context, year);
+        JSONArray rows = lunarRows(context);
         List<Event> result = new ArrayList<>();
         for (int i = 0; i < rows.length(); i++) {
-            Event event = visibleEvent(rows.getJSONObject(i), true, latitude, longitude);
+            JSONObject row = rows.getJSONObject(i);
+            int eventYear = LocalDate.parse(row.getString("calendarDate")).getYear();
+            if (eventYear < year || eventYear >= year + yearsPerRequest(true)) continue;
+            Event event = visibleEvent(row, true, latitude, longitude);
             if (event != null && !event.end.isBefore(now)) result.add(event);
         }
         result.sort(Comparator.comparing(event -> event.start));
@@ -182,57 +179,27 @@ public final class EclipseCatalog {
             SolarEclipses.Elements elements = SolarEclipses.catalog(context).get(date);
             return elements == null ? null : elements.at(latitude, longitude);
         }
-        JSONArray rows = lunarRows(context, date.getYear());
+        JSONArray rows = lunarRows(context);
         for (int i = 0; i < rows.length(); i++) {
-            Event event = visibleEvent(rows.getJSONObject(i), true, latitude, longitude);
-            if (event != null && date.equals(event.catalogDate())) return event;
+            JSONObject row = rows.getJSONObject(i);
+            if (date.toString().equals(row.getString("calendarDate"))) {
+                return visibleEvent(row, true, latitude, longitude);
+            }
         }
         return null;
     }
 
-    private static JSONArray lunarRows(Context context, int year) throws Exception {
-        File cacheDir = new File(context.getCacheDir(), "eclipse_catalog");
-        File file = new File(cacheDir, "lunar-" + year + ".json");
-        AtomicFile cache = new AtomicFile(file);
-        String field = "lunareclipse";
-        JSONArray saved = null;
-        if (file.isFile()) {
-            try {
-                synchronized (EclipseCatalog.class) {
-                    saved = new JSONObject(new String(cache.readFully(), StandardCharsets.UTF_8))
-                            .getJSONObject("response").getJSONArray(field);
-                }
-                if (System.currentTimeMillis() - file.lastModified() < CACHE_AGE_MS) return saved;
-            } catch (IOException | org.json.JSONException invalid) {
-                android.util.Log.d("SkyHere", "Eclipse cache unavailable", invalid);
-            }
+    private static synchronized JSONArray lunarRows(Context context) throws IOException, org.json.JSONException {
+        if (lunarContacts != null) return lunarContacts;
+        try (InputStream stream = context.getAssets().open("lunar-eclipse-contacts.json");
+             ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
+            lunarContacts = new JSONObject(new String(bytes.toByteArray(), StandardCharsets.UTF_8))
+                    .getJSONArray("events");
+            return lunarContacts;
         }
-        JSONObject downloaded;
-        JSONArray rows;
-        try {
-            downloaded = read(ENDPOINT + "301/" + year + "?nbd=" + yearsPerRequest(true));
-            rows = downloaded.getJSONObject("response").getJSONArray(field);
-        } catch (IOException | org.json.JSONException error) {
-            if (saved != null) return saved;
-            throw error;
-        }
-        synchronized (EclipseCatalog.class) {
-            FileOutputStream output = null;
-            try {
-                output = cache.startWrite();
-                output.write(downloaded.toString().getBytes(StandardCharsets.UTF_8));
-                cache.finishWrite(output);
-                File[] files = cacheDir.listFiles((dir, name) -> name.endsWith(".json"));
-                if (files != null && files.length > 32) {
-                    java.util.Arrays.sort(files, Comparator.comparingLong(File::lastModified));
-                    for (int i = 0; i < files.length - 32; i++) files[i].delete();
-                }
-            } catch (IOException error) {
-                cache.failWrite(output);
-                android.util.Log.d("SkyHere", "Could not save eclipse catalog", error);
-            }
-        }
-        return rows;
     }
 
     public static String centralPhaseDuration(Context context, Event event) {
@@ -462,20 +429,4 @@ public final class EclipseCatalog {
         return kind + (lunar ? " lunar eclipse" : " solar eclipse");
     }
 
-    private static JSONObject read(String address) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
-        connection.setConnectTimeout(12000);
-        connection.setReadTimeout(20000);
-        try (InputStream stream = connection.getInputStream()) {
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            byte[] chunk = new byte[8192];
-            int count;
-            while ((count = stream.read(chunk)) != -1) buffer.write(chunk, 0, count);
-            JSONObject data = new JSONObject(new String(buffer.toByteArray(), StandardCharsets.UTF_8));
-            if (!data.has("response")) throw new IOException("Eclipse catalog unavailable");
-            return data;
-        } finally {
-            connection.disconnect();
-        }
-    }
 }

@@ -132,7 +132,7 @@
     <string name="expanded">Expanded</string>
     <string name="lunar_eclipses">Lunar</string>
     <string name="solar_eclipses">Solar</string>
-    <string name="eclipse_data">Lunar eclipse data · IMCCE</string>
+    <string name="eclipse_data">Lunar eclipses · OPALE - Space Service of the Paris Observatory · 2026-11-23</string>
     <string name="solar_eclipse_credit">Solar eclipse predictions · Fred Espenak, NASA GSFC</string>
     <string name="planetary_transits">Planetary transits</string>
     <string name="no_transits">No visible upcoming transits in the catalog</string>

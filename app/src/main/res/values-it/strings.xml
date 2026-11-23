@@ -131,7 +131,7 @@
     <string name="expanded">Aperto</string>
     <string name="lunar_eclipses">Eclissi lunari</string>
     <string name="solar_eclipses">Eclissi solari</string>
-    <string name="eclipse_data">Dati eclissi lunari · IMCCE</string>
+    <string name="eclipse_data">Eclissi lunari · OPALE - Space Service of the Paris Observatory · 23 nov 2026</string>
     <string name="solar_eclipse_credit">Previsioni eclissi solari · Fred Espenak, NASA GSFC</string>
     <string name="planetary_transits">Transiti planetari</string>
     <string name="no_transits">Nessun transito visibile nel catalogo</string>
