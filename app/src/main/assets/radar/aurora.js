@@ -4,7 +4,7 @@ const limit = 85.05112878;
 let map;
 let strings;
 let timeFormat;
-let auroraCells, auroraKp;
+let auroraCells;
 let auroraPopup;
 
 function status(message) {
@@ -96,11 +96,6 @@ function setAurora(encoded, validTime) {
     fillAuroraPopup();
 }
 
-function setAuroraKp(label) {
-    auroraKp = label;
-    fillAuroraPopup();
-}
-
 function fillAuroraPopup() {
     if (!auroraPopup) return;
     const {latlng, content} = auroraPopup;
@@ -109,13 +104,9 @@ function fillAuroraPopup() {
     const column = ((Math.round(position.lng) + 180) % 360 + 360) % 360;
     const value = auroraCells && Math.abs(position.lat) <= limit
         ? auroraCells.charCodeAt(row * 360 + column) : NaN;
-    const intensity = document.createElement('div');
-    intensity.textContent = Number.isFinite(value)
+    content.textContent = Number.isFinite(value)
         ? (value >= strings.minActivity ? strings.localActivity : strings.noLocalActivity)
         : strings.unavailable;
-    const kp = document.createElement('div');
-    kp.textContent = auroraKp ?? strings.kpUnavailable;
-    content.replaceChildren(intensity, kp);
 }
 
 const aqiEndpoint = 'https://air-quality-api.open-meteo.com/v1/air-quality';

@@ -164,10 +164,7 @@ public final class RadarActivity extends Activity {
                 if (layer == Layer.AIR_QUALITY || layer == Layer.ECLIPSE || selectedEarthquake != null) return;
                 network.execute(() -> {
                     switch (layer) {
-                        case AURORA:
-                            loadAurora();
-                            loadAuroraKp();
-                            break;
+                        case AURORA: loadAurora(); break;
                         case SATELLITE: loadSatellite(); break;
                         case EARTHQUAKES: loadEarthquakes(); break;
                         default: loadLatest();
@@ -282,7 +279,6 @@ public final class RadarActivity extends Activity {
                 result.put("localActivity", getString(R.string.aurora_local_activity));
                 result.put("noLocalActivity", getString(R.string.aurora_no_local_activity));
                 result.put("unavailable", getString(R.string.aurora_unavailable));
-                result.put("kpUnavailable", getString(R.string.aurora_kp_current_unavailable));
                 result.put("source", AuroraForecast.MAP);
                 result.put("mapLabel", getString(R.string.aurora_map));
                 result.put("forecast", getString(R.string.aurora_map_forecast));
@@ -440,20 +436,6 @@ public final class RadarActivity extends Activity {
         }
     }
 
-    private void loadAuroraKp() {
-        try {
-            AuroraForecast.KpReading reading = AuroraForecast.loadCurrentKp();
-            if (reading == null || java.time.Instant.now().isAfter(reading.time.plusSeconds(1800))) return;
-            Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
-            ZoneId zone = ZoneId.of(getIntent().getStringExtra("timeZone"));
-            String pattern = getIntent().getBooleanExtra("clock24", true) ? "HH:mm" : "h:mm a";
-            String time = java.time.format.DateTimeFormatter.ofPattern(pattern, locale).withZone(zone).format(reading.time);
-            String label = getString(R.string.aurora_kp_current, String.format(locale, "%.2f", reading.kp), time);
-            runOnUiThread(() -> evaluate("setAuroraKp(" + JSONObject.quote(label) + ")"));
-        } catch (Exception error) {
-            android.util.Log.d("SkyHere", "NOAA Kp unavailable for aurora map", error);
-        }
-    }
 
     private void loadLatest() {
         try {
