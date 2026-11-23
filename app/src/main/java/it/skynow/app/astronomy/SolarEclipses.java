@@ -20,6 +20,7 @@ final class SolarEclipses {
     static final int LAST_YEAR = 2100;
     private static final double EARTH_ECCENTRICITY_SQUARED = .00669437999014;
     private static final double HORIZON = Math.sin(Math.toRadians(-.833));
+    private static final double CONTACT_SEARCH_PADDING = 3600;
     private static NavigableMap<LocalDate, Elements> catalog;
 
     private SolarEclipses() {}
@@ -83,10 +84,13 @@ final class SolarEclipses {
         EclipseCatalog.Event at(double latitude, double longitude) {
             Observer observer = new Observer(latitude, longitude);
             DoubleUnaryOperator partial = time -> sample(time, observer).partialMargin();
-            double closest = minimum(partial, first, last);
+            // A local contact can fall just outside the rounded polynomial interval.
+            double earliest = first - CONTACT_SEARCH_PADDING;
+            double latest = last + CONTACT_SEARCH_PADDING;
+            double closest = minimum(partial, earliest, latest);
             if (partial.applyAsDouble(closest) >= 0) return null;
-            double start = contact(partial, first, closest);
-            double end = contact(partial, last, closest);
+            double start = contact(partial, earliest, closest);
+            double end = contact(partial, latest, closest);
 
             DoubleUnaryOperator separation = time -> sample(time, observer).relativeSeparation();
             double peak = minimum(separation, start, end);
