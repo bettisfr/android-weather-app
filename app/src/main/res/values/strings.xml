@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="aurora_local_activity">Auroral activity forecast here</string>
+    <string name="aurora_local_probability">NOAA model probability</string>
     <string name="aurora_no_local_activity">No auroral activity indicated here</string>
     <string name="radar_lightning">Lightning</string>
     <string name="seismograms">Seismograms</string>

@@ -104,9 +104,15 @@ function fillAuroraPopup() {
     const column = ((Math.round(position.lng) + 180) % 360 + 360) % 360;
     const value = auroraCells && Math.abs(position.lat) <= limit
         ? auroraCells.charCodeAt(row * 360 + column) : NaN;
-    content.textContent = Number.isFinite(value)
-        ? (value >= strings.minActivity ? strings.localActivity : strings.noLocalActivity)
-        : strings.unavailable;
+    if (!Number.isFinite(value)) {
+        content.textContent = strings.unavailable;
+        return;
+    }
+    const description = document.createElement('div');
+    description.textContent = value >= strings.minActivity ? strings.localActivity : strings.noLocalActivity;
+    const probability = document.createElement('div');
+    probability.textContent = strings.localProbability + ' · ' + value + '%';
+    content.replaceChildren(description, probability);
 }
 
 const aqiEndpoint = 'https://air-quality-api.open-meteo.com/v1/air-quality';

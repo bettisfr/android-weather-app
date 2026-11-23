@@ -278,6 +278,7 @@ public final class RadarActivity extends Activity {
                 result.put("minActivity", AuroraForecast.MAP_MIN_ACTIVITY);
                 result.put("localActivity", getString(R.string.aurora_local_activity));
                 result.put("noLocalActivity", getString(R.string.aurora_no_local_activity));
+                result.put("localProbability", getString(R.string.aurora_local_probability));
                 result.put("unavailable", getString(R.string.aurora_unavailable));
                 result.put("source", AuroraForecast.MAP);
                 result.put("mapLabel", getString(R.string.aurora_map));
