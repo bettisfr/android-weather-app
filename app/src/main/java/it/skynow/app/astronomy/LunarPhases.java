@@ -19,9 +19,14 @@ public final class LunarPhases {
         double azimuthDifference = Math.toRadians(sun.azimuth - moon.azimuth);
         double cosine = Math.cos(sunZenith) * Math.cos(moonZenith)
                 + Math.sin(sunZenith) * Math.sin(moonZenith) * Math.cos(azimuthDifference);
-        double phaseAngle = 180 - Math.toDegrees(Math.acos(Math.max(-1, Math.min(1, cosine))));
+        double sunMoonAu = Math.sqrt(sun.distanceAu * sun.distanceAu + moon.distanceAu * moon.distanceAu
+                - 2 * sun.distanceAu * moon.distanceAu * cosine);
+        double phaseAngle = Math.toDegrees(Math.acos(Math.max(-1, Math.min(1,
+                (moon.distanceAu - sun.distanceAu * cosine) / sunMoonAu))));
         // Approximate phase law from Krisciunas and Schaefer (1991), eq. 9.
-        return -12.73 + .026 * phaseAngle + 4e-9 * Math.pow(phaseAngle, 4);
+        double moonDistanceRatio = moon.distanceAu * SkyPosition.AU_KM / 384400;
+        return -12.73 + .026 * phaseAngle + 4e-9 * Math.pow(phaseAngle, 4)
+                + 5 * Math.log10(moonDistanceRatio * sunMoonAu);
     }
 
     public static LocalDate nextDate(LocalDate from, ZoneId zone, boolean fullMoon) {

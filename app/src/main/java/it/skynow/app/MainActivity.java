@@ -6,6 +6,7 @@ import it.skynow.app.astronomy.EclipseIcon;
 import it.skynow.app.astronomy.IssPasses;
 import it.skynow.app.astronomy.LunarPhases;
 import it.skynow.app.astronomy.MoonPhaseView;
+import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.astronomy.PlanetIcon;
 import it.skynow.app.astronomy.Planets;
 import it.skynow.app.astronomy.SkyPath;
@@ -1750,6 +1751,7 @@ public final class MainActivity extends Activity {
         maximum.setPaddingRelative(dp(8), dp(8), 0, 0);
         readings.addView(maximum, new LinearLayout.LayoutParams(-2, -2));
         tile.addView(readings);
+        addOrbitalApsides(tile, zone, false);
         addUpcomingTimes(tile, daily, index, false);
         addSpaced(page, tile, 9);
     }
@@ -1898,8 +1900,43 @@ public final class MainActivity extends Activity {
             phases.addView(event, new LinearLayout.LayoutParams(0, -2, 1));
         }
         tile.addView(phases);
+        addOrbitalApsides(tile, zone, true);
         addUpcomingTimes(tile, daily, index, true);
         addSpaced(page, tile, 9);
+    }
+
+    private void addOrbitalApsides(LinearLayout tile, ZoneId zone, boolean moon) {
+        OrbitalApsides.Event[] events;
+        try {
+            events = OrbitalApsides.upcoming(this, Instant.now(), moon);
+        } catch (java.io.IOException error) {
+            android.util.Log.w("SkyHere", "Orbital apsides unavailable", error);
+            return;
+        }
+        if (events[0] == null && events[1] == null) return;
+        int[] titles = moon ? new int[]{R.string.next_perigee, R.string.next_apogee}
+                : new int[]{R.string.next_perihelion, R.string.next_aphelion};
+        LinearLayout upcoming = row();
+        upcoming.setPadding(0, dp(12), 0, 0);
+        DateTimeFormatter date = shortDate(true);
+        for (int i = 0; i < titles.length; i++) {
+            LinearLayout column = column();
+            column.setPaddingRelative(0, 0, dp(6), 0);
+            TextView title = label(getString(titles[i]), 13, muted);
+            if (stackedCards()) title.setMinLines(2);
+            column.addView(title);
+            OrbitalApsides.Event event = events[i];
+            if (event != null) {
+                ZonedDateTime local = event.time.plusSeconds(30).atZone(zone);
+                column.addView(label(date.format(local), 14, ink));
+                column.addView(label(local.format(clockFormat()) + " · "
+                        + String.format(appLocale(), "%,d km", event.distanceKm), 12, muted));
+            } else {
+                column.addView(label(getString(R.string.unavailable), 13, muted));
+            }
+            upcoming.addView(column, new LinearLayout.LayoutParams(0, -2, 1));
+        }
+        tile.addView(upcoming);
     }
 
     private static final class PlanetRow {
@@ -2504,7 +2541,7 @@ public final class MainActivity extends Activity {
             Planets.Reading reading = Planets.at(planet, now, latitude, longitude);
             magnitude = reading.elevation > 0 && sun.zenith > 90 ? reading.magnitude : Double.NaN;
         } else {
-            magnitude = moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74;
+            magnitude = moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74 + 5 * Math.log10(sun.distanceAu);
         }
         SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
         boolean nightOnly = moon || planet != null;

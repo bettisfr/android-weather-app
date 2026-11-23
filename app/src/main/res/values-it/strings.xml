@@ -119,6 +119,11 @@
     <string name="september_equinox">Equinozio di settembre</string>
     <string name="december_solstice">Solstizio di dicembre</string>
     <string name="seasons_credit">Stagioni astronomiche · US Naval Observatory</string>
+    <string name="next_perihelion">Prossimo perielio</string>
+    <string name="next_aphelion">Prossimo afelio</string>
+    <string name="next_perigee">Prossimo perigeo</string>
+    <string name="next_apogee">Prossimo apogeo</string>
+    <string name="orbital_apsides_credit">Apsidi orbitali · NASA/JPL DE440</string>
     <string name="collapsed">Chiuso</string>
     <string name="expanded">Aperto</string>
     <string name="lunar_eclipses">Eclissi lunari</string>

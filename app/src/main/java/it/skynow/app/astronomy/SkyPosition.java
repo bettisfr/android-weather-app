@@ -6,12 +6,16 @@ import java.time.ZoneId;
 
 public final class SkyPosition {
     private static final double EPOCH_SECONDS = Instant.parse("1999-12-31T00:00:00Z").getEpochSecond();
+    public static final double AU_KM = 149597870.7;
+    private static final double EARTH_RADIUS_AU = 6378.137 / AU_KM;
     public final double azimuth;
     public final double zenith;
+    public final double distanceAu;
 
-    private SkyPosition(double azimuth, double zenith) {
+    private SkyPosition(double azimuth, double zenith, double distanceAu) {
         this.azimuth = azimuth;
         this.zenith = zenith;
+        this.distanceAu = distanceAu;
     }
 
     // Low-precision orbital elements and lunar perturbations from Paul Schlyter.
@@ -23,7 +27,7 @@ public final class SkyPosition {
         double sunMeanLongitude = sunAnomaly + sunPerihelion;
         double eclipticLongitude;
         double eclipticLatitude = 0;
-        double distance = 1;
+        double distance;
         if (moon) {
             double node = Math.toRadians(normalize(125.1228 - 0.0529538083 * days));
             double inclination = Math.toRadians(5.1454);
@@ -44,25 +48,30 @@ public final class SkyPosition {
                     + Math.toRadians(-0.173 * Math.sin(argumentOfLatitude - 2 * elongation)
                     - 0.055 * Math.sin(anomaly - argumentOfLatitude - 2 * elongation)
                     - 0.046 * Math.sin(anomaly + argumentOfLatitude - 2 * elongation));
-            distance = 60.2666 * Math.hypot(orbitalX, orbitalY)
-                    - 0.58 * Math.cos(evection) - 0.46 * Math.cos(2 * elongation);
+            distance = EARTH_RADIUS_AU * (60.2666 * Math.hypot(orbitalX, orbitalY)
+                    - 0.58 * Math.cos(evection) - 0.46 * Math.cos(2 * elongation));
         } else {
-            eclipticLongitude = solarLongitude(days, sunAnomaly, sunPerihelion);
+            double eccentricity = solarEccentricity(days);
+            double eccentric = eccentricAnomaly(sunAnomaly, eccentricity);
+            eclipticLongitude = solarLongitude(eccentric, eccentricity, sunPerihelion);
+            distance = 1 - eccentricity * Math.cos(eccentric);
         }
 
-        double x = Math.cos(eclipticLongitude) * Math.cos(eclipticLatitude);
-        double y = Math.sin(eclipticLongitude) * Math.cos(eclipticLatitude);
-        double z = Math.sin(eclipticLatitude);
-        return fromEcliptic(x, y, z, days, sunMeanLongitude, latitude, longitude, moon ? 1 / distance : 0);
+        double x = distance * Math.cos(eclipticLongitude) * Math.cos(eclipticLatitude);
+        double y = distance * Math.sin(eclipticLongitude) * Math.cos(eclipticLatitude);
+        double z = distance * Math.sin(eclipticLatitude);
+        return fromEcliptic(x, y, z, days, sunMeanLongitude, latitude, longitude, moon ? EARTH_RADIUS_AU : 0);
     }
 
     static double daysSinceEpoch(Instant time) {
         return (time.getEpochSecond() - EPOCH_SECONDS) / 86400;
     }
 
-    private static double solarLongitude(double days, double anomaly, double perihelion) {
-        double eccentricity = 0.016709 - 1.151e-9 * days;
-        double eccentric = eccentricAnomaly(anomaly, eccentricity);
+    private static double solarEccentricity(double days) {
+        return 0.016709 - 1.151e-9 * days;
+    }
+
+    private static double solarLongitude(double eccentric, double eccentricity, double perihelion) {
         return Math.atan2(Math.sqrt(1 - eccentricity * eccentricity) * Math.sin(eccentric),
                 Math.cos(eccentric) - eccentricity) + perihelion;
     }
@@ -71,7 +80,8 @@ public final class SkyPosition {
         double days = daysSinceEpoch(date.atTime(12, 0).atZone(zone).toInstant());
         double anomaly = Math.toRadians(normalize(356.0470 + 0.9856002585 * days));
         double perihelion = Math.toRadians(282.9404 + 4.70935e-5 * days);
-        double longitude = solarLongitude(days, anomaly, perihelion);
+        double eccentricity = solarEccentricity(days);
+        double longitude = solarLongitude(eccentricAnomaly(anomaly, eccentricity), eccentricity, perihelion);
         double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
         double declination = Math.asin(Math.sin(obliquity) * Math.sin(longitude));
         double lat = Math.toRadians(latitude);
@@ -102,8 +112,9 @@ public final class SkyPosition {
         double north = equatorialZ * Math.cos(lat) - meridian * Math.sin(lat);
         double up = meridian * Math.cos(lat) + equatorialZ * Math.sin(lat);
         up -= observerRadius;
+        double horizontal = Math.hypot(east, north);
         return new SkyPosition(normalize(Math.toDegrees(Math.atan2(east, north))),
-                Math.toDegrees(Math.atan2(Math.hypot(east, north), up)));
+                Math.toDegrees(Math.atan2(horizontal, up)), Math.hypot(horizontal, up));
     }
 
     static double eccentricAnomaly(double mean, double eccentricity) {

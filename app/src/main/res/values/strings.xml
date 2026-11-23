@@ -120,6 +120,11 @@
     <string name="september_equinox">September equinox</string>
     <string name="december_solstice">December solstice</string>
     <string name="seasons_credit">Astronomical seasons · US Naval Observatory</string>
+    <string name="next_perihelion">Next perihelion</string>
+    <string name="next_aphelion">Next aphelion</string>
+    <string name="next_perigee">Next perigee</string>
+    <string name="next_apogee">Next apogee</string>
+    <string name="orbital_apsides_credit">Orbital apsides · NASA/JPL DE440</string>
     <string name="collapsed">Collapsed</string>
     <string name="expanded">Expanded</string>
     <string name="lunar_eclipses">Lunar</string>
