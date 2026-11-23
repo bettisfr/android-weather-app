@@ -727,10 +727,7 @@ public final class MainActivity extends Activity {
         if (day >= 0 && !choosingLocation) {
             LinearLayout screen = column();
             screen.setBackgroundColor(surfaceColor);
-            LinearLayout toolbar = column();
-            toolbar.setPadding(dp(16), dp(8), dp(16), 0);
-            toolbar.addView(header("‹  " + getString(R.string.forecast_10_days), this::home));
-            screen.addView(toolbar);
+            screen.addView(detailHeader(getString(R.string.forecast_10_days), R.string.settings_back, this::home));
             screen.addView(forecastView, new LinearLayout.LayoutParams(-1, 0, 1));
             setContentView(screen);
         } else if (data != null && !choosingLocation) {
@@ -2594,22 +2591,26 @@ public final class MainActivity extends Activity {
         refreshAstronomyVisibility();
     }
 
+    private LinearLayout detailHeader(String title, int backDescription, Runnable goBack) {
+        LinearLayout header = row();
+        TextView back = label("‹", 28, ink);
+        back.setGravity(Gravity.CENTER);
+        back.setContentDescription(getString(backDescription));
+        back.setOnClickListener(v -> goBack.run());
+        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        TextView titleView = label(title, 19, ink);
+        titleView.setPaddingRelative(0, dp(7), dp(12), dp(7));
+        header.addView(titleView, new LinearLayout.LayoutParams(0, -2, 1));
+        return header;
+    }
+
     private void showSkyTrack(String title, String period, double magnitude, int magnitudeFill,
                               java.util.function.Consumer<LinearLayout> content) {
         Dialog dialog = new Dialog(this, R.style.SkyHereTheme);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         LinearLayout screen = column();
         screen.setBackgroundColor(surfaceColor);
-        LinearLayout header = row();
-        TextView back = label("‹", 28, ink);
-        back.setGravity(Gravity.CENTER);
-        back.setContentDescription(getString(R.string.sky_track_back));
-        back.setOnClickListener(v -> dialog.dismiss());
-        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        TextView titleView = label(title, 19, ink);
-        titleView.setPaddingRelative(0, dp(7), dp(12), dp(7));
-        header.addView(titleView, new LinearLayout.LayoutParams(0, -2, 1));
-        screen.addView(header);
+        screen.addView(detailHeader(title, R.string.sky_track_back, dialog::dismiss));
 
         ScrollView viewport = new ScrollView(this);
         viewport.setFillViewport(true);
