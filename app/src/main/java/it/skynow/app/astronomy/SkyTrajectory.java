@@ -44,15 +44,7 @@ public final class SkyTrajectory {
 
     public static SkyTrajectory today(Instant now, ZoneId zone, double latitude, double longitude,
                                       boolean moon, Planets.Body planet) {
-        LongFunction<Point> sample = time -> {
-            Instant instant = Instant.ofEpochSecond(time);
-            if (planet != null) {
-                Planets.Reading reading = Planets.at(planet, instant, latitude, longitude);
-                return new Point(time, reading.azimuth, reading.elevation);
-            }
-            SkyPosition position = SkyPosition.at(instant, latitude, longitude, moon);
-            return new Point(time, position.azimuth, 90 - position.zenith);
-        };
+        LongFunction<Point> sample = time -> positionAt(time, latitude, longitude, moon, planet);
         LocalDate date = now.atZone(zone).toLocalDate();
         long start = date.atStartOfDay(zone).toEpochSecond();
         long end = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - 1;
@@ -111,6 +103,17 @@ public final class SkyTrajectory {
         }
         return new SkyTrajectory(points, nightOnly ? firstVisible : rise, peak, nightOnly ? lastVisible : set,
                 visible.test(current) ? current : null, segments == 1);
+    }
+
+    public static Point positionAt(long second, double latitude, double longitude,
+                                   boolean moon, Planets.Body planet) {
+        Instant time = Instant.ofEpochSecond(second);
+        if (planet != null) {
+            Planets.Reading reading = Planets.at(planet, time, latitude, longitude);
+            return new Point(second, reading.azimuth, reading.elevation);
+        }
+        SkyPosition position = SkyPosition.at(time, latitude, longitude, moon);
+        return new Point(second, position.azimuth, 90 - position.zenith);
     }
 
     private static Point rendered(Point point, boolean visible) {

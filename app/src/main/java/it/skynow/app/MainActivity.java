@@ -163,6 +163,8 @@ public final class MainActivity extends Activity {
     private double magneticDeclination = Double.NaN;
     private boolean resumed;
     private TextView skyTrackDirection;
+    private TextView skyTrackCoordinates;
+    private java.util.function.LongFunction<SkyTrajectory.Point> trackedCelestialPosition;
     private SkyTrack aimedSkyTrack;
     private final List<VisibilityBadge> visibilityBadges = new ArrayList<>();
     private LiveIssBadge trackedIss;
@@ -1724,14 +1726,18 @@ public final class MainActivity extends Activity {
         boolean above = position.zenith < 90;
         reading.setVisibility(above ? View.VISIBLE : View.GONE);
         if (above) {
-            reading.setText(getString(R.string.sky_coordinates, Math.round(position.azimuth) % 360,
-                    compassDirection(position.azimuth), Math.round(90 - position.zenith)));
+            reading.setText(skyCoordinatesText(position.azimuth, 90 - position.zenith));
         }
         LinearLayout heading = moon ? moonTrackHeading : sunTrackHeading;
         setSkyTrackAvailable(heading, heading.getChildAt(heading.getChildCount() - 1), above);
         SkyPath path = moon ? moonPath : sunPath;
         path.setClickable(above);
         path.updateNow(now, 90 - position.zenith);
+    }
+
+    private String skyCoordinatesText(double azimuth, double elevation) {
+        return getString(R.string.sky_coordinates, Math.floorMod(Math.round(azimuth), 360),
+                compassDirection(azimuth), Math.round(elevation));
     }
 
     private void sun(JSONObject daily, int index) {
@@ -2429,10 +2435,23 @@ public final class MainActivity extends Activity {
         if (trackedIss != null && aimedSkyTrack != null) {
             delay = Math.min(delay, trackedIss.update(millis, second));
             SkyTrajectory.Point position = trackedIss.pass.positionAt(second);
-            aimedSkyTrack.setCurrentPosition(position);
+            updateSkyTrackPosition(position);
             if (position != null) delay = Math.min(delay, 1000L - Math.floorMod(millis, 1000L));
+        } else if (trackedCelestialPosition != null && aimedSkyTrack != null) {
+            updateSkyTrackPosition(trackedCelestialPosition.apply(second));
+            delay = Math.min(delay, 60_000L - Math.floorMod(millis, 60_000L));
         }
         if (delay != Long.MAX_VALUE) main.postDelayed(updateAstronomyVisibility, delay);
+    }
+
+    private void updateSkyTrackPosition(SkyTrajectory.Point position) {
+        boolean above = position != null && position.elevation > 0;
+        aimedSkyTrack.setCurrentPosition(above ? position : null);
+        skyTrackCoordinates.setVisibility(above ? View.VISIBLE : View.GONE);
+        if (above) {
+            skyTrackCoordinates.setText(getString(R.string.sky_track_now) + " · "
+                    + skyCoordinatesText(position.azimuth, position.elevation));
+        }
     }
 
     private TextView skyTrackChevron() {
@@ -2547,12 +2566,17 @@ public final class MainActivity extends Activity {
         boolean nightOnly = moon || planet != null;
         ZonedDateTime localNow = now.atZone(zone);
         LocalDate date = localNow.toLocalDate();
+        long endOfDay = date.plusDays(1).atStartOfDay(zone).toEpochSecond();
+        double lat = latitude;
+        double lon = longitude;
         String period = localNow.format(shortDate(true));
         if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
             period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
         }
         int fill = planet == null ? SignalColors.PURPLE : magnitudeColor(magnitude);
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
+            trackedCelestialPosition = second -> second < endOfDay
+                    ? SkyTrajectory.positionAt(second, lat, lon, moon, planet) : null;
             if (observingWindows != null) {
                 addSpaced(panel, label(observingWindows.toString(), 13, accent), 6);
             }
@@ -2566,8 +2590,8 @@ public final class MainActivity extends Activity {
             addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone, date);
             addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_end : R.string.sky_track_set,
                     track.set, SkyTrack.END_COLOR, zone, date);
-            addSkyTrackPoint(panel, R.string.sky_track_now, track.now, SkyTrack.NOW_COLOR, zone, date);
         });
+        refreshAstronomyVisibility();
     }
 
     private void showSkyTrack(String title, String period, double magnitude, int magnitudeFill,
@@ -2612,6 +2636,8 @@ public final class MainActivity extends Activity {
         dialog.setContentView(screen);
         dialog.setOnDismissListener(ignored -> {
             aimedSkyTrack = null;
+            skyTrackCoordinates = null;
+            trackedCelestialPosition = null;
             trackedIss = null;
             refreshAstronomyVisibility();
             skyTrackDirection = null;
@@ -2631,6 +2657,10 @@ public final class MainActivity extends Activity {
                              SkyTrajectory.Point peak, SkyTrajectory.Point end, SkyTrajectory.Point now,
                              SkyTrajectory.Point brightest) {
         String[] cardinal = {compassDirection(0), compassDirection(90), compassDirection(180), compassDirection(270)};
+        skyTrackCoordinates = label("", 15, getColor(R.color.sky_observing));
+        skyTrackCoordinates.setPadding(0, dp(7), 0, dp(3));
+        skyTrackCoordinates.setVisibility(View.GONE);
+        panel.addView(skyTrackCoordinates);
         aimedSkyTrack = new SkyTrack(this, points, start, peak, end, now, brightest, cardinal);
         int chartSize = Math.min(380, getResources().getConfiguration().screenWidthDp - 52);
         panel.addView(aimedSkyTrack, new LinearLayout.LayoutParams(-1, dp(chartSize)));
