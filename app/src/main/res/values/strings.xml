@@ -370,6 +370,7 @@
     <string name="earthquake_radius_value">%1$d km</string>
     <string name="earthquake_credit">Earthquakes · INGV, CC BY 4.0</string>
     <string name="aqi_extreme_short">Extreme</string>
-    <string name="air_quality_map_coverage">EEA map coverage: Europe</string>
-    <string name="air_quality_map_credit">Air quality map · European Environment Agency</string>
+    <string name="air_quality_map_coverage">CAMS air quality map covers Europe</string>
+    <string name="air_quality_map_zoom_in">Zoom in to see the air quality grid</string>
+    <string name="air_quality_map_credit">Air quality map · CAMS / Open-Meteo</string>
 </resources>

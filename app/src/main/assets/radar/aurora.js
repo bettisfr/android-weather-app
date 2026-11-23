@@ -19,7 +19,7 @@ function initialize(config) {
     legend.setAttribute('aria-label', config.intensity);
     if (config.airQuality) {
         document.documentElement.classList.add('air-quality');
-        document.getElementById('source').textContent = 'EEA';
+        document.getElementById('source').textContent = 'CAMS / Open-Meteo';
         legend.replaceChildren();
         for (const band of config.bands) {
             const key = document.createElement('span');
@@ -87,85 +87,104 @@ function setAurora(encoded, validTime) {
     status('');
 }
 
-const eeaImageServer = 'https://air.discomap.eea.europa.eu/arcgis/rest/services/AQMobile_2025/MOSAIC_GLOBAL_AQI/ImageServer';
-let airQualityOverlay;
-let requestedAirQualityImage;
-
-function outsideAirQualityCoverage(bounds) {
-    return bounds.getEast() < -35 || bounds.getWest() > 55
-        || bounds.getNorth() < 25 || bounds.getSouth() > 74;
-}
+const aqiEndpoint = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+const aqiCoverage = [[30, -25], [72, 45]];
+const aqiCellSize = 0.1;
+const maxAqiCells = 750;
+let airQualityLayer, airQualityRenderer, loadedAqiBounds, loadedAqiTime = 0;
+let aqiRequest, aqiTimer;
 
 function initializeAirQuality() {
-    document.getElementById('forecast').textContent = strings.forecast + ' · ' + timeFormat.format(strings.time);
-    map.on('moveend', showAirQualityImage);
-    map.on('click', showAirQualityReading);
-    showAirQualityImage();
+    document.getElementById('forecast').textContent = strings.forecast;
+    airQualityRenderer = L.canvas();
+    airQualityLayer = L.layerGroup().addTo(map);
+    map.on('moveend', () => {
+        clearTimeout(aqiTimer);
+        aqiTimer = setTimeout(showAirQualityCells, 250);
+    });
+    showAirQualityCells();
 }
 
-function showAirQualityImage() {
-    requestedAirQualityImage = null;
-    const bounds = map.getBounds();
-    if (outsideAirQualityCoverage(bounds)) {
-        if (airQualityOverlay) airQualityOverlay.remove();
-        airQualityOverlay = null;
-        status(strings.coverage);
+function aqiBounds(view) {
+    const coverage = L.latLngBounds(aqiCoverage);
+    if (!coverage.intersects(view)) return null;
+    return L.latLngBounds([
+        [Math.max(coverage.getSouth(), Math.floor(view.getSouth() * 10) / 10),
+         Math.max(coverage.getWest(), Math.floor(view.getWest() * 10) / 10)],
+        [Math.min(coverage.getNorth(), Math.ceil(view.getNorth() * 10) / 10),
+         Math.min(coverage.getEast(), Math.ceil(view.getEast() * 10) / 10)],
+    ]);
+}
+
+function exceedsAqiCellLimit(bounds) {
+    const rows = Math.ceil((bounds.getNorth() - bounds.getSouth()) / aqiCellSize) + 1;
+    const columns = Math.ceil((bounds.getEast() - bounds.getWest()) / aqiCellSize) + 1;
+    return rows * columns > maxAqiCells;
+}
+
+async function showAirQualityCells() {
+    const bounds = aqiBounds(map.getBounds());
+    if (!bounds || exceedsAqiCellLimit(bounds)) {
+        if (aqiRequest) aqiRequest.abort();
+        aqiRequest = null;
+        airQualityLayer.remove();
+        status(bounds ? strings.zoomIn : strings.coverage);
         return;
     }
-    const sw = map.options.crs.project(bounds.getSouthWest());
-    const ne = map.options.crs.project(bounds.getNorthEast());
-    const size = map.getSize();
-    const density = Math.min(2, window.devicePixelRatio || 1);
-    const colormap = strings.bands.map((band, index) => {
-        const rgb = parseInt(band.color.substring(1), 16);
-        return [index + 1, (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
-    });
+    airQualityLayer.addTo(map);
+    if (loadedAqiBounds && loadedAqiBounds.contains(bounds) && Date.now() - loadedAqiTime < 5 * 60_000) {
+        if (aqiRequest) aqiRequest.abort();
+        aqiRequest = null;
+        status('');
+        return;
+    }
+    const padded = aqiBounds(map.getBounds().pad(.12));
+    const requested = exceedsAqiCellLimit(padded) ? bounds : padded;
+    if (aqiRequest) aqiRequest.abort();
+    const request = new AbortController();
+    aqiRequest = request;
+    const timeout = setTimeout(() => request.abort(), 8000);
     const params = new URLSearchParams({
-        f: 'image', bbox: [sw.x, sw.y, ne.x, ne.y].join(','), bboxSR: 3857, imageSR: 3857,
-        size: [Math.max(1, Math.ceil(size.x * density)), Math.max(1, Math.ceil(size.y * density))].join(','),
-        format: 'png32', transparent: 'true', time: strings.time, interpolation: 'RSP_NearestNeighbor',
-        mosaicRule: JSON.stringify({
-            ascending: false, mosaicMethod: 'esriMosaicAttribute', mosaicOperation: 'MT_FIRST',
-            sortField: 'StdTime', sortValue: '0',
-        }),
-        renderingRule: JSON.stringify({rasterFunction: 'Colormap', rasterFunctionArguments: {Colormap: colormap}}),
+        bounding_box: [requested.getSouth(), requested.getWest(), requested.getNorth(), requested.getEast()].join(','),
+        current: 'european_aqi', domains: 'cams_europe', cell_selection: 'nearest', timeformat: 'unixtime',
     });
-    const image = new Image();
-    requestedAirQualityImage = image;
-    image.onload = () => {
-        if (requestedAirQualityImage !== image) return;
-        if (airQualityOverlay) airQualityOverlay.remove();
-        airQualityOverlay = L.imageOverlay(image, bounds, {opacity: .65, interactive: false, alt: ''}).addTo(map);
+    status(strings.loading);
+    try {
+        const response = await fetch(aqiEndpoint + '?' + params, {signal: request.signal});
+        if (!response.ok) throw new Error('Air quality API unavailable');
+        const result = await response.json();
+        if (aqiRequest !== request || request.signal.aborted) return;
+        const locations = Array.isArray(result) ? result : [result];
+        const valid = locations.filter(location => Number.isFinite(location.current?.european_aqi)
+            && Number.isFinite(location.current?.time));
+        if (!valid.length) throw new Error('No air quality values');
+        airQualityLayer.clearLayers();
+        for (const location of valid) addAqiCell(location);
+        loadedAqiBounds = requested;
+        loadedAqiTime = Date.now();
+        document.getElementById('forecast').textContent = strings.forecast + ' · '
+            + timeFormat.format(valid[0].current.time * 1000);
         showMapUpdate(strings);
         status('');
-    };
-    image.onerror = () => {
-        if (requestedAirQualityImage === image) status(strings.unavailable);
-    };
-    image.src = eeaImageServer + '/exportImage?' + params;
+    } catch (error) {
+        if (aqiRequest === request) status(strings.unavailable);
+    } finally {
+        clearTimeout(timeout);
+        if (aqiRequest === request) aqiRequest = null;
+    }
 }
 
-async function showAirQualityReading({latlng}) {
-    if (outsideAirQualityCoverage(L.latLngBounds(latlng, latlng))) return;
-    const text = document.createElement('span');
-    text.textContent = strings.loading;
-    L.popup().setLatLng(latlng).setContent(text).openOn(map);
-    const params = new URLSearchParams({
-        f: 'json', geometryType: 'esriGeometryPoint',
-        geometry: JSON.stringify({x: latlng.lng, y: latlng.lat, spatialReference: {wkid: 4326}}),
-        mosaicRule: JSON.stringify({
-            ascending: true, mosaicMethod: 'esriMosaicNone', mosaicOperation: 'MT_FIRST',
-            multidimensionalDefinition: [{variableName: 'AQI', dimensionName: 'StdTime', values: [strings.time], isSlice: true}],
-        }),
-        returnGeometry: 'false', returnCatalogItems: 'false', returnPixelValues: 'true', processAsMultidimensional: 'true',
-    });
-    try {
-        const response = await fetch(eeaImageServer + '/identify?' + params);
-        if (!response.ok) throw new Error('Could not read the EEA air quality band');
-        const reading = await response.json();
-        const band = strings.bands[Number(reading.value) - 1];
-        text.textContent = band ? band.label : strings.unavailable;
-    } catch (error) {
-        text.textContent = strings.unavailable;
-    }
+function addAqiCell(location) {
+    // The API returns centres of the native CAMS Europe 0.1° cells.
+    const lat = Math.round(location.latitude * 10000) / 10000;
+    const lon = Math.round(location.longitude * 10000) / 10000;
+    const half = aqiCellSize / 2;
+    const aqi = Math.round(location.current.european_aqi);
+    const band = strings.bands.find(candidate => aqi <= candidate.upper);
+    if (!band) return;
+    const reading = document.createElement('span');
+    reading.textContent = 'AQI ' + aqi + ' · ' + band.label;
+    L.rectangle([[lat - half, lon - half], [lat + half, lon + half]], {
+        renderer: airQualityRenderer, stroke: false, fillColor: band.color, fillOpacity: .48,
+    }).bindPopup(reading).addTo(airQualityLayer);
 }

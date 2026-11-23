@@ -239,10 +239,9 @@ public final class RadarActivity extends Activity {
             }
             if (layer == Layer.AIR_QUALITY) {
                 result.put("airQuality", true);
-                result.put("source", "https://airindex.eea.europa.eu/AQI/");
-                result.put("time", java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.HOURS)
-                        .minus(Duration.ofHours(3)).toEpochMilli());
+                result.put("source", "https://open-meteo.com/en/docs/air-quality-api");
                 result.put("coverage", getString(R.string.air_quality_map_coverage));
+                result.put("zoomIn", getString(R.string.air_quality_map_zoom_in));
                 result.put("unavailable", getString(R.string.air_quality_unavailable));
                 result.put("mapLabel", getString(R.string.air_quality_map));
                 result.put("forecast", getString(R.string.air_quality_grid));
@@ -250,6 +249,7 @@ public final class RadarActivity extends Activity {
                 org.json.JSONArray bands = new org.json.JSONArray();
                 for (AirQualityBand band : AirQualityBand.values()) {
                     bands.put(new JSONObject()
+                            .put("upper", band.upper)
                             .put("label", getString(band.label))
                             .put("legend", getString(band == AirQualityBand.EXTREME ? R.string.aqi_extreme_short : band.label))
                             .put("color", String.format(java.util.Locale.ROOT, "#%06x", band.color & 0x00ffffff)));

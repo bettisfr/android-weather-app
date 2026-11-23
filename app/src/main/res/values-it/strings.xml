@@ -368,6 +368,7 @@
     <string name="earthquake_radius_value">%1$d km</string>
     <string name="earthquake_credit">Terremoti · INGV, CC BY 4.0</string>
     <string name="aqi_extreme_short">Estrema</string>
-    <string name="air_quality_map_coverage">Copertura della mappa EEA: Europa</string>
-    <string name="air_quality_map_credit">Mappa qualità dell’aria · Agenzia europea dell’ambiente</string>
+    <string name="air_quality_map_coverage">La mappa CAMS copre l’Europa</string>
+    <string name="air_quality_map_zoom_in">Ingrandisci la mappa per vedere i dati sulla qualità dell’aria</string>
+    <string name="air_quality_map_credit">Mappa qualità dell’aria · CAMS / Open-Meteo</string>
 </resources>
