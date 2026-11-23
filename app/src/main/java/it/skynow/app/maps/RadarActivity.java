@@ -279,7 +279,9 @@ public final class RadarActivity extends Activity {
             }
             if (layer == Layer.AURORA) {
                 result.put("minActivity", AuroraForecast.MAP_MIN_ACTIVITY);
-                result.put("localIntensity", getString(R.string.aurora_local_intensity));
+                result.put("localActivity", getString(R.string.aurora_local_activity));
+                result.put("noLocalActivity", getString(R.string.aurora_no_local_activity));
+                result.put("unavailable", getString(R.string.aurora_unavailable));
                 result.put("kpUnavailable", getString(R.string.aurora_kp_current_unavailable));
                 result.put("source", AuroraForecast.MAP);
                 result.put("mapLabel", getString(R.string.aurora_map));

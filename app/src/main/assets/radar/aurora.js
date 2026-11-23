@@ -110,7 +110,9 @@ function fillAuroraPopup() {
     const value = auroraCells && Math.abs(position.lat) <= limit
         ? auroraCells.charCodeAt(row * 360 + column) : NaN;
     const intensity = document.createElement('div');
-    intensity.textContent = strings.localIntensity + ' · ' + (Number.isFinite(value) ? value + '/100' : '—');
+    intensity.textContent = Number.isFinite(value)
+        ? (value >= strings.minActivity ? strings.localActivity : strings.noLocalActivity)
+        : strings.unavailable;
     const kp = document.createElement('div');
     kp.textContent = auroraKp ?? strings.kpUnavailable;
     content.replaceChildren(intensity, kp);

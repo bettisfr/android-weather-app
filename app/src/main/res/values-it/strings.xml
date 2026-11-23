@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="aurora_local_intensity">Intensità locale</string>
+    <string name="aurora_local_activity">Attività aurorale prevista qui</string>
+    <string name="aurora_no_local_activity">Nessuna attività aurorale indicata qui</string>
     <string name="radar_lightning">Fulmini</string>
     <string name="seismograms">Sismogrammi</string>
     <string name="seismogram_open">Tracciato</string>
