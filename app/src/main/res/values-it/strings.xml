@@ -131,7 +131,8 @@
     <string name="expanded">Aperto</string>
     <string name="lunar_eclipses">Eclissi lunari</string>
     <string name="solar_eclipses">Eclissi solari</string>
-    <string name="eclipse_data">Dati eclissi · IMCCE</string>
+    <string name="eclipse_data">Dati eclissi lunari · IMCCE</string>
+    <string name="solar_eclipse_credit">Previsioni eclissi solari · Fred Espenak, NASA GSFC</string>
     <string name="planetary_transits">Transiti planetari</string>
     <string name="no_transits">Nessun transito visibile nel catalogo</string>
     <string name="more">Mostra altri</string>
@@ -297,6 +298,8 @@
     <string name="cached_forecast">Previsioni salvate · Aggiornate %1$s</string>
     <string name="totality_minutes">Totalità visibile · %1$dm %2$02ds</string>
     <string name="totality_hours">Totalità visibile · %1$dh %2$02dm %3$02ds</string>
+    <string name="annularity_minutes">Anularità visibile · %1$dm %2$02ds</string>
+    <string name="annularity_hours">Anularità visibile · %1$dh %2$02dm %3$02ds</string>
     <string name="location_elevation">%1$s m s.l.m.</string>
     <string name="credits">Crediti</string>
     <string name="warning_credit">Allerte meteo · MeteoAlarm</string>

@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Locale;
 
 public final class EclipseCatalog {
+    public static final int LAST_OFFLINE_SOLAR_YEAR = SolarEclipses.LAST_YEAR;
     private static final String ENDPOINT = "https://opale.imcce.fr/api/v1/phenomena/eclipses/";
     private static final long CACHE_AGE_MS = Duration.ofDays(30).toMillis();
     private static final double REFRACTION_DEGREES = .57;
@@ -41,6 +42,7 @@ public final class EclipseCatalog {
         public final boolean estimatedPeak;
         public final double obscuration;
         public final long totalitySeconds;
+        public final long annularitySeconds;
         final double shadowX;
         final double shadowY;
         final double shadowRadius;
@@ -49,6 +51,7 @@ public final class EclipseCatalog {
 
         Event(String type, long start, long bestVisible, long end, boolean horizonLimited,
               boolean lunar, boolean penumbral, boolean estimatedPeak, double obscuration, long totalitySeconds,
+              long annularitySeconds,
               double shadowX, double shadowY, double shadowRadius, LocalDate catalogDate, List<Contact> contacts) {
             this.type = type;
             this.start = Instant.ofEpochSecond(start);
@@ -60,6 +63,7 @@ public final class EclipseCatalog {
             this.estimatedPeak = estimatedPeak;
             this.obscuration = obscuration;
             this.totalitySeconds = totalitySeconds;
+            this.annularitySeconds = annularitySeconds;
             this.shadowX = shadowX;
             this.shadowY = shadowY;
             this.shadowRadius = shadowRadius;
@@ -152,14 +156,20 @@ public final class EclipseCatalog {
 
     public static List<Event> upcoming(Context context, boolean lunar, int year, double latitude, double longitude,
                                 Instant now) throws Exception {
-        String observer = String.format(Locale.US, "%.5f,%.5f", latitude, longitude);
-        String path = (lunar ? "301/" : "10/") + year + "?nbd=" + yearsPerRequest(lunar);
-        if (!lunar) path += "&observer=" + observer;
-        String key = lunar ? "lunar-" + year : "solar-" + year + "-" + observer;
-        JSONArray rows = catalogRows(context, path, key, lunar);
+        if (!lunar) {
+            List<Event> result = new ArrayList<>();
+            LocalDate start = LocalDate.of(year, 1, 1);
+            LocalDate end = start.plusYears(yearsPerRequest(false));
+            for (SolarEclipses.Elements elements : SolarEclipses.catalog(context).subMap(start, true, end, false).values()) {
+                Event event = elements.at(latitude, longitude);
+                if (event != null && !event.end.isBefore(now)) result.add(event);
+            }
+            return result;
+        }
+        JSONArray rows = lunarRows(context, year);
         List<Event> result = new ArrayList<>();
         for (int i = 0; i < rows.length(); i++) {
-            Event event = visibleEvent(rows.getJSONObject(i), lunar, latitude, longitude);
+            Event event = visibleEvent(rows.getJSONObject(i), true, latitude, longitude);
             if (event != null && !event.end.isBefore(now)) result.add(event);
         }
         result.sort(Comparator.comparing(event -> event.start));
@@ -168,24 +178,23 @@ public final class EclipseCatalog {
 
     public static Event atDate(Context context, LocalDate date, boolean lunar, double latitude, double longitude)
             throws Exception {
-        int year = date.getYear();
-        String observer = String.format(Locale.US, "%.5f,%.5f", latitude, longitude);
-        String path = lunar ? "301/" + year + "?nbd=" + yearsPerRequest(true)
-                : "10/" + year + "?nbd=1&observer=" + observer;
-        String key = lunar ? "lunar-" + year : "solar-point-" + year + "-" + observer;
-        JSONArray rows = catalogRows(context, path, key, lunar);
+        if (!lunar) {
+            SolarEclipses.Elements elements = SolarEclipses.catalog(context).get(date);
+            return elements == null ? null : elements.at(latitude, longitude);
+        }
+        JSONArray rows = lunarRows(context, date.getYear());
         for (int i = 0; i < rows.length(); i++) {
-            Event event = visibleEvent(rows.getJSONObject(i), lunar, latitude, longitude);
+            Event event = visibleEvent(rows.getJSONObject(i), true, latitude, longitude);
             if (event != null && date.equals(event.catalogDate())) return event;
         }
         return null;
     }
 
-    private static JSONArray catalogRows(Context context, String path, String key, boolean lunar) throws Exception {
+    private static JSONArray lunarRows(Context context, int year) throws Exception {
         File cacheDir = new File(context.getCacheDir(), "eclipse_catalog");
-        File file = new File(cacheDir, key + ".json");
+        File file = new File(cacheDir, "lunar-" + year + ".json");
         AtomicFile cache = new AtomicFile(file);
-        String field = lunar ? "lunareclipse" : "data";
+        String field = "lunareclipse";
         JSONArray saved = null;
         if (file.isFile()) {
             try {
@@ -201,7 +210,7 @@ public final class EclipseCatalog {
         JSONObject downloaded;
         JSONArray rows;
         try {
-            downloaded = read(ENDPOINT + path);
+            downloaded = read(ENDPOINT + "301/" + year + "?nbd=" + yearsPerRequest(true));
             rows = downloaded.getJSONObject("response").getJSONArray(field);
         } catch (IOException | org.json.JSONException error) {
             if (saved != null) return saved;
@@ -224,6 +233,18 @@ public final class EclipseCatalog {
             }
         }
         return rows;
+    }
+
+    public static String centralPhaseDuration(Context context, Event event) {
+        boolean annular = event.annularitySeconds > 0;
+        long seconds = annular ? event.annularitySeconds : event.totalitySeconds;
+        if (seconds <= 0) return null;
+        if (seconds >= 3600) {
+            return context.getString(annular ? R.string.annularity_hours : R.string.totality_hours,
+                    seconds / 3600, seconds / 60 % 60, seconds % 60);
+        }
+        return context.getString(annular ? R.string.annularity_minutes : R.string.totality_minutes,
+                seconds / 60, seconds % 60);
     }
 
     private static Event visibleEvent(JSONObject row, boolean lunar, double latitude, double longitude) throws org.json.JSONException {
@@ -318,7 +339,7 @@ public final class EclipseCatalog {
         LocalDate catalogDate = date.isEmpty()
                 ? Instant.ofEpochSecond(peak.time).atOffset(ZoneOffset.UTC).toLocalDate() : LocalDate.parse(date);
         return new Event(type, visibleStart, bestVisible, visibleEnd, visibleStart > start.time || visibleEnd < end.time,
-                lunar, penumbral, estimatedPeak, obscuration, totalitySeconds, x / diskRadius, y / diskRadius,
+                lunar, penumbral, estimatedPeak, obscuration, totalitySeconds, 0, x / diskRadius, y / diskRadius,
                 shadowRadius / diskRadius, catalogDate, contacts);
     }
 
@@ -383,7 +404,7 @@ public final class EclipseCatalog {
         return new double[]{Math.toDegrees(Math.atan2(east, north)), Math.toDegrees(Math.atan2(up, Math.hypot(east, north)))};
     }
 
-    private static double diskCoverage(double disk, double shadow, double distance) {
+    static double diskCoverage(double disk, double shadow, double distance) {
         if (!Double.isFinite(disk) || !Double.isFinite(shadow) || !Double.isFinite(distance) || disk <= 0 || shadow <= 0) return Double.NaN;
         if (distance >= disk + shadow) return 0;
         if (distance <= Math.abs(disk - shadow)) return 100 * Math.pow(Math.min(disk, shadow) / disk, 2);

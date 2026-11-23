@@ -132,7 +132,8 @@
     <string name="expanded">Expanded</string>
     <string name="lunar_eclipses">Lunar</string>
     <string name="solar_eclipses">Solar</string>
-    <string name="eclipse_data">Eclipse data · IMCCE</string>
+    <string name="eclipse_data">Lunar eclipse data · IMCCE</string>
+    <string name="solar_eclipse_credit">Solar eclipse predictions · Fred Espenak, NASA GSFC</string>
     <string name="planetary_transits">Planetary transits</string>
     <string name="no_transits">No visible upcoming transits in the catalog</string>
     <string name="more">Show more</string>
@@ -299,6 +300,8 @@
     <string name="cached_forecast">Saved forecast · Updated %1$s</string>
     <string name="totality_minutes">Visible totality · %1$dm %2$02ds</string>
     <string name="totality_hours">Visible totality · %1$dh %2$02dm %3$02ds</string>
+    <string name="annularity_minutes">Visible annularity · %1$dm %2$02ds</string>
+    <string name="annularity_hours">Visible annularity · %1$dh %2$02dm %3$02ds</string>
     <string name="location_elevation">%1$s m ASL</string>
     <string name="credits">Credits</string>
     <string name="warning_credit">Weather warnings · MeteoAlarm</string>

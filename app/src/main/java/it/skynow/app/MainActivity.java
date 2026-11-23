@@ -2906,11 +2906,16 @@ public final class MainActivity extends Activity {
             int available = Math.min(goal, items.size());
             while (shown < available) addEclipse(events, items.get(shown++), zone);
             refreshAstronomyVisibility();
-            if (shown < goal && requestsLeft > 0) {
+            boolean hasMoreYears = lunar || year <= EclipseCatalog.LAST_OFFLINE_SOLAR_YEAR;
+            if (shown < goal && requestsLeft > 0 && hasMoreYears) {
                 fetch(requestsLeft);
                 return;
             }
-            if (shown == 0) footer.addView(label(getString(R.string.no_eclipses_until, year - 1), 14, muted));
+            if (shown == 0) {
+                int lastYear = lunar ? year - 1 : Math.min(year - 1, EclipseCatalog.LAST_OFFLINE_SOLAR_YEAR);
+                footer.addView(label(getString(R.string.no_eclipses_until, lastYear), 14, muted));
+            }
+            if (!hasMoreYears && shown >= items.size()) return;
             Button more = moreButton();
             more.setOnClickListener(v -> showNext());
             more.setContentDescription(lunar ? getString(R.string.more_lunar_eclipses) : getString(R.string.more_solar_eclipses));
@@ -2989,15 +2994,12 @@ public final class MainActivity extends Activity {
         localDetails.add(durationLabel);
         details.setPadding(0, dp(3), 0, 0);
         entry.addView(details);
-        if (event.totalitySeconds > 0) {
-            long seconds = event.totalitySeconds;
-            String totality = seconds >= 3600
-                    ? getString(R.string.totality_hours, seconds / 3600, seconds / 60 % 60, seconds % 60)
-                    : getString(R.string.totality_minutes, seconds / 60, seconds % 60);
-            TextView totalityLabel = label(totality, 13, accent);
-            localDetails.add(totality);
-            totalityLabel.setPadding(0, dp(3), 0, 0);
-            entry.addView(totalityLabel);
+        String centralDuration = EclipseCatalog.centralPhaseDuration(this, event);
+        if (centralDuration != null) {
+            TextView centralLabel = label(centralDuration, 13, accent);
+            localDetails.add(centralDuration);
+            centralLabel.setPadding(0, dp(3), 0, 0);
+            entry.addView(centralLabel);
         }
         if (Double.isFinite(event.obscuration)) {
             int disk = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow) : R.string.sun_covered;
@@ -3026,6 +3028,7 @@ public final class MainActivity extends Activity {
         return new android.content.Intent(this, RadarActivity.class)
                 .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
                 .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
+                .putExtra("timeZone", data.optString("timezone", "UTC"))
                 .putExtra("clock24", clock24)
                 .putExtra("eventDate", date.toString()).putExtra("detailsUrl", url)
                 .putStringArrayListExtra("localDetails", localDetails);

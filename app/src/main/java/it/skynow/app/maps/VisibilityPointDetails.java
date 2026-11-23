@@ -34,27 +34,29 @@ final class VisibilityPointDetails {
                     range(context, event.visibleStart, event.visibleEnd, zone, clock)));
         } else {
             EclipseCatalog.Event event = EclipseCatalog.atDate(context, date, "lunar".equals(kind), latitude, longitude);
-            if (event == null) return lines.put(context.getString(R.string.visibility_point_hidden));
-            zone = timeZone.get();
-            clock = clock.withZone(zone);
-            lines.put(EclipseCatalog.typeLabel(context, event.type));
-            lines.put(context.getString(R.string.visible_range, range(context, event.start, event.end, zone, clock)));
-            lines.put(context.getString(event.estimatedPeak ? R.string.best_visible : R.string.peak_time,
-                    clock.format(event.maximum)));
-            if (Double.isFinite(event.obscuration)) {
-                int label = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow)
-                        : R.string.sun_covered;
-                String coverage = context.getString(label, event.formattedObscuration(locale));
-                lines.put(event.estimatedPeak ? context.getString(R.string.approximate_value, coverage) : coverage);
-            }
-            if (event.totalitySeconds > 0) {
-                long seconds = event.totalitySeconds;
-                lines.put(seconds >= 3600
-                        ? context.getString(R.string.totality_hours, seconds / 3600, seconds / 60 % 60, seconds % 60)
-                        : context.getString(R.string.totality_minutes, seconds / 60, seconds % 60));
-            }
+            return eclipse(context, event, event == null ? null : timeZone.get(), clock24);
         }
         return lines.put(zone.getId().replace('_', ' '));
+    }
+
+    static JSONArray eclipse(Context context, EclipseCatalog.Event event, ZoneId zone, boolean clock24) {
+        JSONArray lines = new JSONArray();
+        if (event == null) return lines.put(context.getString(R.string.visibility_point_hidden));
+        Locale locale = Locale.forLanguageTag(context.getString(R.string.app_language_tag));
+        DateTimeFormatter clock = DateTimeFormatter.ofPattern(clock24 ? "HH:mm" : "h:mm a", locale).withZone(zone);
+        lines.put(EclipseCatalog.typeLabel(context, event.type));
+        lines.put(context.getString(R.string.visible_range, range(context, event.start, event.end, zone, clock)));
+        lines.put(context.getString(event.estimatedPeak ? R.string.best_visible : R.string.peak_time,
+                clock.format(event.maximum)));
+        if (Double.isFinite(event.obscuration)) {
+            int label = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow)
+                    : R.string.sun_covered;
+            String coverage = context.getString(label, event.formattedObscuration(locale));
+            lines.put(event.estimatedPeak ? context.getString(R.string.approximate_value, coverage) : coverage);
+        }
+        String centralDuration = EclipseCatalog.centralPhaseDuration(context, event);
+        if (centralDuration != null) lines.put(centralDuration);
+        return lines.put(java.time.ZoneOffset.UTC.equals(zone) ? "UTC" : zone.getId().replace('_', ' '));
     }
 
     private static String range(Context context, Instant start, Instant end, ZoneId zone, DateTimeFormatter clock) {

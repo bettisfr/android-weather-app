@@ -373,6 +373,12 @@ public final class RadarActivity extends Activity {
         if (visibilityRequest != null) visibilityRequest.cancel(true);
         resolveVisibilityPlace(sequence, latitude, longitude);
         visibilityRequest = network.submit(() -> {
+            String kind = options.getStringExtra("visibilityKind");
+            boolean clock24 = options.getBooleanExtra("clock24", true);
+            if ("solar".equals(kind)) {
+                showSolarVisibilityPoint(sequence, date, latitude, longitude, clock24, url, label);
+                return;
+            }
             CompletableFuture<ZoneId> zone = CompletableFuture.supplyAsync(() -> {
                 try {
                     return OpenMeteo.timeZone(latitude, longitude);
@@ -382,16 +388,47 @@ public final class RadarActivity extends Activity {
             });
             JSONArray lines;
             try {
-                lines = VisibilityPointDetails.lookup(this, options.getStringExtra("visibilityKind"), date, latitude,
-                        longitude, zone::join, options.getBooleanExtra("clock24", true));
+                lines = VisibilityPointDetails.lookup(this, kind, date, latitude, longitude, zone::join, clock24);
             } catch (Exception error) {
                 android.util.Log.w("SkyHere", "Map point details unavailable", error);
                 lines = new JSONArray().put(getString(R.string.visibility_point_unavailable));
             }
-            String script = "showVisibilityPoint(" + sequence + "," + lines + ","
-                    + JSONObject.quote(url) + "," + JSONObject.quote(label) + ")";
-            runOnUiThread(() -> evaluate(script));
+            sendVisibilityPoint(sequence, lines, url, label);
         });
+    }
+
+    private void showSolarVisibilityPoint(int sequence, LocalDate date, double latitude, double longitude,
+                                          boolean clock24, String url, String label) {
+        EclipseCatalog.Event event;
+        try {
+            event = EclipseCatalog.atDate(this, date, false, latitude, longitude);
+        } catch (Exception error) {
+            android.util.Log.w("SkyHere", "Offline solar eclipse details unavailable", error);
+            sendVisibilityPoint(sequence, new JSONArray().put(getString(R.string.visibility_point_unavailable)), url, label);
+            return;
+        }
+        boolean atPlace = Math.abs(latitude - getIntent().getDoubleExtra("lat", Double.NaN)) < .0001
+                && Math.abs(longitude - getIntent().getDoubleExtra("lon", Double.NaN)) < .0001;
+        String placeZone = getIntent().getStringExtra("timeZone");
+        ZoneId initialZone = atPlace && placeZone != null ? ZoneId.of(placeZone) : ZoneOffset.UTC;
+        sendVisibilityPoint(sequence, VisibilityPointDetails.eclipse(this, event, initialZone, clock24), url, label);
+        if (event == null || atPlace) return;
+        CompletableFuture.runAsync(() -> {
+            try {
+                ZoneId zone = OpenMeteo.timeZone(latitude, longitude);
+                if (!zone.equals(initialZone)) {
+                    sendVisibilityPoint(sequence, VisibilityPointDetails.eclipse(this, event, zone, clock24), url, label);
+                }
+            } catch (Exception error) {
+                // UTC circumstances are already displayed when a local zone is unavailable offline.
+            }
+        });
+    }
+
+    private void sendVisibilityPoint(int sequence, JSONArray lines, String url, String label) {
+        String script = "showVisibilityPoint(" + sequence + "," + lines + ","
+                + JSONObject.quote(url) + "," + JSONObject.quote(label) + ")";
+        runOnUiThread(() -> evaluate(script));
     }
 
     private void resolveVisibilityPlace(int sequence, double latitude, double longitude) {
