@@ -502,7 +502,7 @@ public final class MainActivity extends Activity {
     }
 
     private void load(boolean manual) {
-        int offset = cachedForecastAt != null && scroll != null ? scroll.getScrollY() : 0;
+        int offset = !manual && cachedForecastAt != null && scroll != null ? scroll.getScrollY() : 0;
         data = null;
         cachedForecastAt = null;
         day = -1;
@@ -576,7 +576,7 @@ public final class MainActivity extends Activity {
                     manualRefresh = false;
                     forecastHour = Instant.now().atZone(ZoneId.of(response.optString("timezone", "UTC")))
                             .truncatedTo(ChronoUnit.HOURS);
-                    int offset = refreshing && scroll != null ? scroll.getScrollY() : 0;
+                    int offset = refreshing && !manual && scroll != null ? scroll.getScrollY() : 0;
                     if (refreshing && day >= 0 && data != null) {
                         String selectedDate = at(data.optJSONObject("daily"), "time", day);
                         JSONObject refreshed = response.optJSONObject("daily");
@@ -655,6 +655,7 @@ public final class MainActivity extends Activity {
                 pullingToRefresh = false;
                 if (event.getActionMasked() == MotionEvent.ACTION_UP && !forecastLoading
                         && event.getY() - pullStartY >= dp(REFRESH_PULL_DP)) {
+                    dashboardOffsets[DashboardTab.WEATHER.ordinal()] = 0;
                     currentLocation(true, true);
                 } else {
                     refreshIndicator.setVisibility(View.GONE);
