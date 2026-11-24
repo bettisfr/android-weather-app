@@ -34,7 +34,9 @@ public final class EclipseIcon extends View {
         canvas.clipPath(disk);
         paint.setColor(event.lunar ? event.penumbral ? 0xffa18d88 : 0xffa85539 : 0xff293a58);
         if (Double.isFinite(event.shadowX) && Double.isFinite(event.shadowY) && Double.isFinite(event.shadowRadius)) {
-            canvas.drawCircle(centerX + (float) event.shadowX * radius, centerY - (float) event.shadowY * radius,
+            float xSign = event.lunar ? 1f : -1f;
+            canvas.drawCircle(centerX + xSign * (float) event.shadowX * radius,
+                    centerY - (float) event.shadowY * radius,
                     (float) event.shadowRadius * radius, paint);
         }
         canvas.restore();

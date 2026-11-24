@@ -806,7 +806,7 @@ public final class MainActivity extends Activity {
             }
             title(getString(R.string.now));
             LinearLayout hero = row();
-            TextView temperature = label(temp(current.optDouble("temperature_2m")), 76, ink);
+            TextView temperature = label(tempDecimal(current.optDouble("temperature_2m")), 76, ink);
             temperature.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
             temperature.setLetterSpacing(-0.045f);
             hero.addView(temperature);
@@ -3757,6 +3757,10 @@ public final class MainActivity extends Activity {
     private String temp(double celsius) {
         double displayed = displayTemperature(celsius);
         return number(Math.abs(displayed) < 0.5 ? 0 : displayed, "%.0f") + "°";
+    }
+
+    private String tempDecimal(double celsius) {
+        return number(displayTemperature(celsius), "%.1f") + "°";
     }
 
     private double displayTemperature(double celsius) {
