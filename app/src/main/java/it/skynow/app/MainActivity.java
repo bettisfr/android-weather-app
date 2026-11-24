@@ -3208,7 +3208,7 @@ public final class MainActivity extends Activity {
             addEventTableRow(table, getString(R.string.date), null, muted, getString(R.string.sunrise),
                     getString(R.string.sunset), getString(R.string.daylight_column), getString(R.string.max_elevation));
         }
-        appendUpcomingTimeRows(table, daily, index + 1, end, moon, zone);
+        appendUpcomingTimeRows(table, daily, index, end, moon, zone);
         if (!moon) sizeSolarColumns(table, tile);
     }
 
