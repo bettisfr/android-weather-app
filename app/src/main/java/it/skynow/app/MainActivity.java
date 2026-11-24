@@ -3160,7 +3160,7 @@ public final class MainActivity extends Activity {
 
     private void addUpcomingTimes(LinearLayout tile, JSONObject daily, int index, boolean moon) {
         int count = OpenMeteo.UPCOMING_ASTRONOMY_DAYS;
-        int end = Math.min(length(daily), index + count + 1);
+        int end = Math.min(length(daily), index + count);
         LocalDate date = LocalDate.parse(at(daily, "time", index));
         LocalDate last = date.plusDays(count);
         LocalDate firstMissing = date.plusDays(end - index);
