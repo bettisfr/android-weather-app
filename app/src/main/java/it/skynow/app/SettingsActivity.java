@@ -204,6 +204,7 @@ public final class SettingsActivity extends Activity {
         addCredit(links, R.string.aurora_credit, AuroraForecast.MAP);
         addCredit(links, R.string.air_quality_credit, "https://open-meteo.com/en/docs/air-quality-api");
         addCredit(links, R.string.air_quality_map_credit, "https://open-meteo.com/en/docs/air-quality-api");
+        addCredit(links, R.string.air_quality_eea_credit, "https://airindex.eea.europa.eu/AQI/");
         addCredit(links, R.string.satellite_credit, SatelliteImagery.EUMETSAT);
         addCredit(links, R.string.satellite_mosaic_credit, SatelliteImagery.SOURCE);
         addCredit(links, R.string.earthquake_credit, EarthquakeFeed.SOURCE);

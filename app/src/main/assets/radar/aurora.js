@@ -116,11 +116,13 @@ function fillAuroraPopup() {
 }
 
 const aqiEndpoint = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+const eeaEndpoint = 'https://air.discomap.eea.europa.eu/arcgis/rest/services/AQMobile_2025/MOSAIC_GLOBAL_AQI/ImageServer';
 const aqiCoverage = [[30, -25], [72, 45]];
 const aqiCellSize = 0.1;
 const maxAqiCells = 750;
 let airQualityLayer, airQualityRenderer, loadedAqiBounds, loadedAqiTime = 0;
 let aqiRequest, aqiTimer;
+let eeaOverlay, eeaTime, eeaRetryAfter = 0, aqiGeneration = 0;
 
 function initializeAirQuality() {
     document.getElementById('forecast').textContent = strings.forecast;
@@ -128,9 +130,117 @@ function initializeAirQuality() {
     airQualityLayer = L.layerGroup().addTo(map);
     map.on('moveend', () => {
         clearTimeout(aqiTimer);
-        aqiTimer = setTimeout(showAirQualityCells, 250);
+        aqiTimer = setTimeout(showAirQuality, 250);
     });
+    map.on('click', showEeaReading);
+    showAirQuality();
+}
+
+function setAqiSource(eea) {
+    const link = document.getElementById('source');
+    link.textContent = eea ? 'EEA' : 'CAMS / Open-Meteo';
+    link.href = eea ? 'https://airindex.eea.europa.eu/AQI/' : strings.source;
+}
+
+async function showAirQuality() {
+    const generation = ++aqiGeneration;
+    if (aqiRequest) aqiRequest.abort();
+    aqiRequest = null;
+    const bounds = map.getBounds();
+    if (aqiBounds(bounds) && Date.now() >= eeaRetryAfter) {
+        status(strings.loading);
+        try {
+            const time = Math.floor(Date.now() / 3600000) * 3600000 - 3 * 3600000;
+            const image = await loadEeaImage(bounds, time);
+            if (generation !== aqiGeneration) return;
+            if (eeaOverlay) eeaOverlay.remove();
+            airQualityLayer.remove();
+            eeaOverlay = L.imageOverlay(image, bounds, {opacity: .65, interactive: false, alt: ''}).addTo(map);
+            eeaTime = time;
+            setAqiSource(true);
+            document.getElementById('forecast').textContent = strings.forecast + ' · ' + timeFormat.format(time);
+            showMapUpdate(strings);
+            status('');
+            return;
+        } catch (error) {
+            if (generation !== aqiGeneration) return;
+            eeaRetryAfter = Date.now() + 60_000;
+        }
+    }
+    if (eeaOverlay) eeaOverlay.remove();
+    eeaOverlay = null;
+    setAqiSource(false);
     showAirQualityCells();
+}
+
+async function eeaRequest(path, params, read) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    try {
+        const response = await fetch(eeaEndpoint + path + '?' + params, {signal: controller.signal});
+        if (!response.ok) throw new Error('EEA air quality unavailable');
+        return await read(response);
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+async function loadEeaImage(bounds, time) {
+    const sw = map.options.crs.project(bounds.getSouthWest());
+    const ne = map.options.crs.project(bounds.getNorthEast());
+    const size = map.getSize();
+    const colormap = strings.bands.map((band, index) => {
+        const rgb = parseInt(band.color.substring(1), 16);
+        return [index + 1, (rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255];
+    });
+    const params = new URLSearchParams({
+        f: 'image', bbox: [sw.x, sw.y, ne.x, ne.y].join(','), bboxSR: 3857, imageSR: 3857,
+        size: [size.x, size.y].join(','), format: 'png32', transparent: 'true',
+        time, interpolation: 'RSP_NearestNeighbor',
+        mosaicRule: JSON.stringify({
+            ascending: false, mosaicMethod: 'esriMosaicAttribute', mosaicOperation: 'MT_FIRST',
+            sortField: 'StdTime', sortValue: '0',
+        }),
+        renderingRule: JSON.stringify({rasterFunction: 'Colormap', rasterFunctionArguments: {Colormap: colormap}}),
+    });
+    const blob = await eeaRequest('/exportImage', params, response => response.blob());
+    const url = URL.createObjectURL(blob);
+    try {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 128;
+        const pixels = canvas.getContext('2d');
+        pixels.drawImage(image, 0, 0, 128, 128);
+        const rgba = pixels.getImageData(0, 0, 128, 128).data;
+        if (!rgba.some((value, index) => index % 4 === 3 && value > 0)) throw new Error('Empty EEA image');
+        return image;
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+async function showEeaReading({latlng}) {
+    if (!eeaOverlay || !eeaOverlay.getBounds().contains(latlng)) return;
+    const text = document.createElement('span');
+    text.textContent = strings.loading;
+    L.popup().setLatLng(latlng).setContent(text).openOn(map);
+    const params = new URLSearchParams({
+        f: 'json', geometryType: 'esriGeometryPoint',
+        geometry: JSON.stringify({x: latlng.lng, y: latlng.lat, spatialReference: {wkid: 4326}}),
+        mosaicRule: JSON.stringify({
+            mosaicMethod: 'esriMosaicNone', mosaicOperation: 'MT_FIRST',
+            multidimensionalDefinition: [{variableName: 'AQI', dimensionName: 'StdTime', values: [eeaTime], isSlice: true}],
+        }),
+        returnGeometry: 'false', returnCatalogItems: 'false', returnPixelValues: 'true', processAsMultidimensional: 'true',
+    });
+    try {
+        const reading = await eeaRequest('/identify', params, response => response.json());
+        text.textContent = strings.bands[Number(reading.value) - 1]?.label ?? strings.unavailable;
+    } catch (error) {
+        text.textContent = strings.unavailable;
+    }
 }
 
 function aqiBounds(view) {

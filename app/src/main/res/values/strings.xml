@@ -209,7 +209,7 @@
     <string name="mercury">Mercury</string>
     <string name="venus">Venus</string>
     <string name="sun">Sun</string>
-    <string name="planets">Planets</string>
+    <string name="planets">Planets visible to the naked eye</string>
     <string name="uranus">Uranus</string>
     <string name="uranus_binoculars">Binoculars recommended</string>
     <string name="planets_visible_only">Visible now only</string>
@@ -383,4 +383,5 @@
     <string name="air_quality_map_coverage">CAMS air quality map covers Europe</string>
     <string name="air_quality_map_zoom_in">Zoom in to see the air quality grid</string>
     <string name="air_quality_map_credit">Air quality map · CAMS / Open-Meteo</string>
+    <string name="air_quality_eea_credit">Air quality map · European Environment Agency</string>
 </resources>

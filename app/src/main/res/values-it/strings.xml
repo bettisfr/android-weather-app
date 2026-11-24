@@ -208,7 +208,7 @@
     <string name="mercury">Mercurio</string>
     <string name="venus">Venere</string>
     <string name="sun">Sole</string>
-    <string name="planets">Pianeti</string>
+    <string name="planets">Pianeti visibili a occhio nudo</string>
     <string name="uranus">Urano</string>
     <string name="uranus_binoculars">Binocolo consigliato</string>
     <string name="planets_visible_only">Solo visibili ora</string>
@@ -381,4 +381,5 @@
     <string name="air_quality_map_coverage">La mappa CAMS copre l’Europa</string>
     <string name="air_quality_map_zoom_in">Ingrandisci la mappa per vedere i dati sulla qualità dell’aria</string>
     <string name="air_quality_map_credit">Mappa qualità dell’aria · CAMS / Open-Meteo</string>
+    <string name="air_quality_eea_credit">Mappa qualità dell’aria · Agenzia europea dell’ambiente</string>
 </resources>
