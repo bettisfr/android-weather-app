@@ -3056,7 +3056,7 @@ public final class MainActivity extends Activity {
                 paint.setColor(0xffe9a946);
                 canvas.drawCircle(x, y, radius, paint);
                 paint.setColor(0xff293a58);
-                canvas.drawCircle(x + radius * (float) position.x(), y + radius * (float) position.y(),
+                canvas.drawCircle(x + radius * (float) position.x, y + radius * (float) position.y,
                         radius * (event.transit.planet.equals("Mercury") ? .10f : .18f), paint);
             }
         };

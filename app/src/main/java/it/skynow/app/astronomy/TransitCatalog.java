@@ -117,7 +117,15 @@ public final class TransitCatalog {
         }
     }
 
-    public record DiskPosition(double x, double y) {}
+    public static final class DiskPosition {
+        public final double x;
+        public final double y;
+
+        private DiskPosition(double x, double y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
 
     public static final class Transit {
         public final String planet;
@@ -154,8 +162,8 @@ public final class TransitCatalog {
             long peak = greatest.getEpochSecond();
             long displayed = Math.max(visibleStart.getEpochSecond(), Math.min(peak, visibleEnd.getEpochSecond()));
             double hours = (displayed - peak) / 3600.0;
-            double x = greatestPosition.x() + hours * hourlyMotion.x();
-            double y = greatestPosition.y() + hours * hourlyMotion.y();
+            double x = greatestPosition.x + hours * hourlyMotion.x;
+            double y = greatestPosition.y + hours * hourlyMotion.y;
             double scale = Math.max(1, Math.hypot(x, y));
             return new DiskPosition(x / scale, y / scale);
         }
