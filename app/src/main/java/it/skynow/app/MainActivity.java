@@ -3755,7 +3755,8 @@ public final class MainActivity extends Activity {
     }
 
     private String temp(double celsius) {
-        return number(displayTemperature(celsius), "%.0f") + "°";
+        double displayed = displayTemperature(celsius);
+        return number(Math.abs(displayed) < 0.5 ? 0 : displayed, "%.0f") + "°";
     }
 
     private double displayTemperature(double celsius) {
