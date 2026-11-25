@@ -3162,10 +3162,11 @@ public final class MainActivity extends Activity {
         int count = OpenMeteo.UPCOMING_ASTRONOMY_DAYS;
         int end = Math.min(length(daily), index + count);
         LocalDate date = LocalDate.parse(at(daily, "time", index));
-        LocalDate last = date.plusDays(count - 1);
+        int upcomingDays = count - 1;
+        LocalDate last = date.plusDays(upcomingDays);
         LocalDate firstMissing = date.plusDays(end - index);
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        String title = getString(R.string.next_days, count);
+        String title = getString(R.string.next_days, upcomingDays);
         LinearLayout collapsible = column();
         LinearLayout table = column();
         collapsible.addView(table);
