@@ -3244,9 +3244,16 @@ public final class MainActivity extends Activity {
                 String duration = seconds <= 0 ? "-" : String.format(appLocale(), "%d:%02d:%02d",
                         seconds / 3600, seconds / 60 % 60, seconds % 60);
                 boolean polar = isPolarDaylight(seconds);
-                addEventTableRow(table, date, null, ink, polar ? "—" : eventClock(at(daily, rise, i)),
+                LinearLayout line = addEventTableRow(table, date, null, ink, polar ? "—" : eventClock(at(daily, rise, i)),
                         polar ? "—" : eventClock(at(daily, set, i)),
                         duration, solarMaximumElevation(day, zone, seconds));
+                if (!polar) {
+                    highlightSolarExtremum((TextView) line.getChildAt(1), day -> solarTableTime(daily, rise, day), i, end);
+                    highlightSolarExtremum((TextView) line.getChildAt(2), day -> solarTableTime(daily, set, day), i, end);
+                }
+                if (seconds > 0) {
+                    highlightSolarExtremum((TextView) line.getChildAt(3), day -> daylightSeconds(daily, day), i, end);
+                }
                 continue;
             }
             View phaseIcon;
@@ -3272,6 +3279,30 @@ public final class MainActivity extends Activity {
             }
             addEventTableRow(table, date, phaseIcon, ink, eventClock(at(daily, rise, i)), eventClock(at(daily, set, i)));
         }
+    }
+
+    private void highlightSolarExtremum(TextView cell, java.util.function.IntToLongFunction reading, int index, int end) {
+        long value = reading.applyAsLong(index);
+        if (value < 0) return;
+        int before = index - 1;
+        while (before >= 0 && reading.applyAsLong(before) == value) before--;
+        int after = index + 1;
+        while (after < end && reading.applyAsLong(after) == value) after++;
+        if (before < 0 || after >= end) return;
+        long previous = reading.applyAsLong(before);
+        long next = reading.applyAsLong(after);
+        if (previous < 0 || next < 0) return;
+        if (value < previous && value < next) {
+            cell.setTextColor(accent);
+        } else if (value > previous && value > next) {
+            cell.setTextColor(getColor(R.color.sky_chart_secondary));
+        }
+    }
+
+    private long solarTableTime(JSONObject daily, String event, int index) {
+        String timestamp = at(daily, event, index);
+        if (timestamp.length() < 16 || isPolarDaylight(daylightSeconds(daily, index))) return -1;
+        return LocalDateTime.parse(timestamp).toLocalTime().toSecondOfDay();
     }
 
     private void sizeSolarColumns(LinearLayout table, LinearLayout tile) {
@@ -3330,7 +3361,7 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void addEventTableRow(LinearLayout table, String date, View phase, int color, String... readings) {
+    private LinearLayout addEventTableRow(LinearLayout table, String date, View phase, int color, String... readings) {
         LinearLayout line = row();
         line.setPadding(0, dp(5), 0, dp(5));
         TextView dateLabel = label(date, 13, color);
@@ -3346,6 +3377,7 @@ public final class MainActivity extends Activity {
             line.addView(value, new LinearLayout.LayoutParams(0, -2, 1));
         }
         table.addView(line);
+        return line;
     }
 
     private String windSpeed(double kmh, boolean includeUnit) {
