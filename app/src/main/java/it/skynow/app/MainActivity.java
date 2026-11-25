@@ -2855,8 +2855,8 @@ public final class MainActivity extends Activity {
                 number(SkyPosition.rotationSpeedKmh(latitude), "%,.0f")), 14, ink);
         rotation.setPadding(0, dp(4), 0, 0);
         seasons.addView(rotation);
-        seasons.addView(label(getString(R.string.earth_axis_orbital_plane,
-                number(SkyPosition.earthAxisToOrbitalPlane(Instant.now()), "%.2f")), 13, muted));
+        seasons.addView(label(getString(R.string.solar_declination,
+                number(SkyPosition.solarDeclinationDegrees(Instant.now()), "%.2f")), 13, muted));
         addSpaced(page, seasons, 9);
         refreshAstronomyVisibility();
     }
