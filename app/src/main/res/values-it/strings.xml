@@ -149,6 +149,7 @@
     <string name="close_settings">Chiudi impostazioni</string>
     <string name="celsius">Celsius (°C)</string>
     <string name="fahrenheit">Fahrenheit (°F)</string>
+    <string name="kelvin">Kelvin (K)</string>
     <string name="time_format">Formato orario</string>
     <string name="clock_12">12 ore (AM/PM)</string>
     <string name="clock_24">24 ore</string>

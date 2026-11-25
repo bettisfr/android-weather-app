@@ -34,6 +34,13 @@ import it.skynow.app.maps.SatelliteImagery;
 import it.skynow.app.seismic.EarthquakeFeed;
 
 public final class SettingsActivity extends Activity {
+    static final String[] TEMPERATURE_UNITS = {"°C", "°F", "K"};
+
+    static int temperatureUnit(SharedPreferences preferences) {
+        int unit = preferences.getInt("temperatureUnit", preferences.getBoolean("fahrenheit", false) ? 1 : 0);
+        return Math.max(0, Math.min(unit, TEMPERATURE_UNITS.length - 1));
+    }
+
     static final String PREFERENCES_FILE = "preferencesFile";
     private SharedPreferences preferences;
 
@@ -68,9 +75,9 @@ public final class SettingsActivity extends Activity {
                 index -> preferences.edit().putBoolean("clock24", index == 1).apply());
 
         LinearLayout units = section(content, R.string.settings_measurement_units);
-        choice(units, R.string.temperature, new String[]{getString(R.string.celsius), getString(R.string.fahrenheit)},
-                () -> preferences.getBoolean("fahrenheit", false) ? 1 : 0,
-                index -> preferences.edit().putBoolean("fahrenheit", index == 1).apply());
+        choice(units, R.string.temperature, new String[]{getString(R.string.celsius), getString(R.string.fahrenheit), getString(R.string.kelvin)},
+                () -> temperatureUnit(preferences),
+                index -> preferences.edit().putInt("temperatureUnit", index).apply());
         choice(units, R.string.wind_speed, MainActivity.WIND_UNITS,
                 () -> preferences.getInt("windUnit", 0), index -> preferences.edit().putInt("windUnit", index).apply());
         choice(units, R.string.pressure, MainActivity.PRESSURE_UNITS,

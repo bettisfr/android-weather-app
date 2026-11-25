@@ -131,7 +131,7 @@ public final class MainActivity extends Activity {
     private boolean kpLoading;
     private double latitude;
     private double longitude;
-    private boolean fahrenheit;
+    private int temperatureUnit;
     private boolean clock24;
     private int windUnit;
     private static final int SETTINGS_REQUEST = 403;
@@ -876,7 +876,7 @@ public final class MainActivity extends Activity {
                 values.addView(dayIcon, new LinearLayout.LayoutParams(iconWidth, -2));
                 TextView temperatures = label(range(daily, index), 16, ink);
                 temperatures.setGravity(Gravity.END);
-                int temperatureWidth = Math.max(dp(fahrenheit ? 83 : 70), textWidth(temperatures, range(daily, index)) + dp(6));
+                int temperatureWidth = Math.max(dp(temperatureUnit == 0 ? 70 : 83), textWidth(temperatures, range(daily, index)) + dp(6));
                 values.addView(temperatures, new LinearLayout.LayoutParams(temperatureWidth, -2));
                 tile.setOnClickListener(v -> {
                     homeScroll = scroll.getScrollY();
@@ -1431,7 +1431,7 @@ public final class MainActivity extends Activity {
             if (largeText()) legend.addView(secondKey, new LinearLayout.LayoutParams(0, -2, 1));
             else legend.addView(secondKey);
         }
-        String unit = new String[]{"mm", WIND_UNITS[windUnit], "%", fahrenheit ? "°F" : "°C"}[tab];
+        String unit = new String[]{"mm", WIND_UNITS[windUnit], "%", SettingsActivity.TEMPERATURE_UNITS[temperatureUnit]}[tab];
         TextView units = label(precipitation ? "mm / %" : unit, 11, muted);
         units.setGravity(Gravity.END);
         legend.addView(units, largeText() ? new LinearLayout.LayoutParams(-2, -2)
@@ -3405,15 +3405,15 @@ public final class MainActivity extends Activity {
     }
 
     private boolean readDisplayPreferences(android.content.SharedPreferences prefs) {
-        boolean useFahrenheit = prefs.getBoolean("fahrenheit", false);
+        int selectedTemperatureUnit = SettingsActivity.temperatureUnit(prefs);
         boolean use24Hours = prefs.getBoolean("clock24", true);
         int wind = prefs.getInt("windUnit", 0);
         int pressure = prefs.getInt("pressureUnit", 0);
         int radius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
         int minimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
-        boolean changed = fahrenheit != useFahrenheit || clock24 != use24Hours || windUnit != wind
+        boolean changed = temperatureUnit != selectedTemperatureUnit || clock24 != use24Hours || windUnit != wind
                 || pressureUnit != pressure || earthquakeRadius != radius || earthquakeMinimumMagnitude != minimumMagnitude;
-        fahrenheit = useFahrenheit;
+        temperatureUnit = selectedTemperatureUnit;
         clock24 = use24Hours;
         windUnit = wind;
         pressureUnit = pressure;
@@ -3792,15 +3792,21 @@ public final class MainActivity extends Activity {
 
     private String temp(double celsius) {
         double displayed = displayTemperature(celsius);
-        return number(Math.abs(displayed) < 0.5 ? 0 : displayed, "%.0f") + "°";
+        return number(Math.abs(displayed) < 0.5 ? 0 : displayed, "%.0f") + temperatureSuffix();
     }
 
     private String tempDecimal(double celsius) {
-        return number(displayTemperature(celsius), "%.1f") + "°";
+        return number(displayTemperature(celsius), "%.1f") + temperatureSuffix();
+    }
+
+    private String temperatureSuffix() {
+        return temperatureUnit == 2 ? "\u00a0K" : "°";
     }
 
     private double displayTemperature(double celsius) {
-        return fahrenheit ? celsius * 1.8 + 32 : celsius;
+        if (temperatureUnit == 2) return celsius + 273.15;
+        if (temperatureUnit == 1) return celsius * 1.8 + 32;
+        return celsius;
     }
 
     private String number(double value, String format) {
