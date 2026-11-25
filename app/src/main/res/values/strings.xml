@@ -385,4 +385,5 @@
     <string name="air_quality_map_zoom_in">Zoom in to see the air quality grid</string>
     <string name="air_quality_map_credit">Air quality map · CAMS / Open-Meteo</string>
     <string name="air_quality_eea_credit">Air quality map · European Environment Agency</string>
+    <string name="earth_axis_orbital_plane">Earth’s axis · %1$s° to the orbital plane</string>
 </resources>

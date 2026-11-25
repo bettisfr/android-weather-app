@@ -82,13 +82,21 @@ public final class SkyPosition {
         double perihelion = Math.toRadians(282.9404 + 4.70935e-5 * days);
         double eccentricity = solarEccentricity(days);
         double longitude = solarLongitude(eccentricAnomaly(anomaly, eccentricity), eccentricity, perihelion);
-        double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
+        double obliquity = Math.toRadians(meanObliquity(days));
         double declination = Math.asin(Math.sin(obliquity) * Math.sin(longitude));
         double lat = Math.toRadians(latitude);
         // Standard sunrise/sunset zenith includes refraction and the solar radius.
         double cosine = (Math.cos(Math.toRadians(90.833)) - Math.sin(lat) * Math.sin(declination))
                 / (Math.cos(lat) * Math.cos(declination));
         return Math.round(1440 * Math.acos(Math.max(-1, Math.min(1, cosine))) / Math.PI);
+    }
+
+    private static double meanObliquity(double days) {
+        return 23.4393 - 3.563e-7 * days;
+    }
+
+    public static double earthAxisToOrbitalPlane(Instant time) {
+        return 90 - meanObliquity(daysSinceEpoch(time));
     }
 
     public static double rotationSpeedKmh(double latitude) {
@@ -102,7 +110,7 @@ public final class SkyPosition {
 
     static SkyPosition fromEcliptic(double x, double y, double z, double days, double sunMeanLongitude,
             double latitude, double longitude, double observerRadius) {
-        double obliquity = Math.toRadians(23.4393 - 3.563e-7 * days);
+        double obliquity = Math.toRadians(meanObliquity(days));
         double equatorialY = y * Math.cos(obliquity) - z * Math.sin(obliquity);
         double equatorialZ = y * Math.sin(obliquity) + z * Math.cos(obliquity);
         double sidereal = sunMeanLongitude + Math.toRadians(180 + 360 * (days - Math.floor(days)) + longitude);

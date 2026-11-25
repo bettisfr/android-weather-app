@@ -383,4 +383,5 @@
     <string name="air_quality_map_zoom_in">Ingrandisci la mappa per vedere i dati sulla qualità dell’aria</string>
     <string name="air_quality_map_credit">Mappa qualità dell’aria · CAMS / Open-Meteo</string>
     <string name="air_quality_eea_credit">Mappa qualità dell’aria · Agenzia europea dell’ambiente</string>
+    <string name="earth_axis_orbital_plane">Asse terrestre · %1$s° rispetto al piano orbitale</string>
 </resources>
