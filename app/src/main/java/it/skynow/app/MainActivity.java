@@ -3248,11 +3248,11 @@ public final class MainActivity extends Activity {
                         polar ? "—" : eventClock(at(daily, set, i)),
                         duration, solarMaximumElevation(day, zone, seconds));
                 if (!polar) {
-                    highlightSolarExtremum((TextView) line.getChildAt(1), day -> solarTableTime(daily, rise, day), i, end);
-                    highlightSolarExtremum((TextView) line.getChildAt(2), day -> solarTableTime(daily, set, day), i, end);
+                    highlightSolarExtremum((TextView) line.getChildAt(1), position -> solarTableTime(daily, rise, position), i, end);
+                    highlightSolarExtremum((TextView) line.getChildAt(2), position -> solarTableTime(daily, set, position), i, end);
                 }
                 if (seconds > 0) {
-                    highlightSolarExtremum((TextView) line.getChildAt(3), day -> daylightSeconds(daily, day), i, end);
+                    highlightSolarExtremum((TextView) line.getChildAt(3), position -> daylightSeconds(daily, position), i, end);
                 }
                 continue;
             }
