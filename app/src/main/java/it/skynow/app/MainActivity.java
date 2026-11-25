@@ -3162,7 +3162,7 @@ public final class MainActivity extends Activity {
         int count = OpenMeteo.UPCOMING_ASTRONOMY_DAYS;
         int end = Math.min(length(daily), index + count);
         LocalDate date = LocalDate.parse(at(daily, "time", index));
-        LocalDate last = date.plusDays(count);
+        LocalDate last = date.plusDays(count - 1);
         LocalDate firstMissing = date.plusDays(end - index);
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         String title = getString(R.string.next_days, count);
@@ -3187,7 +3187,7 @@ public final class MainActivity extends Activity {
             loadAstronomyTail(firstMissing, last).thenAccept(extra -> main.post(() -> {
                 if (isDestroyed() || !table.isAttachedToWindow()) return;
                 loading[0] = false;
-                if (extra == null || length(extra) != count + index + 1 - end) {
+                if (extra == null || length(extra) != index + count - end) {
                     status.setText(R.string.upcoming_astronomy_unavailable);
                     return;
                 }
