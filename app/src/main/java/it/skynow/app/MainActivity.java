@@ -3293,9 +3293,11 @@ public final class MainActivity extends Activity {
         long next = reading.applyAsLong(after);
         if (previous < 0 || next < 0) return;
         if (value < previous && value < next) {
-            cell.setTextColor(accent);
+            cell.setTextColor(getColor(R.color.sky_solar_minimum));
+            cell.setTypeface(cell.getTypeface(), Typeface.BOLD);
         } else if (value > previous && value > next) {
-            cell.setTextColor(getColor(R.color.sky_chart_secondary));
+            cell.setTextColor(getColor(R.color.sky_solar_maximum));
+            cell.setTypeface(cell.getTypeface(), Typeface.BOLD);
         }
     }
 

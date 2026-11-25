@@ -34,4 +34,6 @@
     <color name="sky_path_moon_future">#293e5d</color>
     <color name="sky_path_moon_elapsed">#6987be</color>
     <color name="sky_observing">#8cddb2</color>
+    <color name="sky_solar_minimum">#58B8FF</color>
+    <color name="sky_solar_maximum">#FF9B42</color>
 </resources>
