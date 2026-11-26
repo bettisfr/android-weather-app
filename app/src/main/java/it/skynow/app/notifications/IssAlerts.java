@@ -64,7 +64,7 @@ public final class IssAlerts extends BroadcastReceiver {
         stopJobIfDisabled(context);
     }
 
-    private static boolean anyEnabled(Context context) {
+    public static boolean anyEnabled(Context context) {
         if (option(context) != 0) return true;
         for (Kind kind : Kind.values()) if (option(context, kind) != 0) return true;
         return false;

@@ -91,6 +91,7 @@ public final class MainActivity extends Activity {
     private static final int ASTRONOMY_PAGE_SIZE = 4;
     private static final int FORECAST_DAYS = 10;
     private static final int LOCATION_PERMISSION = 1;
+    private static final int ASTRONOMY_NOTIFICATION_PERMISSION = 2;
     private static final long FORECAST_REFRESH_MS = 5 * 60 * 1000;
     private static final int REFRESH_PULL_DP = 72;
     private static final int DETAIL_CHART_HEIGHT_DP = 180;
@@ -574,6 +575,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         resumed = true;
+        requestAstronomyNotificationPermission();
         refreshWarnings();
         refreshAstronomyVisibility();
         startPhoneOrientation();
@@ -591,6 +593,16 @@ public final class MainActivity extends Activity {
         stopPhoneOrientation();
         main.removeCallbacks(updateSkyCoordinates);
         super.onPause();
+    }
+
+    private void requestAstronomyNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT < 33 || !resumed || data == null
+                || choosingLocation || locationListener != null || !IssAlerts.anyEnabled(this)
+                || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
+        android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+        if (prefs.getBoolean("askedForAstronomyNotifications", false)) return;
+        prefs.edit().putBoolean("askedForAstronomyNotifications", true).apply();
+        requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, ASTRONOMY_NOTIFICATION_PERMISSION);
     }
 
     private void requestForecast(boolean refreshing) {
@@ -649,6 +661,7 @@ public final class MainActivity extends Activity {
                     }
                     if (!choosingLocation) {
                         render();
+                        requestAstronomyNotificationPermission();
                         ScrollView updated = scroll;
                         if (offset > 0) updated.post(() -> updated.scrollTo(0, offset));
                     }
