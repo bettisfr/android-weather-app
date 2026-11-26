@@ -398,4 +398,15 @@
         <item quantity="other">The ISS pass starts in %d minutes.</item>
     </plurals>
     <string name="app_author">Developed by %1$s</string>
+    <string name="solar_eclipse_alerts">Solar eclipse alerts</string>
+    <string name="lunar_eclipse_alerts">Lunar eclipse alerts</string>
+    <string name="transit_alerts">Transit alerts</string>
+    <string name="astronomy_alert_at_start">At the start of the event</string>
+    <string name="astronomy_alert_hour_before">1 hour before</string>
+    <string name="astronomy_alert_day_before">1 day before</string>
+    <string name="astronomy_event_now">The event is visible now.</string>
+    <plurals name="astronomy_event_soon">
+        <item quantity="one">Visibility starts in %d minute.</item>
+        <item quantity="other">Visibility starts in %d minutes.</item>
+    </plurals>
 </resources>

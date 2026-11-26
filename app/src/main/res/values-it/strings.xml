@@ -396,4 +396,15 @@
         <item quantity="other">Il passaggio della ISS inizia tra %d minuti.</item>
     </plurals>
     <string name="app_author">Sviluppata da %1$s</string>
+    <string name="solar_eclipse_alerts">Avvisi eclissi solari</string>
+    <string name="lunar_eclipse_alerts">Avvisi eclissi lunari</string>
+    <string name="transit_alerts">Avvisi transiti</string>
+    <string name="astronomy_alert_at_start">A inizio evento</string>
+    <string name="astronomy_alert_hour_before">1 ora prima</string>
+    <string name="astronomy_alert_day_before">1 giorno prima</string>
+    <string name="astronomy_event_now">L’evento è visibile ora.</string>
+    <plurals name="astronomy_event_soon">
+        <item quantity="one">La visibilità inizia tra %d minuto.</item>
+        <item quantity="other">La visibilità inizia tra %d minuti.</item>
+    </plurals>
 </resources>

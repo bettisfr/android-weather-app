@@ -116,16 +116,21 @@ public final class SettingsActivity extends Activity {
         subpage(notifications, R.string.iss_alerts, options[IssAlerts.option(this)], panel -> {
             addChoices(panel, options, () -> IssAlerts.option(this), index -> {
                 IssAlerts.setOption(this, index);
-                if (index != 0) allowIssNotifications();
+                if (index != 0) allowAstronomyNotifications();
             });
-            LinearLayout exact = settingRow(getString(R.string.iss_alert_exact));
-            if (android.os.Build.VERSION.SDK_INT >= 31) {
-                exact.setOnClickListener(view -> startActivity(new Intent(
-                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
-                        Uri.parse("package:" + getPackageName()))));
-                addRow(panel, exact);
-            }
+            addExactAlarmSetting(panel);
         });
+        String[] eventOptions = {options[0], getString(R.string.astronomy_alert_at_start), getString(R.string.iss_alert_lead, 15),
+                getString(R.string.astronomy_alert_hour_before), getString(R.string.astronomy_alert_day_before)};
+        for (IssAlerts.Kind kind : IssAlerts.Kind.values()) {
+            subpage(notifications, kind.title, eventOptions[IssAlerts.option(this, kind)], panel -> {
+                addChoices(panel, eventOptions, () -> IssAlerts.option(this, kind), index -> {
+                    IssAlerts.setOption(this, kind, index);
+                    if (index != 0) allowAstronomyNotifications();
+                });
+                addExactAlarmSetting(panel);
+            });
+        }
         LinearLayout about = section(content, R.string.app_name);
         subpage(about, R.string.settings_about, null, this::showAbout);
         subpage(about, R.string.credits, null, this::addCredits);
@@ -143,7 +148,16 @@ public final class SettingsActivity extends Activity {
         back();
     }
 
-    private void allowIssNotifications() {
+    private void addExactAlarmSetting(LinearLayout panel) {
+        if (android.os.Build.VERSION.SDK_INT < 31) return;
+        LinearLayout exact = settingRow(getString(R.string.iss_alert_exact));
+        exact.setOnClickListener(view -> startActivity(new Intent(
+                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                Uri.parse("package:" + getPackageName()))));
+        addRow(panel, exact);
+    }
+
+    private void allowAstronomyNotifications() {
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, ISS_PERMISSION);

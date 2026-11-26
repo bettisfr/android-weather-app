@@ -147,6 +147,7 @@ public final class MainActivity extends Activity {
     private static final double[] PRESSURE_FACTORS = {1, 1, 0.029529983, 0.750061683};
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
+    private String pendingAstronomyEventSection;
     private DashboardTab dashboardTab = DashboardTab.WEATHER;
     private final int[] dashboardOffsets = new int[DashboardTab.values().length];
     private Button earthquakeTabButton;
@@ -283,7 +284,10 @@ public final class MainActivity extends Activity {
             }
             load();
         } else {
-            if (getIntent().getBooleanExtra("openIssAlerts", false)) dashboardTab = DashboardTab.ASTRONOMY;
+            pendingAstronomyEventSection = getIntent().getStringExtra(IssAlerts.OPEN_EVENT_SECTION);
+            if (pendingAstronomyEventSection != null || getIntent().getBooleanExtra("openIssAlerts", false)) {
+                dashboardTab = DashboardTab.ASTRONOMY;
+            }
             currentLocation(!prefs.getBoolean("askedForLocation", false));
             openIssNotification(getIntent());
         }
@@ -291,7 +295,15 @@ public final class MainActivity extends Activity {
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        openIssNotification(intent);
+        String section = intent.getStringExtra(IssAlerts.OPEN_EVENT_SECTION);
+        if (section == null) {
+            openIssNotification(intent);
+            return;
+        }
+        pendingAstronomyEventSection = section;
+        day = -1;
+        dashboardTab = DashboardTab.ASTRONOMY;
+        if (data != null) render();
     }
 
     private void openIssNotification(Intent intent) {
@@ -2815,12 +2827,20 @@ public final class MainActivity extends Activity {
             }
         });
         addSpaced(page, eclipses, 12);
-        page.addView(astronomyAccordion(R.string.planetary_transits, content -> {
+        LinearLayout transitsCard = astronomyAccordion(R.string.planetary_transits, content -> {
             content.setPadding(0, dp(10), 0, 0);
             List<TransitCatalog.Event> transits = TransitCatalog.upcoming(lat, lon, Instant.now());
             if (transits.isEmpty()) content.addView(label(getString(R.string.no_transits), 14, muted));
             else appendTransits(content, transits, zone, 0);
-        }));
+        });
+        page.addView(transitsCard);
+        if (pendingAstronomyEventSection != null) {
+            LinearLayout section = "TRANSIT".equals(pendingAstronomyEventSection) ? transitsCard : eclipses;
+            pendingAstronomyEventSection = null;
+            section.getChildAt(0).performClick();
+            ScrollView target = scroll;
+            target.post(() -> target.scrollTo(0, section.getTop()));
+        }
     }
 
     private LinearLayout astronomyAccordion(int title, java.util.function.Consumer<LinearLayout> populate) {
