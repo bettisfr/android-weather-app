@@ -55,7 +55,7 @@ public final class IssAlerts extends BroadcastReceiver {
     private static final int[] EVENT_LEAD_MINUTES = {0, 0, 15, 60, 1440};
 
     public static int option(Context context, Kind kind) {
-        return settings(context).getInt("option_" + kind.name(), 0);
+        return settings(context).getInt("option_" + kind.name(), 1);
     }
 
     public static synchronized void setOption(Context context, Kind kind, int option) {
