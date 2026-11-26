@@ -123,7 +123,7 @@ public final class SettingsActivity extends Activity {
             test.setOnClickListener(view -> allowIssNotifications(true));
             addRow(panel, test);
         });
-        subpage(section(content, R.string.settings_about), R.string.credits, null, this::addCredits);
+        subpage(section(content, R.string.settings_about), R.string.app_name, null, this::showAbout);
         setContentView(screen);
         scroller.post(() -> scroller.scrollTo(0, overviewOffset));
     }
@@ -177,13 +177,6 @@ public final class SettingsActivity extends Activity {
         TextView title = text(getString(heading), 24, R.color.sky_text);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         titles.addView(title);
-        Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
-        String date = LocalDate.parse(getString(R.string.sky_version_date))
-                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
-        TextView version = text(getString(R.string.app_version, getString(R.string.app_name),
-                getString(R.string.sky_version_name), date), 12, R.color.sky_muted);
-        version.setPadding(0, dp(3), 0, 0);
-        if (heading == R.string.settings) titles.addView(version);
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
         return header;
     }
@@ -276,6 +269,20 @@ public final class SettingsActivity extends Activity {
             @Override public void onStopTrackingTouch(SeekBar view) {}
         });
         section.addView(slider, new LinearLayout.LayoutParams(-1, dp(42)));
+    }
+
+    private void showAbout(LinearLayout panel) {
+        Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
+        String date = LocalDate.parse(getString(R.string.sky_version_date))
+                .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
+        TextView version = text(getString(R.string.app_version, getString(R.string.app_name),
+                getString(R.string.sky_version_name), date), 12, R.color.sky_muted);
+        version.setPadding(0, dp(3), 0, 0);
+        panel.addView(version);
+        TextView author = text(getString(R.string.app_author, "Francesco Betti Sorbelli"), 15, R.color.sky_text);
+        author.setPadding(0, dp(8), 0, 0);
+        panel.addView(author);
+        addCredits(section(panel, R.string.credits));
     }
 
     private void addCredits(LinearLayout links) {

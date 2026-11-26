@@ -399,4 +399,5 @@
         <item quantity="one">Il passaggio della ISS inizia tra %d minuto.</item>
         <item quantity="other">Il passaggio della ISS inizia tra %d minuti.</item>
     </plurals>
+    <string name="app_author">Sviluppata da %1$s</string>
 </resources>

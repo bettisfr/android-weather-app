@@ -401,4 +401,5 @@
         <item quantity="one">The ISS pass starts in %d minute.</item>
         <item quantity="other">The ISS pass starts in %d minutes.</item>
     </plurals>
+    <string name="app_author">Developed by %1$s</string>
 </resources>
