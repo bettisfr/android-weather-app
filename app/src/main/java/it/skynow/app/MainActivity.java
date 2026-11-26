@@ -149,6 +149,7 @@ public final class MainActivity extends Activity {
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
     private String pendingAstronomyEventSection;
+    private ZoneId astronomyNotificationZone;
     private boolean eclipsesExpanded;
     private boolean transitsExpanded;
     private DashboardTab dashboardTab = DashboardTab.WEATHER;
@@ -292,12 +293,16 @@ public final class MainActivity extends Activity {
                 dashboardTab = DashboardTab.ASTRONOMY;
             }
             currentLocation(!prefs.getBoolean("askedForLocation", false));
-            openIssNotification(getIntent());
+            openAstronomyNotification(getIntent());
         }
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        openAstronomyNotification(intent);
+    }
+
+    private void openAstronomyNotification(Intent intent) {
         String section = intent.getStringExtra(IssAlerts.OPEN_EVENT_SECTION);
         if (section == null) {
             openIssNotification(intent);
@@ -306,7 +311,20 @@ public final class MainActivity extends Activity {
         pendingAstronomyEventSection = section;
         day = -1;
         dashboardTab = DashboardTab.ASTRONOMY;
-        if (data != null) render();
+        if (data != null) {
+            render();
+        } else {
+            double[] observer = intent.getDoubleArrayExtra(IssAlerts.OBSERVER);
+            if (observer != null && observer.length == 2) {
+                latitude = observer[0];
+                longitude = observer[1];
+            }
+            String zone = intent.getStringExtra(IssAlerts.TIME_ZONE);
+            astronomyNotificationZone = zone == null ? ZoneId.systemDefault() : ZoneId.of(zone);
+            layout();
+            page.addView(placeTitle());
+            eclipsesAndTransits();
+        }
     }
 
     private void openIssNotification(Intent intent) {
@@ -653,6 +671,7 @@ public final class MainActivity extends Activity {
                         }
                     }
                     data = response;
+                    astronomyNotificationZone = null;
                     IssAlerts.update(this, lat, lon, response.optDouble("elevation"),
                             response.optString("timezone", "UTC"), place);
                     cachedForecastAt = null;
@@ -678,7 +697,7 @@ public final class MainActivity extends Activity {
                     if (manual && !choosingLocation) {
                         Toast.makeText(this, R.string.forecast_unavailable, Toast.LENGTH_SHORT).show();
                     }
-                    if (refreshing || choosingLocation) return;
+                    if (refreshing || choosingLocation || astronomyNotificationZone != null) return;
                     layout();
                     page.addView(placeTitle());
                     page.addView(label(getString(R.string.forecast_unavailable), 22, ink));
@@ -2827,10 +2846,15 @@ public final class MainActivity extends Activity {
                 .appendQueryParameter("cul", italian() ? "it" : "en").build().toString();
     }
 
+    private ZoneId astronomyEventZone() {
+        if (data != null) return ZoneId.of(data.optString("timezone", "UTC"));
+        return astronomyNotificationZone == null ? ZoneId.systemDefault() : astronomyNotificationZone;
+    }
+
     private void eclipsesAndTransits() {
         double lat = latitude;
         double lon = longitude;
-        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        ZoneId zone = astronomyEventZone();
         boolean openFromNotification = pendingAstronomyEventSection != null;
         boolean openTransits = "TRANSIT".equals(pendingAstronomyEventSection);
         eclipsesExpanded |= openFromNotification && !openTransits;
@@ -3121,7 +3145,7 @@ public final class MainActivity extends Activity {
         return new android.content.Intent(this, RadarActivity.class)
                 .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
                 .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
-                .putExtra("timeZone", data.optString("timezone", "UTC"))
+                .putExtra("timeZone", astronomyEventZone().getId())
                 .putExtra("clock24", clock24)
                 .putExtra("eventDate", date.toString()).putExtra("detailsUrl", url)
                 .putStringArrayListExtra("localDetails", localDetails);

@@ -193,6 +193,8 @@ public final class IssAlerts extends BroadcastReceiver {
             Intent alarm = new Intent(context, IssAlerts.class).putExtra("id", kind.id)
                     .putExtra("kind", kind.name()).putExtra("title", title)
                     .putExtra("rise", start.getEpochSecond()).putExtra("end", end.getEpochSecond())
+                    .putExtra(TIME_ZONE, zone.getId())
+                    .putExtra(OBSERVER, new double[]{latitude, longitude})
                     .putExtra(PLACE, prefs.getString("place", ""));
             schedule(context, (start.getEpochSecond() - lead) * 1000, broadcast(context, kind.id, alarm));
         }
