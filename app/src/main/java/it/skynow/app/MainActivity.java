@@ -2743,21 +2743,26 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);
         size.bottomMargin = dp(9);
         panel.addView(direction, size);
+        addSkyTrackLegendItem(panel, getString(R.string.sky_track_now), SkyTrack.NOW_COLOR, 10);
     }
 
     private void addSkyTrackPoint(LinearLayout panel, int title, SkyTrajectory.Point point, int color,
                                   ZoneId zone, LocalDate date) {
         if (point == null) return;
-        LinearLayout item = row();
-        View marker = new View(this);
-        marker.setBackground(background(color, 4));
-        LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(dp(8), dp(8));
-        markerSize.setMarginEnd(dp(8));
-        item.addView(marker, markerSize);
         String time = skyTrackTime(point, zone, date);
         String position = point.elevation >= 0 ? issBearing(point.azimuth) + " · " + Math.round(point.elevation) + "°"
                 : getString(R.string.planet_below_horizon);
         String details = getString(title) + " · " + time + " · " + position;
+        addSkyTrackLegendItem(panel, details, color, 8);
+    }
+
+    private void addSkyTrackLegendItem(LinearLayout panel, String details, int color, int diameter) {
+        LinearLayout item = row();
+        View marker = new View(this);
+        marker.setBackground(background(color, diameter / 2));
+        LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(dp(diameter), dp(diameter));
+        markerSize.setMarginEnd(dp(8));
+        item.addView(marker, markerSize);
         item.addView(label(details, 14, ink), new LinearLayout.LayoutParams(0, -2, 1));
         addSpaced(panel, item, 6);
     }
