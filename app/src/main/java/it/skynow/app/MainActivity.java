@@ -150,7 +150,8 @@ public final class MainActivity extends Activity {
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
     private String pendingAstronomyEventSection;
     private ZoneId astronomyNotificationZone;
-    private boolean eclipsesExpanded;
+    private boolean solarEclipsesExpanded;
+    private boolean lunarEclipsesExpanded;
     private boolean transitsExpanded;
     private DashboardTab dashboardTab = DashboardTab.WEATHER;
     private final int[] dashboardOffsets = new int[DashboardTab.values().length];
@@ -2859,23 +2860,24 @@ public final class MainActivity extends Activity {
         ZoneId zone = astronomyEventZone();
         boolean openFromNotification = pendingAstronomyEventSection != null;
         boolean openTransits = "TRANSIT".equals(pendingAstronomyEventSection);
-        boolean focusLunar = "LUNAR".equals(pendingAstronomyEventSection);
-        View[] lunarHeading = {null};
-        eclipsesExpanded |= openFromNotification && !openTransits;
+        boolean openLunar = "LUNAR".equals(pendingAstronomyEventSection);
+        solarEclipsesExpanded |= "SOLAR".equals(pendingAstronomyEventSection);
+        lunarEclipsesExpanded |= openLunar;
         transitsExpanded |= openTransits;
-        LinearLayout eclipses = astronomyAccordion(R.string.eclipses, eclipsesExpanded,
-                expanded -> eclipsesExpanded = expanded, content -> {
-            for (boolean lunar : new boolean[]{false, true}) {
-                TextView heading = label(lunar ? getString(R.string.lunar_eclipses) : getString(R.string.solar_eclipses), 16, ink);
-                if (lunar) lunarHeading[0] = heading;
-                heading.setPadding(0, dp(10), 0, dp(4));
-                content.addView(heading);
-                LinearLayout events = column();
-                content.addView(events);
-                new EclipseList(events, lunar, lat, lon, zone).showNext();
-            }
-        });
-        addSpaced(page, eclipses, 12);
+        LinearLayout solarEclipses = astronomyAccordion(R.string.solar_eclipses, solarEclipsesExpanded,
+                expanded -> solarEclipsesExpanded = expanded,
+                content -> {
+                    content.setPadding(0, dp(10), 0, 0);
+                    new EclipseList(content, false, lat, lon, zone).showNext();
+                });
+        LinearLayout lunarEclipses = astronomyAccordion(R.string.lunar_eclipses, lunarEclipsesExpanded,
+                expanded -> lunarEclipsesExpanded = expanded,
+                content -> {
+                    content.setPadding(0, dp(10), 0, 0);
+                    new EclipseList(content, true, lat, lon, zone).showNext();
+                });
+        addSpaced(page, solarEclipses, 12);
+        addSpaced(page, lunarEclipses, 9);
         LinearLayout transitsCard = astronomyAccordion(R.string.planetary_transits, transitsExpanded,
                 expanded -> transitsExpanded = expanded, content -> {
             content.setPadding(0, dp(10), 0, 0);
@@ -2883,9 +2885,9 @@ public final class MainActivity extends Activity {
             if (transits.isEmpty()) content.addView(label(getString(R.string.no_transits), 14, muted));
             else appendTransits(content, transits, zone, 0);
         });
-        page.addView(transitsCard);
+        addSpaced(page, transitsCard, 9);
         if (openFromNotification) {
-            View section = openTransits ? transitsCard : focusLunar && lunarHeading[0] != null ? lunarHeading[0] : eclipses;
+            View section = openTransits ? transitsCard : openLunar ? lunarEclipses : solarEclipses;
             ScrollView target = scroll;
             LinearLayout eventPage = page;
             Runnable reveal = () -> {
