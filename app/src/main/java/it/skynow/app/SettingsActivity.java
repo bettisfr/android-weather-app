@@ -123,7 +123,7 @@ public final class SettingsActivity extends Activity {
             test.setOnClickListener(view -> allowIssNotifications(true));
             addRow(panel, test);
         });
-        subpage(section(content, R.string.settings_about), R.string.app_name, null, this::showAbout);
+        subpage(section(content, R.string.app_name), R.string.settings_about, null, this::showAbout);
         setContentView(screen);
         scroller.post(() -> scroller.scrollTo(0, overviewOffset));
     }
