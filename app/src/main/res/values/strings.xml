@@ -386,4 +386,19 @@
     <string name="air_quality_map_credit">Air quality map · CAMS / Open-Meteo</string>
     <string name="air_quality_eea_credit">Air quality map · European Environment Agency</string>
     <string name="solar_declination">Solar declination · %1$s°</string>
+    <string name="settings_notifications">Notifications</string>
+    <string name="iss_alerts">ISS alerts</string>
+    <string name="iss_alert_off">Off</string>
+    <string name="iss_alert_at_start">At the start of the pass</string>
+    <string name="iss_alert_lead">%1$d min before</string>
+    <string name="iss_alert_exact">Manage exact alarm permission</string>
+    <string name="iss_alert_test">Send test notification</string>
+    <string name="iss_alert_test_scheduled">Test scheduled for 5 seconds from now.</string>
+    <string name="iss_alert_test_may_delay">Test scheduled. Android may delay it without exact alarm access.</string>
+    <string name="iss_alert_test_message">This is a SkyHere ISS test notification.</string>
+    <string name="iss_alert_now">The ISS is visible now.</string>
+    <plurals name="iss_alert_soon">
+        <item quantity="one">The ISS pass starts in %d minute.</item>
+        <item quantity="other">The ISS pass starts in %d minutes.</item>
+    </plurals>
 </resources>

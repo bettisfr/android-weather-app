@@ -2,8 +2,18 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application android:icon="@mipmap/ic_weather" android:label="@string/app_name" android:theme="@style/SkyHereTheme">
         <activity android:name=".SettingsActivity" android:exported="false" />
+        <receiver android:name=".notifications.IssAlerts" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+        <service android:name=".notifications.IssAlertRefresh" android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <activity android:name=".maps.RadarActivity" android:exported="false" />
         <activity android:name=".seismic.SeismogramActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true"

@@ -1,5 +1,6 @@
 package it.skynow.app;
 
+import it.skynow.app.notifications.IssAlerts;
 import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.EclipseCatalog;
 import it.skynow.app.astronomy.EclipseIcon;
@@ -32,6 +33,7 @@ import it.skynow.app.weather.views.WindIndicator;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
@@ -281,7 +283,21 @@ public final class MainActivity extends Activity {
             }
             load();
         } else {
+            if (getIntent().getBooleanExtra("openIssAlerts", false)) dashboardTab = DashboardTab.ASTRONOMY;
             currentLocation(!prefs.getBoolean("askedForLocation", false));
+        }
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (!intent.getBooleanExtra("openIssAlerts", false)) return;
+        if (data == null) {
+            dashboardTab = DashboardTab.ASTRONOMY;
+        } else {
+            day = -1;
+            dashboardTab = DashboardTab.ASTRONOMY;
+            dashboardOffsets[dashboardTab.ordinal()] = 0;
+            render();
         }
     }
 
@@ -597,6 +613,7 @@ public final class MainActivity extends Activity {
                         }
                     }
                     data = response;
+                    IssAlerts.update(this, lat, lon, response.optDouble("elevation"));
                     cachedForecastAt = null;
                     ForecastCache.write(this, serialized, updatedAt, lat, lon, place, selectedCountry, selectedRegion);
                     if (usingCurrentLocation) {
@@ -3409,6 +3426,7 @@ public final class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != SETTINGS_REQUEST || resultCode != RESULT_OK) return;
         boolean changed = readDisplayPreferences(getPreferences(MODE_PRIVATE));
+        if (this.data != null) IssAlerts.update(this, latitude, longitude, this.data.optDouble("elevation"));
         if (SkyTheme.preference(this) != appliedTheme) recreate();
         else if (changed && this.data != null) render();
     }

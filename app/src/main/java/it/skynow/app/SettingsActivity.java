@@ -13,9 +13,9 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -25,12 +25,14 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
 import java.util.Locale;
+import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
 import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.maps.SatelliteImagery;
+import it.skynow.app.notifications.IssAlerts;
 import it.skynow.app.seismic.EarthquakeFeed;
 
 public final class SettingsActivity extends Activity {
@@ -43,6 +45,11 @@ public final class SettingsActivity extends Activity {
 
     static final String PREFERENCES_FILE = "preferencesFile";
     private SharedPreferences preferences;
+    private ScrollView overview;
+    private int overviewOffset;
+    private boolean inSubpage;
+    private static final int ISS_PERMISSION = 1;
+    private boolean pendingIssTest;
 
     @Override protected void attachBaseContext(Context base) {
         super.attachBaseContext(SkyTheme.withPreference(base));
@@ -54,10 +61,16 @@ public final class SettingsActivity extends Activity {
         setResult(RESULT_OK);
         SkyTheme.applySystemBars(this);
 
+        showOverview();
+    }
+
+    private void showOverview() {
+        inSubpage = false;
         LinearLayout screen = stack();
         screen.setBackgroundColor(getColor(R.color.sky_background));
-        screen.addView(header());
+        screen.addView(header(R.string.settings));
         ScrollView scroller = new ScrollView(this);
+        overview = scroller;
         screen.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout content = stack();
         content.setPadding(dp(16), dp(4), dp(16), dp(20));
@@ -84,27 +97,84 @@ public final class SettingsActivity extends Activity {
                 () -> preferences.getInt("pressureUnit", 0), index -> preferences.edit().putInt("pressureUnit", index).apply());
 
         LinearLayout earthquakes = section(content, R.string.tab_earthquakes);
-        addEarthquakeRadius(earthquakes);
+        subpage(earthquakes, R.string.earthquake_radius, getString(R.string.earthquake_radius_value,
+                preferences.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS)), this::addEarthquakeRadius);
         choice(earthquakes, R.string.earthquake_minimum_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
                 () -> MainActivity.earthquakeMagnitudeIndex(preferences.getInt("earthquakeMinimumMagnitude", 0)),
                 index -> preferences.edit()
                         .putInt("earthquakeMinimumMagnitude", MainActivity.EARTHQUAKE_MAGNITUDE_THRESHOLDS[index]).apply());
-        addCredits(content, scroller);
+        LinearLayout notifications = section(content, R.string.settings_notifications);
+        String[] options = {getString(R.string.iss_alert_off), getString(R.string.iss_alert_at_start),
+                getString(R.string.iss_alert_lead, 5), getString(R.string.iss_alert_lead, 10),
+                getString(R.string.iss_alert_lead, 15)};
+        subpage(notifications, R.string.iss_alerts, options[IssAlerts.option(this)], panel -> {
+            addChoices(panel, options, () -> IssAlerts.option(this), index -> {
+                IssAlerts.setOption(this, index);
+                if (index != 0) allowIssNotifications(false);
+            });
+            LinearLayout exact = settingRow(getString(R.string.iss_alert_exact));
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                exact.setOnClickListener(view -> startActivity(new Intent(
+                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                        Uri.parse("package:" + getPackageName()))));
+                addRow(panel, exact);
+            }
+            LinearLayout test = settingRow(getString(R.string.iss_alert_test));
+            test.setOnClickListener(view -> allowIssNotifications(true));
+            addRow(panel, test);
+        });
+        subpage(section(content, R.string.settings_about), R.string.credits, null, this::addCredits);
         setContentView(screen);
+        scroller.post(() -> scroller.scrollTo(0, overviewOffset));
     }
 
-    private LinearLayout header() {
+    private void back() {
+        if (inSubpage) showOverview();
+        else finish();
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override public void onBackPressed() {
+        back();
+    }
+
+    private void allowIssNotifications(boolean test) {
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pendingIssTest = test;
+            requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, ISS_PERMISSION);
+            return;
+        }
+        if (test) sendIssTest();
+    }
+
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != ISS_PERMISSION) return;
+        if (pendingIssTest && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            sendIssTest();
+        }
+        pendingIssTest = false;
+    }
+
+    private void sendIssTest() {
+        IssAlerts.test(this);
+        Toast.makeText(this, IssAlerts.canScheduleExactly(this) ? R.string.iss_alert_test_scheduled
+                : R.string.iss_alert_test_may_delay, Toast.LENGTH_SHORT).show();
+    }
+
+    private LinearLayout header(int heading) {
         LinearLayout header = row();
         header.setBackgroundColor(getColor(R.color.sky_card));
         TextView back = text("‹", 28, R.color.sky_text);
         back.setGravity(Gravity.CENTER);
         back.setContentDescription(getString(R.string.settings_back));
-        back.setOnClickListener(view -> finish());
+        back.setOnClickListener(view -> back());
         ripple(back);
         header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
         LinearLayout titles = stack();
         titles.setPaddingRelative(dp(4), dp(12), dp(16), dp(12));
-        TextView title = text(getString(R.string.settings), 24, R.color.sky_text);
+        TextView title = text(getString(heading), 24, R.color.sky_text);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         titles.addView(title);
         Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
@@ -113,7 +183,7 @@ public final class SettingsActivity extends Activity {
         TextView version = text(getString(R.string.app_version, getString(R.string.app_name),
                 getString(R.string.sky_version_name), date), 12, R.color.sky_muted);
         version.setPadding(0, dp(3), 0, 0);
-        titles.addView(version);
+        if (heading == R.string.settings) titles.addView(version);
         header.addView(titles, new LinearLayout.LayoutParams(0, -2, 1));
         return header;
     }
@@ -135,31 +205,50 @@ public final class SettingsActivity extends Activity {
     }
 
     private void choice(LinearLayout section, int title, String[] values, IntSupplier selected, IntConsumer save) {
+        subpage(section, title, values[selected.getAsInt()], panel -> addChoices(panel, values, selected, save));
+    }
+
+    private void subpage(LinearLayout section, int title, String value, Consumer<LinearLayout> populate) {
         LinearLayout row = settingRow(getString(title));
-        TextView value = text(values[selected.getAsInt()], 14, R.color.sky_muted);
-        row.addView(value);
-        ImageView arrow = new ImageView(this);
-        arrow.setImageResource(R.drawable.ic_expand);
+        if (value != null) row.addView(text(value, 14, R.color.sky_muted));
+        TextView arrow = text("›", 22, R.color.sky_accent);
+        arrow.setPaddingRelative(dp(8), 0, 0, 0);
         arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        LinearLayout.LayoutParams arrowSize = new LinearLayout.LayoutParams(dp(20), dp(20));
-        arrowSize.setMarginStart(dp(8));
-        row.addView(arrow, arrowSize);
+        row.addView(arrow);
         row.setOnClickListener(view -> {
-            PopupMenu popup = new PopupMenu(this, value, Gravity.END);
-            for (int index = 0; index < values.length; index++) popup.getMenu().add(0, index, index, values[index]);
-            popup.getMenu().setGroupCheckable(0, true, true);
-            popup.getMenu().getItem(selected.getAsInt()).setChecked(true);
-            popup.setOnMenuItemClickListener(item -> {
-                int index = item.getItemId();
-                if (index != selected.getAsInt()) {
-                    save.accept(index);
-                    value.setText(values[index]);
-                }
-                return true;
-            });
-            popup.show();
+            overviewOffset = overview.getScrollY();
+            inSubpage = true;
+            LinearLayout screen = stack();
+            screen.setBackgroundColor(getColor(R.color.sky_background));
+            screen.addView(header(title));
+            ScrollView scroller = new ScrollView(this);
+            screen.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
+            LinearLayout panel = stack();
+            panel.setPadding(dp(16), dp(8), dp(16), dp(20));
+            scroller.addView(panel);
+            populate.accept(panel);
+            setContentView(screen);
         });
         addRow(section, row);
+    }
+
+    private void addChoices(LinearLayout panel, String[] values, IntSupplier selected, IntConsumer save) {
+        RadioGroup options = new RadioGroup(this);
+        options.setOrientation(RadioGroup.VERTICAL);
+        for (String value : values) {
+            RadioButton option = new RadioButton(this);
+            option.setId(View.generateViewId());
+            option.setText(value);
+            option.setTextColor(getColor(R.color.sky_text));
+            option.setMinHeight(dp(48));
+            options.addView(option);
+        }
+        options.check(options.getChildAt(selected.getAsInt()).getId());
+        options.setOnCheckedChangeListener((group, checkedId) -> {
+            int index = group.indexOfChild(group.findViewById(checkedId));
+            if (index >= 0 && index != selected.getAsInt()) save.accept(index);
+        });
+        panel.addView(options);
     }
 
     private void addEarthquakeRadius(LinearLayout section) {
@@ -189,22 +278,7 @@ public final class SettingsActivity extends Activity {
         section.addView(slider, new LinearLayout.LayoutParams(-1, dp(42)));
     }
 
-    private void addCredits(LinearLayout content, ScrollView scroller) {
-        LinearLayout section = section(content, R.string.settings_about);
-        LinearLayout toggle = settingRow(getString(R.string.credits));
-        TextView arrow = text("⌄", 20, R.color.sky_accent);
-        arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        toggle.addView(arrow);
-        addRow(section, toggle);
-        LinearLayout links = stack();
-        links.setVisibility(View.GONE);
-        section.addView(links);
-        toggle.setOnClickListener(view -> {
-            boolean open = links.getVisibility() == View.VISIBLE;
-            links.setVisibility(open ? View.GONE : View.VISIBLE);
-            arrow.setRotation(open ? 0 : 180);
-            if (!open) scroller.post(() -> scroller.smoothScrollTo(0, section.getTop()));
-        });
+    private void addCredits(LinearLayout links) {
         addCredit(links, R.string.weather_data, "https://open-meteo.com/");
         addCredit(links, R.string.warning_credit, "https://meteoalarm.org/");
         addCredit(links, R.string.radar_credit, "https://mappe.protezionecivile.gov.it/it/mappe-e-dashboard-rischi/piattaforma-radar/");
