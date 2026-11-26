@@ -3436,7 +3436,7 @@ public final class MainActivity extends Activity {
         boolean use24Hours = prefs.getBoolean("clock24", true);
         int wind = prefs.getInt("windUnit", 0);
         int pressure = prefs.getInt("pressureUnit", 0);
-        int radius = prefs.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
+        int radius = SettingsActivity.earthquakeRadius(prefs);
         int minimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
         boolean changed = temperatureUnit != selectedTemperatureUnit || clock24 != use24Hours || windUnit != wind
                 || pressureUnit != pressure || earthquakeRadius != radius || earthquakeMinimumMagnitude != minimumMagnitude;

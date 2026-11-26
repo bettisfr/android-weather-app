@@ -37,6 +37,13 @@ import it.skynow.app.seismic.EarthquakeFeed;
 
 public final class SettingsActivity extends Activity {
     static final String[] TEMPERATURE_UNITS = {"°C", "°F", "K"};
+    private static final int EARTHQUAKE_RADIUS_STEP_KM = 10;
+
+    static int earthquakeRadius(SharedPreferences preferences) {
+        int saved = preferences.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
+        int rounded = Math.round((float) saved / EARTHQUAKE_RADIUS_STEP_KM) * EARTHQUAKE_RADIUS_STEP_KM;
+        return Math.max(EARTHQUAKE_RADIUS_STEP_KM, Math.min(rounded, EarthquakeFeed.MAX_RADIUS));
+    }
 
     static int temperatureUnit(SharedPreferences preferences) {
         int unit = preferences.getInt("temperatureUnit", preferences.getBoolean("fahrenheit", false) ? 1 : 0);
@@ -98,7 +105,7 @@ public final class SettingsActivity extends Activity {
 
         LinearLayout earthquakes = section(content, R.string.tab_earthquakes);
         subpage(earthquakes, R.string.earthquake_radius, getString(R.string.earthquake_radius_value,
-                preferences.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS)), this::addEarthquakeRadius);
+                earthquakeRadius(preferences)), this::addEarthquakeRadius);
         choice(earthquakes, R.string.earthquake_minimum_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
                 () -> MainActivity.earthquakeMagnitudeIndex(preferences.getInt("earthquakeMinimumMagnitude", 0)),
                 index -> preferences.edit()
@@ -254,16 +261,17 @@ public final class SettingsActivity extends Activity {
         slider.setId(View.generateViewId());
         label.setLabelFor(slider.getId());
         slider.setMin(1);
-        slider.setMax(EarthquakeFeed.MAX_RADIUS);
-        int radius = preferences.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
-        slider.setProgress(radius);
+        slider.setMax(EarthquakeFeed.MAX_RADIUS / EARTHQUAKE_RADIUS_STEP_KM);
+        int radius = earthquakeRadius(preferences);
+        slider.setProgress(radius / EARTHQUAKE_RADIUS_STEP_KM);
         slider.setKeyProgressIncrement(1);
         value.setText(getString(R.string.earthquake_radius_value, radius));
         slider.setPaddingRelative(dp(12), 0, dp(12), 0);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar view, int progress, boolean fromUser) {
-                value.setText(getString(R.string.earthquake_radius_value, progress));
-                if (fromUser) preferences.edit().putInt("earthquakeRadius", progress).apply();
+                int kilometers = progress * EARTHQUAKE_RADIUS_STEP_KM;
+                value.setText(getString(R.string.earthquake_radius_value, kilometers));
+                if (fromUser) preferences.edit().putInt("earthquakeRadius", kilometers).apply();
             }
             @Override public void onStartTrackingTouch(SeekBar view) {}
             @Override public void onStopTrackingTouch(SeekBar view) {}
