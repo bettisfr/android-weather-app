@@ -14,6 +14,7 @@ import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
@@ -275,16 +276,39 @@ public final class SettingsActivity extends Activity {
     }
 
     private void showAbout(LinearLayout panel) {
+        LinearLayout card = stack();
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPaddingRelative(dp(16), dp(24), dp(16), dp(12));
+        GradientDrawable surface = new GradientDrawable();
+        surface.setColor(getColor(R.color.sky_card));
+        surface.setCornerRadius(dp(18));
+        surface.setStroke(dp(1), getColor(R.color.sky_card_outline));
+        card.setBackground(surface);
+        panel.addView(card, new LinearLayout.LayoutParams(-1, -2));
+
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_weather);
+        logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        card.addView(logo, new LinearLayout.LayoutParams(dp(76), dp(76)));
+        TextView name = text(getString(R.string.app_name), 26, R.color.sky_text);
+        name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        name.setGravity(Gravity.CENTER);
+        name.setPadding(0, dp(10), 0, 0);
+        card.addView(name);
+
         Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
         String date = LocalDate.parse(getString(R.string.sky_version_date))
                 .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
-        TextView version = text(getString(R.string.app_version, getString(R.string.app_name),
-                getString(R.string.sky_version_name), date), 15, R.color.sky_text);
-        version.setPadding(0, dp(3), 0, 0);
-        panel.addView(version);
+        TextView version = text(getString(R.string.app_version, getString(R.string.sky_version_name), date),
+                15, R.color.sky_muted);
+        version.setGravity(Gravity.CENTER);
+        version.setPadding(0, dp(4), 0, 0);
+        card.addView(version);
         TextView author = text(getString(R.string.app_author, "Francesco Betti Sorbelli"), 15, R.color.sky_text);
-        author.setPadding(0, dp(8), 0, 0);
-        panel.addView(author);
+        author.setGravity(Gravity.CENTER);
+        author.setPadding(0, dp(12), 0, dp(16));
+        card.addView(author);
+        addCredit(card, R.string.app_github, "https://github.com/bettisfr/android-weather-app");
     }
 
     private void addCredits(LinearLayout links) {
