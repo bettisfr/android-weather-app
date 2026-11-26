@@ -140,11 +140,11 @@ public final class IssAlerts extends BroadcastReceiver {
             if (option != option(context) || !lat.equals(prefs.getString("lat", ""))
                     || !lon.equals(prefs.getString("lon", ""))) return;
             cancelPasses(context);
-            long now = System.currentTimeMillis();
+            long nowMillis = System.currentTimeMillis();
             int count = 0;
             for (IssPasses.Pass pass : passes) {
                 long trigger = (pass.rise.time - LEAD_MINUTES[option] * 60L) * 1000;
-                if (trigger <= now) continue;
+                if (trigger <= nowMillis) continue;
                 schedule(context, count++, trigger, pass);
             }
             prefs.edit().putInt("count", count).apply();
