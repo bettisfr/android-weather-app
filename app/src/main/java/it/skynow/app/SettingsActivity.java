@@ -56,7 +56,6 @@ public final class SettingsActivity extends Activity {
     private int overviewOffset;
     private boolean inSubpage;
     private static final int ISS_PERMISSION = 1;
-    private boolean pendingIssTest;
 
     @Override protected void attachBaseContext(Context base) {
         super.attachBaseContext(SkyTheme.withPreference(base));
@@ -117,7 +116,7 @@ public final class SettingsActivity extends Activity {
         subpage(notifications, R.string.iss_alerts, options[IssAlerts.option(this)], panel -> {
             addChoices(panel, options, () -> IssAlerts.option(this), index -> {
                 IssAlerts.setOption(this, index);
-                if (index != 0) allowIssNotifications(false);
+                if (index != 0) allowIssNotifications();
             });
             LinearLayout exact = settingRow(getString(R.string.iss_alert_exact));
             if (android.os.Build.VERSION.SDK_INT >= 31) {
@@ -126,9 +125,6 @@ public final class SettingsActivity extends Activity {
                         Uri.parse("package:" + getPackageName()))));
                 addRow(panel, exact);
             }
-            LinearLayout test = settingRow(getString(R.string.iss_alert_test));
-            test.setOnClickListener(view -> allowIssNotifications(true));
-            addRow(panel, test);
         });
         LinearLayout about = section(content, R.string.app_name);
         subpage(about, R.string.settings_about, null, this::showAbout);
@@ -147,29 +143,11 @@ public final class SettingsActivity extends Activity {
         back();
     }
 
-    private void allowIssNotifications(boolean test) {
+    private void allowIssNotifications() {
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            pendingIssTest = test;
             requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, ISS_PERMISSION);
-            return;
         }
-        if (test) sendIssTest();
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
-        super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode != ISS_PERMISSION) return;
-        if (pendingIssTest && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            sendIssTest();
-        }
-        pendingIssTest = false;
-    }
-
-    private void sendIssTest() {
-        IssAlerts.test(this);
-        Toast.makeText(this, IssAlerts.canScheduleExactly(this) ? R.string.iss_alert_test_scheduled
-                : R.string.iss_alert_test_may_delay, Toast.LENGTH_SHORT).show();
     }
 
     private LinearLayout header(int heading) {

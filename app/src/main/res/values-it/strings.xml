@@ -390,15 +390,10 @@
     <string name="iss_alert_at_start">A inizio passaggio</string>
     <string name="iss_alert_lead">%1$d min prima</string>
     <string name="iss_alert_exact">Gestisci il permesso per gli allarmi esatti</string>
-    <string name="iss_alert_test">Invia notifica di prova</string>
-    <string name="iss_alert_test_scheduled">Prova programmata tra 5 secondi.</string>
-    <string name="iss_alert_test_may_delay">Prova programmata. Android può ritardarla senza il permesso per gli allarmi esatti.</string>
-    <string name="iss_alert_test_message">Questa è una notifica ISS di prova di SkyHere.</string>
     <string name="iss_alert_now">La ISS è visibile ora.</string>
     <plurals name="iss_alert_soon">
         <item quantity="one">Il passaggio della ISS inizia tra %d minuto.</item>
         <item quantity="other">Il passaggio della ISS inizia tra %d minuti.</item>
     </plurals>
     <string name="app_author">Sviluppata da %1$s</string>
-    <string name="iss_alert_simulated_pass">Passaggio ISS simulato</string>
 </resources>

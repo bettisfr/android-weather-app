@@ -117,16 +117,6 @@ public final class IssPasses {
                     new ArrayList<>(points.subList(4, points.size())));
         }
 
-        public static Pass simulated(long start) {
-            Sample rise = new Sample(start, 285, 10, -0.2);
-            Sample peak = new Sample(start + 90, 345, 57, -2.6);
-            Sample brightest = new Sample(start + 105, 15, 51, -3.1);
-            Sample set = new Sample(start + 190, 80, 12, 0.0);
-            return new Pass(rise, peak, set, brightest, java.util.Arrays.asList(rise,
-                    new Sample(start + 40, 310, 28, -1.2), peak, brightest,
-                    new Sample(start + 150, 52, 30, -1.4), set));
-        }
-
         public boolean visibleAt(long second) {
             return second >= rise.time && second <= set.time;
         }

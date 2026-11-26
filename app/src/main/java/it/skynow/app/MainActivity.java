@@ -309,10 +309,8 @@ public final class MainActivity extends Activity {
         String period = shortDate(true).format(rise) + " · " + clockFormat().format(rise)
                 + " – " + clockFormat().format(set);
         if (!rise.toLocalDate().equals(set.toLocalDate())) period += getString(R.string.next_day_suffix);
-        boolean simulated = intent.getBooleanExtra(IssAlerts.SIMULATED, false);
-        if (simulated) period = getString(R.string.iss_alert_simulated_pass) + "\n" + period;
         double[] observer = intent.getDoubleArrayExtra(IssAlerts.OBSERVER);
-        String url = simulated || observer == null || observer.length != 3 ? null
+        String url = observer == null || observer.length != 3 ? null
                 : issPassUrl(pass, zone, observer[0], observer[1], observer[2], intent.getStringExtra(IssAlerts.PLACE));
         showIssPass(pass, zone, period, url);
     }

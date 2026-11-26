@@ -392,15 +392,10 @@
     <string name="iss_alert_at_start">At the start of the pass</string>
     <string name="iss_alert_lead">%1$d min before</string>
     <string name="iss_alert_exact">Manage exact alarm permission</string>
-    <string name="iss_alert_test">Send test notification</string>
-    <string name="iss_alert_test_scheduled">Test scheduled for 5 seconds from now.</string>
-    <string name="iss_alert_test_may_delay">Test scheduled. Android may delay it without exact alarm access.</string>
-    <string name="iss_alert_test_message">This is a SkyHere ISS test notification.</string>
     <string name="iss_alert_now">The ISS is visible now.</string>
     <plurals name="iss_alert_soon">
         <item quantity="one">The ISS pass starts in %d minute.</item>
         <item quantity="other">The ISS pass starts in %d minutes.</item>
     </plurals>
     <string name="app_author">Developed by %1$s</string>
-    <string name="iss_alert_simulated_pass">Simulated ISS pass</string>
 </resources>

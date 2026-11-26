@@ -27,10 +27,8 @@ import java.util.concurrent.Executors;
 public final class IssAlerts extends BroadcastReceiver {
     static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
     private static final int JOB = 173;
-    private static final int TEST = -1;
     public static final String TRACK = "issNotificationTrack";
     public static final String TIME_ZONE = "issNotificationZone";
-    public static final String SIMULATED = "issNotificationSimulated";
     public static final String OBSERVER = "issNotificationObserver";
     public static final String PLACE = "issNotificationPlace";
     private static final String CHANNEL = "iss_passes";
@@ -113,11 +111,6 @@ public final class IssAlerts extends BroadcastReceiver {
         return Build.VERSION.SDK_INT < 31 || context.getSystemService(AlarmManager.class).canScheduleExactAlarms();
     }
 
-    public static void test(Context context) {
-        long start = (System.currentTimeMillis() + 5999) / 1000;
-        schedule(context, TEST, start * 1000, IssPasses.Pass.simulated(start));
-    }
-
     private static void schedule(Context context, int id, long trigger, IssPasses.Pass pass) {
         AlarmManager alarms = context.getSystemService(AlarmManager.class);
         PendingIntent intent = alarmIntent(context, id, pass);
@@ -139,12 +132,10 @@ public final class IssAlerts extends BroadcastReceiver {
             alarm.putExtra(TRACK, pass.notificationTrack()).putExtra("rise", pass.rise.time)
                     .putExtra("end", pass.set.time)
                     .putExtra(TIME_ZONE, prefs.getString("zone", java.time.ZoneId.systemDefault().getId()));
-            if (id != TEST) {
-                alarm.putExtra(OBSERVER, new double[]{Double.parseDouble(prefs.getString("lat", "0")),
-                        Double.parseDouble(prefs.getString("lon", "0")),
-                        Double.parseDouble(prefs.getString("elevation", "0"))})
-                        .putExtra(PLACE, prefs.getString("place", ""));
-            }
+            alarm.putExtra(OBSERVER, new double[]{Double.parseDouble(prefs.getString("lat", "0")),
+                    Double.parseDouble(prefs.getString("lon", "0")),
+                    Double.parseDouble(prefs.getString("elevation", "0"))})
+                    .putExtra(PLACE, prefs.getString("place", ""));
         }
         return PendingIntent.getBroadcast(context, id, alarm, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
@@ -157,21 +148,20 @@ public final class IssAlerts extends BroadcastReceiver {
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).build());
             return;
         }
-        int id = intent.getIntExtra("id", TEST);
+        int id = intent.getIntExtra("id", -1);
         long now = Instant.now().getEpochSecond();
-        if (id != TEST && (option(context) == 0 || now > intent.getLongExtra("end", 0))) return;
+        if (id < 0 || option(context) == 0 || now > intent.getLongExtra("end", 0)) return;
         if (Build.VERSION.SDK_INT >= 33
                 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return;
         NotificationManager manager = context.getSystemService(NotificationManager.class);
         manager.createNotificationChannel(new NotificationChannel(CHANNEL,
                 context.getString(R.string.iss_alerts), NotificationManager.IMPORTANCE_HIGH));
         long minutes = (intent.getLongExtra("rise", 0) - now + 59) / 60;
-        String message = id == TEST ? context.getString(R.string.iss_alert_test_message)
-                : minutes > 0 ? context.getResources().getQuantityString(R.plurals.iss_alert_soon, (int) minutes, minutes)
+        String message = minutes > 0 ? context.getResources().getQuantityString(R.plurals.iss_alert_soon, (int) minutes, minutes)
                 : context.getString(R.string.iss_alert_now);
         Intent destination = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("openIssAlerts", true).putExtra(SIMULATED, id == TEST)
+                .putExtra("openIssAlerts", true)
                 .putExtra(TRACK, intent.getDoubleArrayExtra(TRACK))
                 .putExtra(TIME_ZONE, intent.getStringExtra(TIME_ZONE))
                 .putExtra(OBSERVER, intent.getDoubleArrayExtra(OBSERVER))
