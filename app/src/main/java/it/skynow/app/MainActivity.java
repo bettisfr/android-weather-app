@@ -661,7 +661,8 @@ public final class MainActivity extends Activity {
                     manualRefresh = false;
                     forecastHour = Instant.now().atZone(ZoneId.of(response.optString("timezone", "UTC")))
                             .truncatedTo(ChronoUnit.HOURS);
-                    int offset = refreshing && !manual && scroll != null ? scroll.getScrollY() : 0;
+                    int offset = refreshing && !manual && scroll != null && pendingAstronomyEventSection == null
+                            ? scroll.getScrollY() : 0;
                     if (refreshing && day >= 0 && data != null) {
                         String selectedDate = at(data.optJSONObject("daily"), "time", day);
                         JSONObject refreshed = response.optJSONObject("daily");
@@ -710,6 +711,7 @@ public final class MainActivity extends Activity {
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                pendingAstronomyEventSection = null;
                 canPullToRefresh = day < 0 && !choosingLocation && refreshIndicator != null
                         && !forecastLoading && locationListener == null
                         && !scroll.canScrollVertically(-1);
@@ -2857,12 +2859,15 @@ public final class MainActivity extends Activity {
         ZoneId zone = astronomyEventZone();
         boolean openFromNotification = pendingAstronomyEventSection != null;
         boolean openTransits = "TRANSIT".equals(pendingAstronomyEventSection);
+        boolean focusLunar = "LUNAR".equals(pendingAstronomyEventSection);
+        View[] lunarHeading = {null};
         eclipsesExpanded |= openFromNotification && !openTransits;
         transitsExpanded |= openTransits;
         LinearLayout eclipses = astronomyAccordion(R.string.eclipses, eclipsesExpanded,
                 expanded -> eclipsesExpanded = expanded, content -> {
             for (boolean lunar : new boolean[]{false, true}) {
                 TextView heading = label(lunar ? getString(R.string.lunar_eclipses) : getString(R.string.solar_eclipses), 16, ink);
+                if (lunar) lunarHeading[0] = heading;
                 heading.setPadding(0, dp(10), 0, dp(4));
                 content.addView(heading);
                 LinearLayout events = column();
@@ -2880,10 +2885,19 @@ public final class MainActivity extends Activity {
         });
         page.addView(transitsCard);
         if (openFromNotification) {
-            LinearLayout section = openTransits ? transitsCard : eclipses;
-            pendingAstronomyEventSection = null;
+            View section = openTransits ? transitsCard : focusLunar && lunarHeading[0] != null ? lunarHeading[0] : eclipses;
             ScrollView target = scroll;
-            target.post(() -> target.scrollTo(0, section.getTop()));
+            LinearLayout eventPage = page;
+            Runnable reveal = () -> {
+                if (pendingAstronomyEventSection == null || !section.isAttachedToWindow()) return;
+                android.graphics.Rect bounds = new android.graphics.Rect();
+                section.getDrawingRect(bounds);
+                eventPage.offsetDescendantRectToMyCoords(section, bounds);
+                target.scrollTo(0, bounds.top);
+            };
+            section.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+                    target.post(reveal));
+            target.post(reveal);
         }
     }
 
