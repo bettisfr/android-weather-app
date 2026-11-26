@@ -130,7 +130,9 @@ public final class SettingsActivity extends Activity {
             test.setOnClickListener(view -> allowIssNotifications(true));
             addRow(panel, test);
         });
-        subpage(section(content, R.string.app_name), R.string.settings_about, null, this::showAbout);
+        LinearLayout about = section(content, R.string.app_name);
+        subpage(about, R.string.settings_about, null, this::showAbout);
+        subpage(about, R.string.credits, null, this::addCredits);
         setContentView(screen);
         scroller.post(() -> scroller.scrollTo(0, overviewOffset));
     }
@@ -284,13 +286,12 @@ public final class SettingsActivity extends Activity {
         String date = LocalDate.parse(getString(R.string.sky_version_date))
                 .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale));
         TextView version = text(getString(R.string.app_version, getString(R.string.app_name),
-                getString(R.string.sky_version_name), date), 12, R.color.sky_muted);
+                getString(R.string.sky_version_name), date), 15, R.color.sky_text);
         version.setPadding(0, dp(3), 0, 0);
         panel.addView(version);
         TextView author = text(getString(R.string.app_author, "Francesco Betti Sorbelli"), 15, R.color.sky_text);
         author.setPadding(0, dp(8), 0, 0);
         panel.addView(author);
-        addCredits(section(panel, R.string.credits));
     }
 
     private void addCredits(LinearLayout links) {
