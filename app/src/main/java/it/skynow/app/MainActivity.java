@@ -557,7 +557,13 @@ public final class MainActivity extends Activity {
 
     private void requestForecast(boolean refreshing, boolean manual) {
         manualRefresh = manual;
-        if (manual) warningsAttempt = 0;
+        if (manual) {
+            warningsAttempt = 0;
+            if (dashboardTab == DashboardTab.ASTRONOMY) {
+                auroraAttempt = 0;
+                kpAttempt = 0;
+            }
+        }
         if (refreshIndicator != null) {
             refreshIndicator.setAlpha(1f);
             refreshIndicator.setVisibility(manual ? View.VISIBLE : View.GONE);
@@ -626,7 +632,8 @@ public final class MainActivity extends Activity {
     @Override public boolean dispatchTouchEvent(MotionEvent event) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                canPullToRefresh = dashboardTab == DashboardTab.WEATHER && refreshIndicator != null && !forecastLoading && locationListener == null
+                canPullToRefresh = day < 0 && !choosingLocation && refreshIndicator != null
+                        && !forecastLoading && locationListener == null
                         && !scroll.canScrollVertically(-1);
                 pullStartX = event.getX();
                 pullStartY = event.getY();
@@ -660,7 +667,7 @@ public final class MainActivity extends Activity {
                 pullingToRefresh = false;
                 if (event.getActionMasked() == MotionEvent.ACTION_UP && !forecastLoading
                         && event.getY() - pullStartY >= dp(REFRESH_PULL_DP)) {
-                    dashboardOffsets[DashboardTab.WEATHER.ordinal()] = 0;
+                    dashboardOffsets[dashboardTab.ordinal()] = 0;
                     currentLocation(true, true);
                 } else {
                     refreshIndicator.setVisibility(View.GONE);
