@@ -130,8 +130,8 @@
     <string name="orbital_apsides_credit">Orbital apsides · NASA/JPL DE440</string>
     <string name="collapsed">Collapsed</string>
     <string name="expanded">Expanded</string>
-    <string name="lunar_eclipses">Lunar</string>
-    <string name="solar_eclipses">Solar</string>
+    <string name="lunar_eclipses">Lunar eclipses</string>
+    <string name="solar_eclipses">Solar eclipses</string>
     <string name="eclipse_data">Lunar eclipses · OPALE - Space Service of the Paris Observatory · 2026-11-23</string>
     <string name="solar_eclipse_credit">Solar eclipse predictions · Fred Espenak, NASA GSFC</string>
     <string name="planetary_transits">Planetary transits</string>
