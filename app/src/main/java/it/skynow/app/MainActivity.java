@@ -1,6 +1,7 @@
 package it.skynow.app;
 
 import it.skynow.app.notifications.IssAlerts;
+import it.skynow.app.notifications.EarthquakeAlerts;
 import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.EclipseCatalog;
 import it.skynow.app.astronomy.EclipseIcon;
@@ -469,7 +470,10 @@ public final class MainActivity extends Activity {
                 if (isDestroyed() || gps != usingCurrentLocation || lat != latitude || lon != longitude) return;
                 if (country != null) {
                     selectedCountry = country;
-                    if (gps) deviceCountry = country;
+                    if (gps) {
+                        deviceCountry = country;
+                        EarthquakeAlerts.setLocation(this, lat, lon, country);
+                    }
                     if (region != null) selectedRegion = region;
                     refreshWarnings();
                     renderWarnings(Instant.now());
@@ -596,6 +600,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         resumed = true;
+        EarthquakeAlerts.syncSubscription(this);
         requestAstronomyNotificationPermission();
         refreshWarnings();
         refreshAstronomyVisibility();
@@ -3543,7 +3548,7 @@ public final class MainActivity extends Activity {
         boolean use24Hours = prefs.getBoolean("clock24", true);
         int wind = prefs.getInt("windUnit", 0);
         int pressure = prefs.getInt("pressureUnit", 0);
-        int radius = SettingsActivity.earthquakeRadius(prefs);
+        int radius = EarthquakeFeed.alertRadius(prefs);
         int minimumMagnitude = prefs.getInt("earthquakeMinimumMagnitude", 0);
         boolean changed = temperatureUnit != selectedTemperatureUnit || clock24 != use24Hours || windUnit != wind
                 || pressureUnit != pressure || earthquakeRadius != radius || earthquakeMinimumMagnitude != minimumMagnitude;

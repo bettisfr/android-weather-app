@@ -1,4 +1,15 @@
-plugins { id 'com.android.application' version '8.5.2' }
+plugins {
+    id 'com.android.application' version '8.5.2'
+    id 'com.google.gms.google-services' version '4.4.2' apply false
+}
+
+if (file('google-services.json').isFile()) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+dependencies {
+    implementation 'com.google.firebase:firebase-messaging:24.1.2'
+}
 
 def gitBuild = rootProject.file('.git').exists() ? providers.exec {
     workingDir rootProject.projectDir

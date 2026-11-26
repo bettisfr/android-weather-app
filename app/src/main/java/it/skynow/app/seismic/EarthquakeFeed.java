@@ -20,6 +20,30 @@ public final class EarthquakeFeed {
     public static final String SOURCE = "https://terremoti.ingv.it/";
     public static final int DEFAULT_RADIUS = 50;
     public static final int MAX_RADIUS = 500;
+    public static final int RADIUS_STEP_KM = 10;
+
+    public static int alertRadius(android.content.SharedPreferences preferences) {
+        int saved = preferences.getInt("earthquakeRadius", DEFAULT_RADIUS);
+        int rounded = Math.round((float) saved / RADIUS_STEP_KM) * RADIUS_STEP_KM;
+        return Math.max(RADIUS_STEP_KM, Math.min(rounded, MAX_RADIUS));
+    }
+
+    public static Event fromAlert(java.util.Map<String, String> fields) {
+        String id = fields.get("id");
+        if (id == null || !id.matches("[0-9]+")) throw new IllegalArgumentException("Invalid event ID");
+        String[] record = {id, fields.get("time"), fields.get("latitude"), fields.get("longitude"),
+                fields.get("depth"), "", "", "", "", fields.get("magnitudeType"), fields.get("magnitude"),
+                "", fields.get("region")};
+        Event event = new Event(record);
+        if (!Double.isFinite(event.latitude) || Math.abs(event.latitude) > 90
+                || !Double.isFinite(event.longitude) || Math.abs(event.longitude) > 180
+                || !Double.isFinite(event.magnitude) || !Double.isFinite(event.depth)
+                || event.zone == null || event.zone.isEmpty() || event.magnitudeType == null) {
+            throw new IllegalArgumentException("Invalid INGV event coordinates or readings");
+        }
+        return event;
+    }
+
     private static final String API = "https://webservices.ingv.it/fdsnws/event/1/query";
     private static final int PAGE_SIZE = 1000;
     private static final DateTimeFormatter API_TIME = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss")

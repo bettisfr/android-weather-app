@@ -407,4 +407,9 @@
         <item quantity="one">La visibilità inizia tra %d minuto.</item>
         <item quantity="other">La visibilità inizia tra %d minuti.</item>
     </plurals>
+    <string name="earthquake_alerts">Avvisi terremoti</string>
+    <string name="earthquake_alert_off">Disattivati</string>
+    <string name="earthquake_alert_on">Attivati</string>
+    <string name="earthquake_alert_detail">Scossa alle %1$s · A %2$d km</string>
+    <string name="earthquake_alert_magnitude">Magnitudo minima per gli avvisi</string>
 </resources>

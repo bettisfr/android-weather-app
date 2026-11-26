@@ -33,18 +33,11 @@ import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.maps.SatelliteImagery;
 import it.skynow.app.notifications.IssAlerts;
+import it.skynow.app.notifications.EarthquakeAlerts;
 import it.skynow.app.seismic.EarthquakeFeed;
 
 public final class SettingsActivity extends Activity {
     static final String[] TEMPERATURE_UNITS = {"°C", "°F", "K"};
-    private static final int EARTHQUAKE_RADIUS_STEP_KM = 10;
-
-    static int earthquakeRadius(SharedPreferences preferences) {
-        int saved = preferences.getInt("earthquakeRadius", EarthquakeFeed.DEFAULT_RADIUS);
-        int rounded = Math.round((float) saved / EARTHQUAKE_RADIUS_STEP_KM) * EARTHQUAKE_RADIUS_STEP_KM;
-        return Math.max(EARTHQUAKE_RADIUS_STEP_KM, Math.min(rounded, EarthquakeFeed.MAX_RADIUS));
-    }
-
     static int temperatureUnit(SharedPreferences preferences) {
         int unit = preferences.getInt("temperatureUnit", preferences.getBoolean("fahrenheit", false) ? 1 : 0);
         return Math.max(0, Math.min(unit, TEMPERATURE_UNITS.length - 1));
@@ -104,7 +97,7 @@ public final class SettingsActivity extends Activity {
 
         LinearLayout earthquakes = section(content, R.string.tab_earthquakes);
         subpage(earthquakes, R.string.earthquake_radius, getString(R.string.earthquake_radius_value,
-                earthquakeRadius(preferences)), this::addEarthquakeRadius);
+                EarthquakeFeed.alertRadius(preferences)), this::addEarthquakeRadius);
         choice(earthquakes, R.string.earthquake_minimum_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
                 () -> MainActivity.earthquakeMagnitudeIndex(preferences.getInt("earthquakeMinimumMagnitude", 0)),
                 index -> preferences.edit()
@@ -130,6 +123,17 @@ public final class SettingsActivity extends Activity {
                 });
                 addExactAlarmSetting(panel);
             });
+        }
+        if (EarthquakeAlerts.configured(this)) {
+            choice(notifications, R.string.earthquake_alerts,
+                    new String[]{getString(R.string.earthquake_alert_off), getString(R.string.earthquake_alert_on)},
+                    () -> EarthquakeAlerts.enabled(this) ? 1 : 0, index -> {
+                        EarthquakeAlerts.setEnabled(this, index != 0);
+                        if (index != 0) allowAstronomyNotifications();
+                    });
+            choice(notifications, R.string.earthquake_alert_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
+                    () -> MainActivity.earthquakeMagnitudeIndex(EarthquakeAlerts.minimumMagnitude(this)),
+                    index -> EarthquakeAlerts.setMinimumMagnitude(this, MainActivity.EARTHQUAKE_MAGNITUDE_THRESHOLDS[index]));
         }
         LinearLayout about = section(content, R.string.app_name);
         subpage(about, R.string.settings_about, null, this::showAbout);
@@ -255,15 +259,15 @@ public final class SettingsActivity extends Activity {
         slider.setId(View.generateViewId());
         label.setLabelFor(slider.getId());
         slider.setMin(1);
-        slider.setMax(EarthquakeFeed.MAX_RADIUS / EARTHQUAKE_RADIUS_STEP_KM);
-        int radius = earthquakeRadius(preferences);
-        slider.setProgress(radius / EARTHQUAKE_RADIUS_STEP_KM);
+        slider.setMax(EarthquakeFeed.MAX_RADIUS / EarthquakeFeed.RADIUS_STEP_KM);
+        int radius = EarthquakeFeed.alertRadius(preferences);
+        slider.setProgress(radius / EarthquakeFeed.RADIUS_STEP_KM);
         slider.setKeyProgressIncrement(1);
         value.setText(getString(R.string.earthquake_radius_value, radius));
         slider.setPaddingRelative(dp(12), 0, dp(12), 0);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar view, int progress, boolean fromUser) {
-                int kilometers = progress * EARTHQUAKE_RADIUS_STEP_KM;
+                int kilometers = progress * EarthquakeFeed.RADIUS_STEP_KM;
                 value.setText(getString(R.string.earthquake_radius_value, kilometers));
                 if (fromUser) preferences.edit().putInt("earthquakeRadius", kilometers).apply();
             }
