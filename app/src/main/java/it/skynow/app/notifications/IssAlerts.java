@@ -155,7 +155,7 @@ public final class IssAlerts extends BroadcastReceiver {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 .putExtra("openIssAlerts", true), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         manager.notify(id, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ic_iss_astronomy).setContentTitle(context.getString(R.string.iss_alerts))
+                .setSmallIcon(R.drawable.ic_weather_foreground).setContentTitle(context.getString(R.string.iss_alerts))
                 .setContentText(message).setContentIntent(open).setAutoCancel(true).build());
     }
 }
