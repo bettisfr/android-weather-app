@@ -11,7 +11,7 @@ android {
     namespace 'it.skynow.app'
     compileSdk 34
     defaultConfig {
-        applicationId 'it.meteo.locale'
+        applicationId 'it.skynow.app'
         minSdk 26
         targetSdk 34
         versionCode 3
