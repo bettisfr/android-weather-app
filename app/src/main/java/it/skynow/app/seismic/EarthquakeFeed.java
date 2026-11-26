@@ -93,8 +93,18 @@ public final class EarthquakeFeed {
         if (cachedEvents != null && cachedLatitude == lat && cachedLongitude == lon && cachedRadius == radius
                 && SystemClock.elapsedRealtime() - cacheTime < 5 * 60_000) return cachedEvents;
 
+        List<Event> events = fetch(lat, lon, radius, 7 * 24);
+        cachedLatitude = lat;
+        cachedLongitude = lon;
+        cachedRadius = radius;
+        cacheTime = SystemClock.elapsedRealtime();
+        cachedEvents = events;
+        return cachedEvents;
+    }
+
+    public static List<Event> fetch(double lat, double lon, int radius, int windowHours) throws Exception {
         Instant end = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-        String query = API + "?format=text&orderby=time&starttime=" + API_TIME.format(end.minus(7, ChronoUnit.DAYS))
+        String query = API + "?format=text&orderby=time&starttime=" + API_TIME.format(end.minus(windowHours, ChronoUnit.HOURS))
                 + "&endtime=" + API_TIME.format(end) + "&latitude=" + lat + "&longitude=" + lon
                 + "&maxradiuskm=" + radius + "&limit=" + PAGE_SIZE;
         List<Event> events = new ArrayList<>();
@@ -117,11 +127,6 @@ public final class EarthquakeFeed {
             }
             if (rows < PAGE_SIZE) break;
         }
-        cachedLatitude = lat;
-        cachedLongitude = lon;
-        cachedRadius = radius;
-        cacheTime = SystemClock.elapsedRealtime();
-        cachedEvents = events;
         return events;
     }
 

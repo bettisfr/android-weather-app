@@ -21,6 +21,8 @@
         </receiver>
         <service android:name=".notifications.IssAlertRefresh" android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service android:name=".notifications.EarthquakeAlertCheck" android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <activity android:name=".maps.RadarActivity" android:exported="false" />
         <activity android:name=".seismic.SeismogramActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true"

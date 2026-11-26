@@ -53,7 +53,7 @@ SkyHere is an Android app for local weather, interactive maps, skywatching, and 
 
 - ISS alerts can be enabled for the start of a visible pass or 5, 10, or 15 minutes before it. Tapping an alert opens the pass’s sky track.
 - Solar eclipse, lunar eclipse, and transit alerts are enabled by default at the start of local visibility. Each has its own setting for 15 minutes, one hour, or one day of advance notice. Tapping an alert opens its section in Astronomy.
-- Earthquake alerts are enabled by default in Firebase-configured builds. A Raspberry Pi checks the INGV catalog once a minute and publishes newly listed events through Firebase Cloud Messaging. SkyHere filters events on the phone using the last detected location in Italy and the **Earthquakes** settings for radius and minimum magnitude. Tapping an alert opens the epicenter map.
+- Earthquake alerts are enabled by default. A Raspberry Pi checks the INGV catalog once a minute and publishes newly listed events through Firebase Cloud Messaging. SkyHere filters events on the phone using the last detected location in Italy and the **Earthquakes** settings for radius and minimum magnitude. Tapping an alert opens the epicenter map. Android also schedules a direct INGV check every 15 minutes as a fallback. Both paths share event IDs to avoid duplicate alerts. Android can defer background checks.
 - Allow Android notifications to receive alerts. Exact alarm access lets Android deliver the locally scheduled astronomy alerts at the selected time.
 
 ## Data sources
@@ -91,6 +91,6 @@ The installable debug APK is written to `app/build/outputs/apk/debug/app-debug.a
 
 ### Earthquake push setup
 
-To use Firebase Cloud Messaging in a build, register Android application ID `it.skynow.app` in your Firebase project and place the generated Android configuration at `app/google-services.json`. The Android build also works without that file. In that case the earthquake push controls are hidden.
+To use Firebase Cloud Messaging in a build, register Android application ID `it.skynow.app` in your Firebase project and place the generated Android configuration at `app/google-services.json`. The Android build also works without that file. In that case earthquake alerts use the direct INGV check.
 
 On the Raspberry Pi, [the INGV publisher](tools/ingv-fcm.py) can be run as a systemd service with Python 3, `google-auth`, and `requests`. Set `FIREBASE_PROJECT_ID` to the same Firebase project and `GOOGLE_APPLICATION_CREDENTIALS` to the path of the service account credential file. Keep the service account credentials on the Pi, outside the repository and APK. Configure a persistent `--state` path for the SQLite database of previously seen INGV event IDs. `--dry-run` checks the INGV feed without publishing.

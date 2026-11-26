@@ -2,6 +2,7 @@ package it.skynow.app;
 
 import it.skynow.app.notifications.IssAlerts;
 import it.skynow.app.notifications.EarthquakeAlerts;
+import it.skynow.app.notifications.EarthquakeAlertCheck;
 import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.EclipseCatalog;
 import it.skynow.app.astronomy.EclipseIcon;
@@ -601,6 +602,7 @@ public final class MainActivity extends Activity {
         super.onResume();
         resumed = true;
         EarthquakeAlerts.syncSubscription(this);
+        EarthquakeAlertCheck.updateSchedule(this);
         requestAstronomyNotificationPermission();
         refreshWarnings();
         refreshAstronomyVisibility();
@@ -623,7 +625,8 @@ public final class MainActivity extends Activity {
 
     private void requestAstronomyNotificationPermission() {
         if (android.os.Build.VERSION.SDK_INT < 33 || !resumed || data == null
-                || choosingLocation || locationListener != null || !IssAlerts.anyEnabled(this)
+                || choosingLocation || locationListener != null
+                || (!IssAlerts.anyEnabled(this) && !EarthquakeAlerts.enabled(this))
                 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
         android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         if (prefs.getBoolean("askedForAstronomyNotifications", false)) return;

@@ -125,14 +125,12 @@ public final class SettingsActivity extends Activity {
                 addExactAlarmSetting(panel);
             });
         }
-        if (EarthquakeAlerts.configured(this)) {
-            choice(notifications, R.string.earthquake_alerts,
-                    new String[]{getString(R.string.earthquake_alert_off), getString(R.string.earthquake_alert_on)},
-                    () -> EarthquakeAlerts.enabled(this) ? 1 : 0, index -> {
-                        EarthquakeAlerts.setEnabled(this, index != 0);
-                        if (index != 0) allowAstronomyNotifications();
-                    });
-        }
+        choice(notifications, R.string.earthquake_alerts,
+                new String[]{getString(R.string.earthquake_alert_off), getString(R.string.earthquake_alert_on)},
+                () -> EarthquakeAlerts.enabled(this) ? 1 : 0, index -> {
+                    EarthquakeAlerts.setEnabled(this, index != 0);
+                    if (index != 0) allowAstronomyNotifications();
+                });
         LinearLayout about = section(content, R.string.app_name);
         subpage(about, R.string.settings_about, null, this::showAbout);
         subpage(about, R.string.credits, null, this::addCredits);
