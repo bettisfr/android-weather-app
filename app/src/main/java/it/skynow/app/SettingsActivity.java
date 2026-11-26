@@ -308,7 +308,7 @@ public final class SettingsActivity extends Activity {
         author.setGravity(Gravity.CENTER);
         author.setPadding(0, dp(12), 0, dp(16));
         card.addView(author);
-        addCredit(card, R.string.app_github, "https://github.com/bettisfr/android-weather-app");
+        addCredit(card, R.string.app_github, "https://github.com/bettisfr/skyhere");
     }
 
     private void addCredits(LinearLayout links) {

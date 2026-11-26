@@ -65,7 +65,7 @@ public final class RadarActivity extends Activity {
     private static final int RADAR_FRAME_COUNT = 13;
     private static final long LIGHTNING_STEP_MS = Duration.ofMinutes(5).toMillis();
     private static final long LIGHTNING_MAX_AGE_MS = Duration.ofMinutes(20).toMillis();
-    private static final String USER_AGENT_PROJECT = " (+https://github.com/bettisfr/android-weather-app)";
+    private static final String USER_AGENT_PROJECT = " (+https://github.com/bettisfr/skyhere)";
     private final ExecutorService network = Executors.newSingleThreadExecutor();
     private WebView web;
     private Layer layer;
