@@ -400,4 +400,5 @@
         <item quantity="other">Il passaggio della ISS inizia tra %d minuti.</item>
     </plurals>
     <string name="app_author">Sviluppata da %1$s</string>
+    <string name="iss_alert_simulated_pass">Passaggio ISS simulato</string>
 </resources>

@@ -92,6 +92,41 @@ public final class IssPasses {
             this.track = track;
         }
 
+        public double[] notificationTrack() {
+            double[] encoded = new double[(track.size() + 4) * 4];
+            List<Sample> points = new ArrayList<>();
+            java.util.Collections.addAll(points, rise, peak, set, brightest);
+            points.addAll(track);
+            int index = 0;
+            for (Sample point : points) {
+                encoded[index++] = point.time;
+                encoded[index++] = point.azimuth;
+                encoded[index++] = point.elevation;
+                encoded[index++] = point.magnitude;
+            }
+            return encoded;
+        }
+
+        public static Pass fromNotificationTrack(double[] encoded) {
+            if (encoded == null || encoded.length < 24 || encoded.length > 2000 || encoded.length % 4 != 0) return null;
+            List<Sample> points = new ArrayList<>();
+            for (int i = 0; i < encoded.length; i += 4) {
+                points.add(new Sample((long) encoded[i], encoded[i + 1], encoded[i + 2], encoded[i + 3]));
+            }
+            return new Pass(points.get(0), points.get(1), points.get(2), points.get(3),
+                    new ArrayList<>(points.subList(4, points.size())));
+        }
+
+        public static Pass simulated(long start) {
+            Sample rise = new Sample(start, 285, 10, -0.2);
+            Sample peak = new Sample(start + 90, 345, 57, -2.6);
+            Sample brightest = new Sample(start + 105, 15, 51, -3.1);
+            Sample set = new Sample(start + 190, 80, 12, 0.0);
+            return new Pass(rise, peak, set, brightest, java.util.Arrays.asList(rise,
+                    new Sample(start + 40, 310, 28, -1.2), peak, brightest,
+                    new Sample(start + 150, 52, 30, -1.4), set));
+        }
+
         public boolean visibleAt(long second) {
             return second >= rise.time && second <= set.time;
         }

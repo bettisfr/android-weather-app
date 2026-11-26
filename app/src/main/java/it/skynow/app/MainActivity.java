@@ -285,20 +285,36 @@ public final class MainActivity extends Activity {
         } else {
             if (getIntent().getBooleanExtra("openIssAlerts", false)) dashboardTab = DashboardTab.ASTRONOMY;
             currentLocation(!prefs.getBoolean("askedForLocation", false));
+            openIssNotification(getIntent());
         }
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        openIssNotification(intent);
+    }
+
+    private void openIssNotification(Intent intent) {
         if (!intent.getBooleanExtra("openIssAlerts", false)) return;
-        if (data == null) {
-            dashboardTab = DashboardTab.ASTRONOMY;
-        } else {
-            day = -1;
-            dashboardTab = DashboardTab.ASTRONOMY;
-            dashboardOffsets[dashboardTab.ordinal()] = 0;
-            render();
-        }
+        day = -1;
+        dashboardTab = DashboardTab.ASTRONOMY;
+        dashboardOffsets[dashboardTab.ordinal()] = 0;
+        if (data != null) render();
+        IssPasses.Pass pass = IssPasses.Pass.fromNotificationTrack(intent.getDoubleArrayExtra(IssAlerts.TRACK));
+        if (pass == null) return;
+        String zoneId = intent.getStringExtra(IssAlerts.TIME_ZONE);
+        ZoneId zone = zoneId == null ? ZoneId.systemDefault() : ZoneId.of(zoneId);
+        ZonedDateTime rise = Instant.ofEpochSecond(pass.rise.time).atZone(zone);
+        ZonedDateTime set = Instant.ofEpochSecond(pass.set.time).atZone(zone);
+        String period = shortDate(true).format(rise) + " · " + clockFormat().format(rise)
+                + " – " + clockFormat().format(set);
+        if (!rise.toLocalDate().equals(set.toLocalDate())) period += getString(R.string.next_day_suffix);
+        boolean simulated = intent.getBooleanExtra(IssAlerts.SIMULATED, false);
+        if (simulated) period = getString(R.string.iss_alert_simulated_pass) + "\n" + period;
+        double[] observer = intent.getDoubleArrayExtra(IssAlerts.OBSERVER);
+        String url = simulated || observer == null || observer.length != 3 ? null
+                : issPassUrl(pass, zone, observer[0], observer[1], observer[2], intent.getStringExtra(IssAlerts.PLACE));
+        showIssPass(pass, zone, period, url);
     }
 
     @Override protected void onSaveInstanceState(Bundle state) {
@@ -613,7 +629,8 @@ public final class MainActivity extends Activity {
                         }
                     }
                     data = response;
-                    IssAlerts.update(this, lat, lon, response.optDouble("elevation"));
+                    IssAlerts.update(this, lat, lon, response.optDouble("elevation"),
+                            response.optString("timezone", "UTC"), place);
                     cachedForecastAt = null;
                     ForecastCache.write(this, serialized, updatedAt, lat, lon, place, selectedCountry, selectedRegion);
                     if (usingCurrentLocation) {
@@ -2427,7 +2444,7 @@ public final class MainActivity extends Activity {
             TextView directions = label(getString(R.string.iss_directions_short, appears, culminates, disappears), 13, muted);
             directions.setContentDescription(getString(R.string.iss_directions, appears, culminates, disappears));
             entry.addView(directions);
-            String url = issPassUrl(pass, zone);
+            String url = issPassUrl(pass, zone, latitude, longitude, data.optDouble("elevation", 0), place);
             astronomyCardAction(entry, () -> showIssPass(pass, zone, headingText, url));
             addSpaced(rows, entry, 8);
         }
@@ -2584,12 +2601,14 @@ public final class MainActivity extends Activity {
             addSkyTrackPoint(panel, R.string.iss_track_brightest, pass.brightest, SkyTrack.BRIGHTEST_COLOR, zone, date);
             addSkyTrackPoint(panel, R.string.iss_track_end, pass.set, SkyTrack.END_COLOR, zone, date);
 
-            Button link = iconActionButton(R.string.iss_open_heavens_above, R.drawable.ic_open_external,
-                    () -> openAstronomyPage(url));
-            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, -2);
-            size.topMargin = dp(13);
-            size.gravity = Gravity.CENTER_HORIZONTAL;
-            panel.addView(link, size);
+            if (url != null) {
+                Button link = iconActionButton(R.string.iss_open_heavens_above, R.drawable.ic_open_external,
+                        () -> openAstronomyPage(url));
+                LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, -2);
+                size.topMargin = dp(13);
+                size.gravity = Gravity.CENTER_HORIZONTAL;
+                panel.addView(link, size);
+            }
         });
         refreshAstronomyVisibility();
     }
@@ -2763,8 +2782,8 @@ public final class MainActivity extends Activity {
         return SignalColors.GRAY;
     }
 
-    private String issPassUrl(IssPasses.Pass pass, ZoneId zone) {
-        double altitude = data.optDouble("elevation", 0);
+    private String issPassUrl(IssPasses.Pass pass, ZoneId zone, double latitude, double longitude,
+                              double altitude, String place) {
         double modifiedJulianDate = 40587 + pass.peak.time / 86400.0;
         return android.net.Uri.parse("https://heavens-above.com/passdetails.aspx").buildUpon()
                 .appendQueryParameter("satid", "25544")
@@ -3426,7 +3445,8 @@ public final class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != SETTINGS_REQUEST || resultCode != RESULT_OK) return;
         boolean changed = readDisplayPreferences(getPreferences(MODE_PRIVATE));
-        if (this.data != null) IssAlerts.update(this, latitude, longitude, this.data.optDouble("elevation"));
+        if (this.data != null) IssAlerts.update(this, latitude, longitude, this.data.optDouble("elevation"),
+                this.data.optString("timezone", "UTC"), place);
         if (SkyTheme.preference(this) != appliedTheme) recreate();
         else if (changed && this.data != null) render();
     }

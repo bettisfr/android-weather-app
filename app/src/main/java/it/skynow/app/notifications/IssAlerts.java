@@ -28,6 +28,11 @@ public final class IssAlerts extends BroadcastReceiver {
     static final ExecutorService WORKER = Executors.newSingleThreadExecutor();
     private static final int JOB = 173;
     private static final int TEST = -1;
+    public static final String TRACK = "issNotificationTrack";
+    public static final String TIME_ZONE = "issNotificationZone";
+    public static final String SIMULATED = "issNotificationSimulated";
+    public static final String OBSERVER = "issNotificationObserver";
+    public static final String PLACE = "issNotificationPlace";
     private static final String CHANNEL = "iss_passes";
     private static final int[] LEAD_MINUTES = {0, 0, 5, 10, 15};
 
@@ -47,14 +52,15 @@ public final class IssAlerts extends BroadcastReceiver {
         }
     }
 
-    public static void update(Context context, double lat, double lon, double elevation) {
+    public static void update(Context context, double lat, double lon, double elevation, String zone, String place) {
         if (option(context) == 0 || !Double.isFinite(lat) || !Double.isFinite(lon)) return;
         Context app = context.getApplicationContext();
         SharedPreferences prefs = settings(app);
         if (!Double.toString(lat).equals(prefs.getString("lat", ""))
                 || !Double.toString(lon).equals(prefs.getString("lon", ""))) cancelPasses(app);
         prefs.edit().putString("lat", Double.toString(lat)).putString("lon", Double.toString(lon))
-                .putString("elevation", Double.toString(Double.isFinite(elevation) ? elevation : 0)).apply();
+                .putString("elevation", Double.toString(Double.isFinite(elevation) ? elevation : 0))
+                .putString("zone", zone).putString("place", place).apply();
         JobScheduler scheduler = app.getSystemService(JobScheduler.class);
         if (scheduler.getPendingJob(JOB) == null) {
             scheduler.schedule(new JobInfo.Builder(JOB, new ComponentName(app, IssAlertRefresh.class))
@@ -88,7 +94,7 @@ public final class IssAlerts extends BroadcastReceiver {
             for (IssPasses.Pass pass : passes) {
                 long trigger = (pass.rise.time - LEAD_MINUTES[option] * 60L) * 1000;
                 if (trigger <= now) continue;
-                schedule(context, count++, trigger, pass.rise.time, pass.set.time);
+                schedule(context, count++, trigger, pass);
             }
             prefs.edit().putInt("count", count).apply();
         }
@@ -98,7 +104,7 @@ public final class IssAlerts extends BroadcastReceiver {
         SharedPreferences prefs = settings(context);
         AlarmManager alarms = context.getSystemService(AlarmManager.class);
         for (int i = 0; i < prefs.getInt("count", 0); i++) {
-            alarms.cancel(alarmIntent(context, i, 0, 0));
+            alarms.cancel(alarmIntent(context, i, null));
         }
         prefs.edit().remove("count").apply();
     }
@@ -108,12 +114,13 @@ public final class IssAlerts extends BroadcastReceiver {
     }
 
     public static void test(Context context) {
-        schedule(context, TEST, System.currentTimeMillis() + 5000, 0, 0);
+        long start = (System.currentTimeMillis() + 5999) / 1000;
+        schedule(context, TEST, start * 1000, IssPasses.Pass.simulated(start));
     }
 
-    private static void schedule(Context context, int id, long trigger, long rise, long end) {
+    private static void schedule(Context context, int id, long trigger, IssPasses.Pass pass) {
         AlarmManager alarms = context.getSystemService(AlarmManager.class);
-        PendingIntent intent = alarmIntent(context, id, rise, end);
+        PendingIntent intent = alarmIntent(context, id, pass);
         if (canScheduleExactly(context)) {
             try {
                 alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, intent);
@@ -125,10 +132,21 @@ public final class IssAlerts extends BroadcastReceiver {
         alarms.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, trigger, intent);
     }
 
-    private static PendingIntent alarmIntent(Context context, int id, long rise, long end) {
-        return PendingIntent.getBroadcast(context, id, new Intent(context, IssAlerts.class)
-                .putExtra("id", id).putExtra("rise", rise).putExtra("end", end),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    private static PendingIntent alarmIntent(Context context, int id, IssPasses.Pass pass) {
+        Intent alarm = new Intent(context, IssAlerts.class).putExtra("id", id);
+        if (pass != null) {
+            SharedPreferences prefs = settings(context);
+            alarm.putExtra(TRACK, pass.notificationTrack()).putExtra("rise", pass.rise.time)
+                    .putExtra("end", pass.set.time)
+                    .putExtra(TIME_ZONE, prefs.getString("zone", java.time.ZoneId.systemDefault().getId()));
+            if (id != TEST) {
+                alarm.putExtra(OBSERVER, new double[]{Double.parseDouble(prefs.getString("lat", "0")),
+                        Double.parseDouble(prefs.getString("lon", "0")),
+                        Double.parseDouble(prefs.getString("elevation", "0"))})
+                        .putExtra(PLACE, prefs.getString("place", ""));
+            }
+        }
+        return PendingIntent.getBroadcast(context, id, alarm, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     @Override public void onReceive(Context context, Intent intent) {
@@ -151,9 +169,17 @@ public final class IssAlerts extends BroadcastReceiver {
         String message = id == TEST ? context.getString(R.string.iss_alert_test_message)
                 : minutes > 0 ? context.getResources().getQuantityString(R.plurals.iss_alert_soon, (int) minutes, minutes)
                 : context.getString(R.string.iss_alert_now);
-        PendingIntent open = PendingIntent.getActivity(context, 0, new Intent(context, MainActivity.class)
+        Intent destination = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("openIssAlerts", true), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                .putExtra("openIssAlerts", true).putExtra(SIMULATED, id == TEST)
+                .putExtra(TRACK, intent.getDoubleArrayExtra(TRACK))
+                .putExtra(TIME_ZONE, intent.getStringExtra(TIME_ZONE))
+                .putExtra(OBSERVER, intent.getDoubleArrayExtra(OBSERVER))
+                .putExtra(PLACE, intent.getStringExtra(PLACE));
+        long start = intent.getLongExtra("rise", 0);
+        if (start != 0) destination.setData(android.net.Uri.parse("skyhere:iss/" + id + "/" + start));
+        PendingIntent open = PendingIntent.getActivity(context, id, destination,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         manager.notify(id, new Notification.Builder(context, CHANNEL)
                 .setSmallIcon(R.drawable.ic_weather_foreground).setContentTitle(context.getString(R.string.iss_alerts))
                 .setContentText(message).setContentIntent(open).setAutoCancel(true).build());
