@@ -42,7 +42,7 @@ public final class EarthquakeAlerts extends FirebaseMessagingService {
     }
 
     public static boolean enabled(Context context) {
-        return settings(context).getBoolean("enabled", false);
+        return settings(context).getBoolean("enabled", true);
     }
 
     public static void setEnabled(Context context, boolean enabled) {
