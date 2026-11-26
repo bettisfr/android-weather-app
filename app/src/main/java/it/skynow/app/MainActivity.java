@@ -149,6 +149,8 @@ public final class MainActivity extends Activity {
     private int day = -1;
     private enum DashboardTab { WEATHER, ASTRONOMY, EARTHQUAKES }
     private String pendingAstronomyEventSection;
+    private boolean eclipsesExpanded;
+    private boolean transitsExpanded;
     private DashboardTab dashboardTab = DashboardTab.WEATHER;
     private final int[] dashboardOffsets = new int[DashboardTab.values().length];
     private Button earthquakeTabButton;
@@ -2829,7 +2831,12 @@ public final class MainActivity extends Activity {
         double lat = latitude;
         double lon = longitude;
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        LinearLayout eclipses = astronomyAccordion(R.string.eclipses, content -> {
+        boolean openFromNotification = pendingAstronomyEventSection != null;
+        boolean openTransits = "TRANSIT".equals(pendingAstronomyEventSection);
+        eclipsesExpanded |= openFromNotification && !openTransits;
+        transitsExpanded |= openTransits;
+        LinearLayout eclipses = astronomyAccordion(R.string.eclipses, eclipsesExpanded,
+                expanded -> eclipsesExpanded = expanded, content -> {
             for (boolean lunar : new boolean[]{false, true}) {
                 TextView heading = label(lunar ? getString(R.string.lunar_eclipses) : getString(R.string.solar_eclipses), 16, ink);
                 heading.setPadding(0, dp(10), 0, dp(4));
@@ -2840,35 +2847,39 @@ public final class MainActivity extends Activity {
             }
         });
         addSpaced(page, eclipses, 12);
-        LinearLayout transitsCard = astronomyAccordion(R.string.planetary_transits, content -> {
+        LinearLayout transitsCard = astronomyAccordion(R.string.planetary_transits, transitsExpanded,
+                expanded -> transitsExpanded = expanded, content -> {
             content.setPadding(0, dp(10), 0, 0);
             List<TransitCatalog.Event> transits = TransitCatalog.upcoming(lat, lon, Instant.now());
             if (transits.isEmpty()) content.addView(label(getString(R.string.no_transits), 14, muted));
             else appendTransits(content, transits, zone, 0);
         });
         page.addView(transitsCard);
-        if (pendingAstronomyEventSection != null) {
-            LinearLayout section = "TRANSIT".equals(pendingAstronomyEventSection) ? transitsCard : eclipses;
+        if (openFromNotification) {
+            LinearLayout section = openTransits ? transitsCard : eclipses;
             pendingAstronomyEventSection = null;
-            section.getChildAt(0).performClick();
             ScrollView target = scroll;
             target.post(() -> target.scrollTo(0, section.getTop()));
         }
     }
 
-    private LinearLayout astronomyAccordion(int title, java.util.function.Consumer<LinearLayout> populate) {
+    private LinearLayout astronomyAccordion(int title, boolean expanded,
+            java.util.function.Consumer<Boolean> saveExpanded, java.util.function.Consumer<LinearLayout> populate) {
         LinearLayout card = card();
         LinearLayout content = column();
-        content.setVisibility(View.GONE);
+        content.setVisibility(expanded ? View.VISIBLE : View.GONE);
         Button toggle = accordionButton(getString(title));
+        updateAccordion(toggle, expanded);
         toggle.setOnClickListener(v -> {
             boolean open = content.getVisibility() != View.VISIBLE;
+            saveExpanded.accept(open);
             content.setVisibility(open ? View.VISIBLE : View.GONE);
             updateAccordion(toggle, open);
             if (open && content.getChildCount() == 0) populate.accept(content);
         });
         card.addView(toggle, new LinearLayout.LayoutParams(-1, -2));
         card.addView(content);
+        if (expanded) populate.accept(content);
         return card;
     }
 
