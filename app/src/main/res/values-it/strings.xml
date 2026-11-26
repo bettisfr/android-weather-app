@@ -411,5 +411,4 @@
     <string name="earthquake_alert_off">Disattivati</string>
     <string name="earthquake_alert_on">Attivati</string>
     <string name="earthquake_alert_detail">Scossa alle %1$s · A %2$d km</string>
-    <string name="earthquake_alert_magnitude">Magnitudo minima per gli avvisi</string>
 </resources>

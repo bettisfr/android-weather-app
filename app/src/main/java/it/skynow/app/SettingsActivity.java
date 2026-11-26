@@ -131,9 +131,6 @@ public final class SettingsActivity extends Activity {
                         EarthquakeAlerts.setEnabled(this, index != 0);
                         if (index != 0) allowAstronomyNotifications();
                     });
-            choice(notifications, R.string.earthquake_alert_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
-                    () -> MainActivity.earthquakeMagnitudeIndex(EarthquakeAlerts.minimumMagnitude(this)),
-                    index -> EarthquakeAlerts.setMinimumMagnitude(this, MainActivity.EARTHQUAKE_MAGNITUDE_THRESHOLDS[index]));
         }
         LinearLayout about = section(content, R.string.app_name);
         subpage(about, R.string.settings_about, null, this::showAbout);

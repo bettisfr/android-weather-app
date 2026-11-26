@@ -51,14 +51,6 @@ public final class EarthquakeAlerts extends FirebaseMessagingService {
         else if (configured(context)) FirebaseMessaging.getInstance().unsubscribeFromTopic(TOPIC);
     }
 
-    public static int minimumMagnitude(Context context) {
-        return settings(context).getInt("minimumMagnitude", 2);
-    }
-
-    public static void setMinimumMagnitude(Context context, int minimum) {
-        settings(context).edit().putInt("minimumMagnitude", minimum).apply();
-    }
-
     public static void syncSubscription(Context context) {
         if (enabled(context) && configured(context)) FirebaseMessaging.getInstance().subscribeToTopic(TOPIC);
     }
@@ -87,7 +79,7 @@ public final class EarthquakeAlerts extends FirebaseMessagingService {
             if (!Double.isFinite(lat) || !Double.isFinite(lon)) return;
             float[] distance = new float[1];
             Location.distanceBetween(lat, lon, event.latitude, event.longitude, distance);
-            int minimum = minimumMagnitude(this);
+            int minimum = filters.getInt("earthquakeMinimumMagnitude", 0);
             if (!event.matchesMagnitude(minimum) || distance[0] > 1000 * EarthquakeFeed.alertRadius(filters)) return;
             show(event, Math.round(distance[0] / 1000), filters.getBoolean("clock24", true));
         } catch (RuntimeException | org.json.JSONException invalidEvent) {

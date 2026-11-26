@@ -413,5 +413,4 @@
     <string name="earthquake_alert_off">Off</string>
     <string name="earthquake_alert_on">On</string>
     <string name="earthquake_alert_detail">Occurred at %1$s · %2$d km away</string>
-    <string name="earthquake_alert_magnitude">Minimum magnitude for alerts</string>
 </resources>
