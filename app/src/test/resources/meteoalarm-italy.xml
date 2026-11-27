@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Trimmed from the MeteoAlarm legacy Atom feed for Italy. -->
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:cap="urn:oasis:names:tc:emergency:cap:1.2">
+  <link type="text/html" rel="alternate" href="https://meteoalarm.org"/>
+  <title>MeteoAlarm Italy</title>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IT018</value>
+    </cap:geocode>
+    <cap:areaDesc>Sicilia</cap:areaDesc>
+    <cap:event>Yellow Thunderstorm Warning</cap:event>
+    <cap:expires>2026-11-29T11:59:00+00:00</cap:expires>
+    <cap:effective>2026-11-28T00:00:00+00:00</cap:effective>
+    <cap:onset>2026-11-28T06:00:00+00:00</cap:onset>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Update</cap:message_type>
+    <cap:status>Actual</cap:status>
+    <author><name>meteoalarm.org</name></author>
+    <title>Yellow Thunderstorm Warning issued for Italy - Sicilia</title>
+  </entry>
+  <entry>
+    <cap:geocode>
+      <valueName>EMMA_ID</valueName>
+      <value>IT010</value>
+    </cap:geocode>
+    <cap:areaDesc>Umbria</cap:areaDesc>
+    <cap:event>Yellow Wind Warning</cap:event>
+    <cap:expires>2026-11-28T23:59:00+00:00</cap:expires>
+    <cap:effective>2026-11-28T00:00:00+00:00</cap:effective>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+  </entry>
+  <entry>
+    <cap:areaDesc>Lazio</cap:areaDesc>
+    <cap:event>Orange Rain Warning</cap:event>
+    <cap:expires>2026-11-28T23:59:00+00:00</cap:expires>
+    <cap:onset>2026-11-28T00:00:00+00:00</cap:onset>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Cancel</cap:message_type>
+    <cap:status>Actual</cap:status>
+  </entry>
+  <entry>
+    <cap:areaDesc>Toscana</cap:areaDesc>
+    <cap:event>Yellow Fog Warning</cap:event>
+    <cap:expires>2026-11-28T23:59:00+00:00</cap:expires>
+    <cap:onset>2026-11-28T00:00:00+00:00</cap:onset>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Test</cap:status>
+  </entry>
+  <entry>
+    <cap:areaDesc>Marche</cap:areaDesc>
+    <cap:event>Red Flooding Warning</cap:event>
+    <cap:expires>2026-11-27T23:59:00+00:00</cap:expires>
+    <cap:onset>2026-11-28T00:00:00+00:00</cap:onset>
+    <cap:scope>Public</cap:scope>
+    <cap:message_type>Alert</cap:message_type>
+    <cap:status>Actual</cap:status>
+  </entry>
+</feed>

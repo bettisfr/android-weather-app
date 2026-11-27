@@ -15,6 +15,8 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     // The android.jar stubs throw for org.json; use the reference implementation in JVM tests.
     testImplementation 'org.json:json:20240303'
+    // The android.jar XmlPullParser is a stub too; kxml2 is the parser Android itself ships.
+    testImplementation 'net.sf.kxml:kxml2:2.3.0'
 }
 
 def gitBuild = rootProject.file('.git').exists() ? providers.exec {

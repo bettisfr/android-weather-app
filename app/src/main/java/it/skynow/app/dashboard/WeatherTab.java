@@ -22,6 +22,7 @@ import it.skynow.app.weather.DailyWeather;
 import it.skynow.app.weather.ForecastSeries;
 import it.skynow.app.weather.MeteoAlarm;
 import it.skynow.app.weather.OpenMeteo;
+import it.skynow.app.weather.WarningTitles;
 import it.skynow.app.weather.WeatherCodes;
 import it.skynow.app.weather.views.HourlyLineChart;
 import it.skynow.app.weather.views.HumidityGauge;
@@ -394,7 +395,7 @@ public final class WeatherTab {
             int color = event.startsWith("red ") ? SignalColors.RED
                     : event.startsWith("orange ") ? SignalColors.ORANGE : SignalColors.YELLOW;
             banner.setBackground(views.background(SignalColors.tint(color), 12));
-            TextView heading = views.label(warningTitle(warning.event), 16, views.ink);
+            TextView heading = views.label(WarningTitles.title(activity, warning.event), 16, views.ink);
             heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             LinearLayout titleRow = views.row();
             titleRow.setGravity(Gravity.TOP);
@@ -413,34 +414,6 @@ public final class WeatherTab {
                     android.net.Uri.parse(warning.url()))));
             views.addSpaced(regionalWarnings, banner, 8);
         }
-    }
-
-
-    private String warningTitle(String event) {
-        if (!formats().italian()) return event;
-        String[] parts = event.toLowerCase(Locale.ROOT).split(" ", 2);
-        if (parts.length != 2) return event;
-        String level;
-        switch (parts[0]) {
-            case "yellow": level = "gialla"; break;
-            case "orange": level = "arancione"; break;
-            case "red": level = "rossa"; break;
-            default: return event;
-        }
-        String hazard;
-        switch (parts[1]) {
-            case "wind warning": hazard = "vento"; break;
-            case "rain warning": hazard = "pioggia"; break;
-            case "thunderstorm warning": hazard = "temporali"; break;
-            case "snow-ice warning": case "snow/ice warning": hazard = "neve e ghiaccio"; break;
-            case "fog warning": hazard = "nebbia"; break;
-            case "high temperature warning": hazard = "temperature elevate"; break;
-            case "low temperature warning": hazard = "temperature basse"; break;
-            case "coastal event warning": hazard = "fenomeni costieri"; break;
-            case "flooding warning": hazard = "alluvioni"; break;
-            default: return event;
-        }
-        return "Allerta " + level + " per " + hazard;
     }
 
 

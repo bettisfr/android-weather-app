@@ -278,6 +278,22 @@
     <string name="phone_direction_reading">Azimuth %1$s · Elevation %2$d°</string>
     <string name="phone_direction_magnetic">Magnetic azimuth %1$s · Elevation %2$d°</string>
     <string name="regional_warning_validity">%1$s · %2$s – %3$s · MeteoAlarm</string>
+    <!-- MeteoAlarm publishes warning titles in English, e.g. "Yellow Wind Warning". When
+         translate_warning_titles is true they are rebuilt from the words below. -->
+    <bool name="translate_warning_titles">false</bool>
+    <string name="warning_title">%1$s %2$s warning</string>
+    <string name="warning_level_yellow">Yellow</string>
+    <string name="warning_level_orange">Orange</string>
+    <string name="warning_level_red">Red</string>
+    <string name="warning_hazard_wind">wind</string>
+    <string name="warning_hazard_rain">rain</string>
+    <string name="warning_hazard_thunderstorm">thunderstorm</string>
+    <string name="warning_hazard_snow_ice">snow and ice</string>
+    <string name="warning_hazard_fog">fog</string>
+    <string name="warning_hazard_high_temperature">high temperature</string>
+    <string name="warning_hazard_low_temperature">low temperature</string>
+    <string name="warning_hazard_coastal_event">coastal event</string>
+    <string name="warning_hazard_flooding">flooding</string>
     <string name="aurora">Aurora</string>
     <string name="aurora_map">Aurora map</string>
     <string name="aurora_loading">Loading aurora forecast…</string>
