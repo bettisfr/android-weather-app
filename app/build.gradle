@@ -1,5 +1,5 @@
 plugins {
-    id 'com.android.application' version '8.5.2'
+    id 'com.android.application' version '8.7.3'
     id 'com.google.gms.google-services' version '4.4.2' apply false
 }
 
@@ -12,6 +12,9 @@ if (file('src/release/google-services.json').isFile() || file('src/debug/google-
 
 dependencies {
     implementation 'com.google.firebase:firebase-messaging:24.1.2'
+    testImplementation 'junit:junit:4.13.2'
+    // The android.jar stubs throw for org.json; use the reference implementation in JVM tests.
+    testImplementation 'org.json:json:20240303'
 }
 
 def gitBuild = rootProject.file('.git').exists() ? providers.exec {
@@ -24,16 +27,23 @@ def releaseVersion = '0.4.2'
 
 android {
     namespace 'it.skynow.app'
-    compileSdk 34
+    compileSdk 35
     defaultConfig {
         applicationId 'it.skynow.app'
         minSdk 26
-        targetSdk 34
+        targetSdk 35
         versionCode 6
         versionName(gitBuild ? "${releaseVersion}+${gitBuild}" : releaseVersion)
         resValue 'string', 'sky_version_name', versionName
         resValue 'string', 'sky_version_date', buildDate
         resValue 'bool', 'check_for_release_updates', 'true'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    testOptions {
+        unitTests.returnDefaultValues = true
     }
     buildTypes {
         debug {

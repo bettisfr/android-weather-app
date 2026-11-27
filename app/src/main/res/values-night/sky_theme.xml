@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <style name="SkyHereTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/sky_background</item>
         <item name="android:colorAccent">@color/sky_accent</item>
+        <!-- Keep the system bars opaque on Android 15; the programmatic layouts do not apply window insets. -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement" tools:targetApi="35">true</item>
     </style>
     <color name="sky_background">#111d30</color>
     <color name="sky_card">#1c2a40</color>

@@ -24,9 +24,12 @@ import it.skynow.app.seismic.EarthquakeFeed;
 import it.skynow.app.seismic.SeismogramActivity;
 import it.skynow.app.ui.SignalColors;
 import it.skynow.app.weather.AirQualityBand;
+import it.skynow.app.weather.DailyWeather;
+import it.skynow.app.weather.ForecastSeries;
 import it.skynow.app.weather.ForecastCache;
 import it.skynow.app.weather.MeteoAlarm;
 import it.skynow.app.weather.OpenMeteo;
+import it.skynow.app.weather.WeatherCodes;
 import it.skynow.app.weather.views.HourlyLineChart;
 import it.skynow.app.weather.views.HumidityGauge;
 import it.skynow.app.weather.views.PressureGauge;
@@ -886,14 +889,14 @@ public final class MainActivity extends Activity {
         }
         int todayHour = currentHour(current, hourly);
         String today = at(daily, "time", 0);
-        double rainRemaining = remainingMaximum(hourly, "precipitation_probability", todayHour, today);
+        double rainRemaining = DailyWeather.remainingMaximum(hourly, "precipitation_probability", todayHour, today);
         int forecastDays = Math.min(FORECAST_DAYS, length(daily));
-        DayWeather[] summaries = new DayWeather[forecastDays];
+        DailyWeather[] summaries = new DailyWeather[forecastDays];
         for (int index = 0; index < forecastDays; index++) {
             String date = at(daily, "time", index);
             double dailyCode = value(daily, "weather_code", index);
             int fallback = index == 0 ? current.optInt("weather_code") : (int) dailyCode;
-            summaries[index] = summarizeWeather(hourly, index == 0 ? todayHour : 0, date, fallback);
+            summaries[index] = DailyWeather.summarize(hourly, index == 0 ? todayHour : 0, date, fallback);
         }
         if (day < 0) {
             if (locationNotice != null) page.addView(label(locationNotice, 13, muted));
@@ -909,7 +912,7 @@ public final class MainActivity extends Activity {
             temperature.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
             temperature.setLetterSpacing(-0.045f);
             hero.addView(temperature);
-            TextView icon = label(symbol(current.optInt("weather_code"), current.optInt("is_day") == 0), 37, ink);
+            TextView icon = label(WeatherCodes.symbol(current.optInt("weather_code"), current.optInt("is_day") == 0), 37, ink);
             icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             icon.setPadding(dp(6), 0, 0, 0);
             hero.addView(icon);
@@ -946,7 +949,7 @@ public final class MainActivity extends Activity {
             title(getString(R.string.forecast_10_days));
             for (int index = 0; index < forecastDays; index++) {
                 final int selected = index;
-                DayWeather dayWeather = summaries[index];
+                DailyWeather dayWeather = summaries[index];
                 int weather = dayWeather.code;
                 boolean roomy = largeText();
                 LinearLayout tile = roomy ? column() : row();
@@ -970,7 +973,7 @@ public final class MainActivity extends Activity {
                 int chanceWidth = Math.max(dp(40), Math.max(textWidth(chance, percent(100)),
                         textWidth(chance, chance.getText().toString())) + dp(4));
                 values.addView(chance, new LinearLayout.LayoutParams(chanceWidth, -2, roomy ? 1 : 0));
-                TextView dayIcon = label(symbol(weather, dayWeather.night), 23, ink);
+                TextView dayIcon = label(WeatherCodes.symbol(weather, dayWeather.night), 23, ink);
                 dayIcon.setContentDescription(description(weather));
                 dayIcon.setGravity(Gravity.CENTER);
                 int iconWidth = Math.max(dp(38), dayIcon.getLineHeight() + dp(6));
@@ -1000,10 +1003,10 @@ public final class MainActivity extends Activity {
             for (int index = 0; index < forecastDays; index++) {
                 final int selected = index;
                 String key = index == 0 ? getString(R.string.today) : LocalDate.parse(at(daily, "time", index)).format(DateTimeFormatter.ofPattern("EEE", appLocale()));
-                DayWeather summary = summaries[index];
+                DailyWeather summary = summaries[index];
                 int chipWeather = summary.code;
                 String chipRange = range(daily, index);
-                TextView chip = button(key + "\n" + symbol(chipWeather, summary.night) + "\n" + chipRange, () -> {
+                TextView chip = button(key + "\n" + WeatherCodes.symbol(chipWeather, summary.night) + "\n" + chipRange, () -> {
                     day = selected;
                     render();
                 });
@@ -1021,11 +1024,11 @@ public final class MainActivity extends Activity {
             View active = selectedChip;
             HorizontalScrollView strip = (HorizontalScrollView) dates.getParent();
             if (active != null) strip.post(() -> strip.scrollTo(active.getLeft() - (strip.getWidth() - active.getWidth()) / 2, 0));
-            DayWeather summary = summaries[day];
+            DailyWeather summary = summaries[day];
             int weather = summary.code;
             title(date(daily, day));
             String temperatureRange = range(daily, day);
-            TextView dailyTemperature = label(temperatureRange + "  " + symbol(weather, summary.night), 49, ink);
+            TextView dailyTemperature = label(temperatureRange + "  " + WeatherCodes.symbol(weather, summary.night), 49, ink);
             dailyTemperature.setContentDescription(temperatureRange);
             page.addView(dailyTemperature);
             page.addView(label(description(weather), 17, muted));
@@ -1081,7 +1084,7 @@ public final class MainActivity extends Activity {
             chance.setMinHeight(dp(24));
             cell.addView(chance, new LinearLayout.LayoutParams(-1, -2));
             int code = (int) value(hourly, "weather_code", i);
-            TextView weather = label(symbol(code, value(hourly, "is_day", i) == 0), 26, ink);
+            TextView weather = label(WeatherCodes.symbol(code, value(hourly, "is_day", i) == 0), 26, ink);
             weather.setContentDescription(description(code));
             weather.setGravity(Gravity.CENTER);
             weather.setMinHeight(dp(38));
@@ -1456,9 +1459,9 @@ public final class MainActivity extends Activity {
                 detailSummary(summary, getString(R.string.daily_total), number(value(daily, "precipitation_sum", index), "%.1f") + " mm");
             } else if (tab == 1) {
                 detailSummary(summary, getString(R.string.daily_high), windSpeed(value(daily, "wind_speed_10m_max", index), true));
-                detailSummary(summary, getString(R.string.daily_average), windSpeed(hourlyDaySummary(hourly, "wind_speed_10m", date, false), true));
+                detailSummary(summary, getString(R.string.daily_average), windSpeed(DailyWeather.hourlySummary(hourly, "wind_speed_10m", date, false), true));
             } else if (tab == 2) {
-                detailSummary(summary, getString(R.string.daily_high), percent(hourlyDaySummary(hourly, "relative_humidity_2m", date, true)));
+                detailSummary(summary, getString(R.string.daily_high), percent(DailyWeather.hourlySummary(hourly, "relative_humidity_2m", date, true)));
                 detailSummary(summary, getString(R.string.daily_average), percent(value(daily, "relative_humidity_2m_mean", index)));
             } else {
                 detailSummary(summary, getString(R.string.daily_high), temp(value(daily, "temperature_2m_max", index)));
@@ -1488,22 +1491,6 @@ public final class MainActivity extends Activity {
         summary.addView(label(heading, 13, muted));
         summary.addView(label(value, 25, ink));
         parent.addView(summary, new LinearLayout.LayoutParams(0, -2, 1));
-    }
-
-    private static double hourlyDaySummary(JSONObject hourly, String key, String date, boolean high) {
-        int count = 0;
-        double total = 0;
-        double maximum = Double.NEGATIVE_INFINITY;
-        for (int i = 0; i < length(hourly); i++) {
-            if (!at(hourly, "time", i).startsWith(date)) continue;
-            double reading = value(hourly, key, i);
-            if (!Double.isFinite(reading)) continue;
-            count++;
-            total += reading;
-            maximum = Math.max(maximum, reading);
-        }
-        if (count == 0) return Double.NaN;
-        return high ? maximum : total / count;
     }
 
     private void hourlyPlot(LinearLayout body, JSONObject hourly, int start, int end, boolean now, int tab) {
@@ -1644,6 +1631,7 @@ public final class MainActivity extends Activity {
             try {
                 return OpenMeteo.airQuality(lat, lon);
             } catch (Exception unavailable) {
+                android.util.Log.w("SkyHere", "Air quality unavailable", unavailable);
                 return null;
             }
         }).thenAccept(result -> main.post(() -> {
@@ -4024,89 +4012,8 @@ public final class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    private static final class DayWeather {
-        final int code;
-        final boolean night;
-        final int eventCode;
-        final String eventTime;
-
-        DayWeather(int code, boolean night, int eventCode, String eventTime) {
-            this.code = code;
-            this.night = night;
-            this.eventCode = eventCode;
-            this.eventTime = eventTime;
-        }
-    }
-
-    private static DayWeather summarizeWeather(JSONObject hourly, int eventStart, String date, int fallback) {
-        int start = 0;
-        int size = length(hourly);
-        while (start < size && !at(hourly, "time", start).startsWith(date)) start++;
-        int end = start;
-        int[] counts = new int[100];
-        int[] daylight = new int[100];
-        boolean hasDaylight = false;
-        boolean allNight = true;
-        while (end < size && at(hourly, "time", end).startsWith(date)) {
-            double rawCode = value(hourly, "weather_code", end);
-            double isDay = value(hourly, "is_day", end++);
-            if (!Double.isFinite(rawCode) || rawCode < 0 || rawCode >= counts.length) continue;
-            int code = (int) rawCode;
-            counts[code]++;
-            allNight &= isDay == 0;
-            if (isDay == 1) {
-                daylight[code]++;
-                hasDaylight = true;
-            }
-        }
-
-        int[] preferred = hasDaylight ? daylight : counts;
-        int predominant = fallback;
-        int highestCount = 0;
-        for (int code = 0; code < preferred.length; code++) {
-            if (preferred[code] > highestCount) {
-                predominant = code;
-                highestCount = preferred[code];
-            }
-        }
-
-        int eventCode = 0;
-        int eventGroup = 0;
-        String eventTime = null;
-        int predominantGroup = weatherEventGroup(predominant);
-        for (int hour = Math.max(start, eventStart); hour < end; hour++) {
-            int code = (int) value(hourly, "weather_code", hour);
-            int group = weatherEventGroup(code);
-            if (group != 0 && group != predominantGroup
-                    && (group > eventGroup || (group == eventGroup && code > eventCode))) {
-                eventGroup = group;
-                eventCode = code;
-                eventTime = at(hourly, "time", hour);
-            }
-        }
-        return new DayWeather(predominant, highestCount > 0 && allNight, eventCode, eventTime);
-    }
-
-    private static int weatherEventGroup(int code) {
-        if (code >= 95) return 5;
-        if (code == 56 || code == 57 || code == 66 || code == 67) return 4;
-        if ((code >= 71 && code <= 77) || code == 85 || code == 86) return 3;
-        if ((code >= 51 && code <= 65) || (code >= 80 && code <= 82)) return 2;
-        if (code == 45 || code == 48) return 1;
-        return 0;
-    }
-
-    private String weatherNote(DayWeather summary) {
+    private String weatherNote(DailyWeather summary) {
         return getString(R.string.forecast_weather_event, description(summary.eventCode), clock(summary.eventTime));
-    }
-
-    private static double remainingMaximum(JSONObject hourly, String key, int start, String date) {
-        double maximum = Double.NEGATIVE_INFINITY;
-        for (int i = start; i < length(hourly) && at(hourly, "time", i).startsWith(date); i++) {
-            double candidate = value(hourly, key, i);
-            if (Double.isFinite(candidate)) maximum = Math.max(maximum, candidate);
-        }
-        return maximum;
     }
 
     private int currentHour(JSONObject current, JSONObject hourly) {
@@ -4183,105 +4090,12 @@ public final class MainActivity extends Activity {
     private static LocalTime localTime(String timestamp) {
         return timestamp.length() >= 16 ? LocalTime.parse(timestamp.substring(11, 16)) : null;
     }
-    private static int length(JSONObject data) { return data.optJSONArray("time").length(); }
-    private static String at(JSONObject data, String key, int index) { return data.optJSONArray(key).optString(index); }
-    private static double value(JSONObject data, String key, int index) {
-        JSONArray array = data.optJSONArray(key);
-        return array == null ? Double.NaN : array.optDouble(index);
-    }
-
-    private static final char LIGHT_RAIN = '\uE000';
-    private static final char MODERATE_RAIN = '\uE001';
-    private static final char HEAVY_RAIN = '\uE002';
-    private static final char FOG = '\uE003';
-    private static final char SNOW = '\uE004';
-    private static final char RIME_FOG = '\uE005';
-    private static final char LIGHT_DRIZZLE = '\uE006';
-    private static final char MODERATE_DRIZZLE = '\uE007';
-    private static final char HEAVY_DRIZZLE = '\uE008';
-    private static final char CLOUDY_NIGHT = '\uE009';
-    private static final char CLOUDY_DAY = '\uE00A';
-    private static final char MOSTLY_CLEAR_NIGHT = '\uE00B';
-    private static final char MOSTLY_CLEAR_DAY = '\uE00C';
-    private static final char LIGHT_SNOW = '\uE00D';
-    private static final char MODERATE_SNOW = '\uE00E';
-    private static final char SNOW_GRAINS = '\uE00F';
-    private static final char LIGHT_FREEZING_DRIZZLE = '\uE010';
-    private static final char HEAVY_FREEZING_DRIZZLE = '\uE011';
-    private static final char LIGHT_SHOWERS = '\uE012';
-    private static final char MODERATE_SHOWERS = '\uE013';
-    private static final char HEAVY_SHOWERS = '\uE014';
-    private static final char LIGHT_FREEZING_RAIN = '\uE015';
-    private static final char HEAVY_FREEZING_RAIN = '\uE016';
-    private static final char LIGHT_SNOW_SHOWERS = '\uE017';
-    private static final char HEAVY_SNOW_SHOWERS = '\uE018';
-    private static final char THUNDERSTORM = '\uE019';
-    private static final char THUNDERSTORM_LIGHT_HAIL = '\uE01A';
-    private static final char THUNDERSTORM_HEAVY_HAIL = '\uE01B';
-
-    private static String symbol(int code, boolean night) {
-        if (code == 0) return night ? "🌙" : "☀️";
-        if (code == 1) return String.valueOf(night ? MOSTLY_CLEAR_NIGHT : MOSTLY_CLEAR_DAY);
-        if (code == 2) return String.valueOf(night ? CLOUDY_NIGHT : CLOUDY_DAY);
-        if (code == 3) return "☁️";
-        if (code == 48) return String.valueOf(RIME_FOG);
-        if (code < 48) return String.valueOf(FOG);
-        if (code == 51) return String.valueOf(LIGHT_DRIZZLE);
-        if (code == 53) return String.valueOf(MODERATE_DRIZZLE);
-        if (code == 55) return String.valueOf(HEAVY_DRIZZLE);
-        if (code == 56) return String.valueOf(LIGHT_FREEZING_DRIZZLE);
-        if (code == 57) return String.valueOf(HEAVY_FREEZING_DRIZZLE);
-        if (code == 71) return String.valueOf(LIGHT_SNOW);
-        if (code == 73) return String.valueOf(MODERATE_SNOW);
-        if (code == 77) return String.valueOf(SNOW_GRAINS);
-        if (code == 75) return String.valueOf(SNOW);
-        if (code == 85) return String.valueOf(LIGHT_SNOW_SHOWERS);
-        if (code == 86) return String.valueOf(HEAVY_SNOW_SHOWERS);
-        if (code == 96) return String.valueOf(THUNDERSTORM_LIGHT_HAIL);
-        if (code == 99) return String.valueOf(THUNDERSTORM_HEAVY_HAIL);
-        if (code >= 95) return String.valueOf(THUNDERSTORM);
-        if (code == 80) return String.valueOf(LIGHT_SHOWERS);
-        if (code == 81) return String.valueOf(MODERATE_SHOWERS);
-        if (code == 82) return String.valueOf(HEAVY_SHOWERS);
-        if (code == 66) return String.valueOf(LIGHT_FREEZING_RAIN);
-        if (code == 67) return String.valueOf(HEAVY_FREEZING_RAIN);
-        if (code == 65) return String.valueOf(HEAVY_RAIN);
-        if (code == 63) return String.valueOf(MODERATE_RAIN);
-        return String.valueOf(LIGHT_RAIN);
-    }
+    private static int length(JSONObject data) { return ForecastSeries.length(data); }
+    private static String at(JSONObject data, String key, int index) { return ForecastSeries.text(data, key, index); }
+    private static double value(JSONObject data, String key, int index) { return ForecastSeries.value(data, key, index); }
 
     private String description(int code) {
-        switch (code) {
-            case 0: return getString(R.string.clear_weather);
-            case 1: return getString(R.string.mostly_clear);
-            case 2: return getString(R.string.partly_cloudy);
-            case 3: return getString(R.string.cloudy);
-            case 45: return getString(R.string.fog);
-            case 48: return getString(R.string.rime_fog);
-            case 51: return getString(R.string.light_drizzle);
-            case 53: return getString(R.string.moderate_drizzle);
-            case 55: return getString(R.string.heavy_drizzle);
-            case 56: return getString(R.string.light_freezing_drizzle);
-            case 57: return getString(R.string.heavy_freezing_drizzle);
-            case 61: return getString(R.string.light_rain);
-            case 63: return getString(R.string.moderate_rain);
-            case 65: return getString(R.string.heavy_rain);
-            case 66: return getString(R.string.light_freezing_rain);
-            case 67: return getString(R.string.heavy_freezing_rain);
-            case 71: return getString(R.string.light_snow);
-            case 73: return getString(R.string.moderate_snow);
-            case 75: return getString(R.string.heavy_snow);
-            case 77: return getString(R.string.snow_grains);
-            case 80: return getString(R.string.light_showers);
-            case 81: return getString(R.string.moderate_showers);
-            case 82: return getString(R.string.heavy_showers);
-            case 85: return getString(R.string.light_snow_showers);
-            case 86: return getString(R.string.heavy_snow_showers);
-            case 95: return getString(R.string.thunderstorms);
-            case 96: return getString(R.string.thunderstorm_light_hail);
-            case 99: return getString(R.string.thunderstorm_heavy_hail);
-            default: return getString(R.string.conditions_unavailable);
-        }
+        return WeatherCodes.description(this, code);
     }
 
     private String durationText(long minutes) {
@@ -4367,36 +4181,9 @@ public final class MainActivity extends Activity {
         android.text.SpannableString decorated = null;
         for (int i = 0; i < text.length(); i++) {
             char marker = text.charAt(i);
-            if (marker < LIGHT_RAIN || marker > THUNDERSTORM_HEAVY_HAIL) continue;
+            int resource = WeatherCodes.glyphDrawable(marker);
+            if (resource == 0) continue;
             if (decorated == null) decorated = new android.text.SpannableString(text);
-            int resource = marker == LIGHT_RAIN ? R.drawable.ic_rain_light
-                    : marker == MODERATE_RAIN ? R.drawable.ic_rain_moderate
-                    : marker == HEAVY_RAIN ? R.drawable.ic_rain_heavy
-                    : marker == FOG ? R.drawable.ic_fog
-                    : marker == SNOW ? R.drawable.ic_snow
-                    : marker == RIME_FOG ? R.drawable.ic_rime_fog
-                    : marker == LIGHT_DRIZZLE ? R.drawable.ic_drizzle_light
-                    : marker == MODERATE_DRIZZLE ? R.drawable.ic_drizzle_moderate
-                    : marker == HEAVY_DRIZZLE ? R.drawable.ic_drizzle_heavy
-                    : marker == CLOUDY_NIGHT ? R.drawable.ic_cloudy_night
-                    : marker == CLOUDY_DAY ? R.drawable.ic_cloudy_day
-                    : marker == MOSTLY_CLEAR_NIGHT ? R.drawable.ic_mostly_clear_night
-                    : marker == MOSTLY_CLEAR_DAY ? R.drawable.ic_mostly_clear_day
-                    : marker == LIGHT_SNOW ? R.drawable.ic_snow_light
-                    : marker == MODERATE_SNOW ? R.drawable.ic_snow_moderate
-                    : marker == SNOW_GRAINS ? R.drawable.ic_snow_grains
-                    : marker == LIGHT_FREEZING_DRIZZLE ? R.drawable.ic_freezing_drizzle_light
-                    : marker == HEAVY_FREEZING_DRIZZLE ? R.drawable.ic_freezing_drizzle_heavy
-                    : marker == LIGHT_SHOWERS ? R.drawable.ic_showers_light
-                    : marker == MODERATE_SHOWERS ? R.drawable.ic_showers_moderate
-                    : marker == HEAVY_SHOWERS ? R.drawable.ic_showers_heavy
-                    : marker == LIGHT_FREEZING_RAIN ? R.drawable.ic_freezing_rain_light
-                    : marker == HEAVY_FREEZING_RAIN ? R.drawable.ic_freezing_rain_heavy
-                    : marker == LIGHT_SNOW_SHOWERS ? R.drawable.ic_snow_showers_light
-                    : marker == HEAVY_SNOW_SHOWERS ? R.drawable.ic_snow_showers_heavy
-                    : marker == THUNDERSTORM ? R.drawable.ic_thunderstorm
-                    : marker == THUNDERSTORM_LIGHT_HAIL ? R.drawable.ic_thunderstorm_light_hail
-                    : R.drawable.ic_thunderstorm_heavy_hail;
             android.graphics.drawable.Drawable icon = getDrawable(resource);
             int pixels = Math.round(view.getTextSize() * 1.05f);
             icon.setBounds(0, 0, pixels, pixels);
