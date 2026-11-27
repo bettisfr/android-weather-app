@@ -1819,7 +1819,7 @@ public final class MainActivity extends Activity {
 
     private void setSkyCoordinates(TextView reading, Instant now, boolean moon) {
         SkyPosition position = SkyPosition.at(now, latitude, longitude, moon);
-        boolean above = moon ? position.zenith < 90 : sunVisible(now, position);
+        boolean above = moon ? moonVisible(now, position) : sunVisible(now, position);
         reading.setVisibility(above ? View.VISIBLE : View.GONE);
         if (above) {
             reading.setText(skyCoordinatesText(position.azimuth, 90 - position.zenith));
@@ -1852,6 +1852,40 @@ public final class MainActivity extends Activity {
             }
         }
         return position.zenith <= 90.833;
+    }
+
+    private boolean moonVisible(Instant now, SkyPosition position) {
+        if (data == null) return position.zenith < 90;
+        JSONObject daily = data.optJSONObject("daily");
+        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+        String today = now.atZone(zone).toLocalDate().toString();
+        int days = length(daily);
+        if (days == 0 || today.compareTo(at(daily, "time", 0)) < 0
+                || today.compareTo(at(daily, "time", days - 1)) > 0) return position.zenith < 90;
+        Instant previous = null;
+        Instant next = null;
+        boolean previousWasRise = false;
+        boolean nextIsRise = false;
+        for (int i = 0; i < days; i++) {
+            for (String field : new String[]{"moonrise", "moonset"}) {
+                String timestamp = at(daily, field, i);
+                if (timestamp.length() < 16) continue;
+                Instant event = LocalDateTime.parse(timestamp).atZone(zone).toInstant();
+                boolean rise = field.equals("moonrise");
+                if (event.isAfter(now)) {
+                    if (next == null || event.isBefore(next)) {
+                        next = event;
+                        nextIsRise = rise;
+                    }
+                } else if (previous == null || event.isAfter(previous)) {
+                    previous = event;
+                    previousWasRise = rise;
+                }
+            }
+        }
+        if (previous != null) return previousWasRise;
+        if (next != null) return !nextIsRise;
+        return position.zenith < 90;
     }
 
     private String skyCoordinatesText(double azimuth, double elevation) {
@@ -2696,7 +2730,7 @@ public final class MainActivity extends Activity {
         Instant now = Instant.now();
         SkyPosition sun = SkyPosition.at(now, latitude, longitude, false);
         SkyPosition body = moon ? SkyPosition.at(now, latitude, longitude, true) : sun;
-        if (planet == null && (moon ? body.zenith >= 90 : !sunVisible(now, sun))) {
+        if (planet == null && !(moon ? moonVisible(now, body) : sunVisible(now, sun))) {
             setSkyCoordinates(moon ? moonCoordinates : sunCoordinates, now, moon);
             return;
         }
@@ -2722,10 +2756,10 @@ public final class MainActivity extends Activity {
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
             trackedCelestialPosition = second -> {
                 if (second >= endOfDay) return null;
-                if (nightOnly) return SkyTrajectory.positionAt(second, lat, lon, moon, planet);
+                if (planet != null) return SkyTrajectory.positionAt(second, lat, lon, false, planet);
                 Instant instant = Instant.ofEpochSecond(second);
-                SkyPosition position = SkyPosition.at(instant, lat, lon, false);
-                return sunVisible(instant, position)
+                SkyPosition position = SkyPosition.at(instant, lat, lon, moon);
+                return (moon ? moonVisible(instant, position) : sunVisible(instant, position))
                         ? new SkyTrajectory.Point(second, position.azimuth, Math.max(0, 90 - position.zenith))
                         : null;
             };
