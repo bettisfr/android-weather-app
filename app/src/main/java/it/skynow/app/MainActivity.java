@@ -1623,7 +1623,12 @@ public final class MainActivity extends Activity {
         indexSize.topMargin = dp(5);
         tile.addView(index, indexSize);
         LinearLayout pollutants = column();
-        tile.addView(pollutants);
+        pollutants.setVisibility(View.GONE);
+        pollutants.setPadding(dp(5), dp(9), dp(5), dp(9));
+        pollutants.setBackground(background(getColor(R.color.sky_subtle), 10));
+        LinearLayout.LayoutParams pollutantSize = new LinearLayout.LayoutParams(-1, -2);
+        pollutantSize.topMargin = dp(10);
+        tile.addView(pollutants, pollutantSize);
         LinearLayout footer = row();
         TextView unit = label(getString(R.string.air_quality_unit), 12, muted);
         unit.setVisibility(View.INVISIBLE);
@@ -1662,6 +1667,7 @@ public final class MainActivity extends Activity {
             index.setBackground(background(SignalColors.tint(band.color), 9));
             index.setPaddingRelative(dp(9), dp(4), dp(9), dp(4));
             addAirQualityPollutants(pollutants, result);
+            pollutants.setVisibility(View.VISIBLE);
             unit.setVisibility(View.VISIBLE);
         }));
     }
@@ -1672,15 +1678,20 @@ public final class MainActivity extends Activity {
         int[] names = {R.string.air_quality_pm25, R.string.air_quality_pm10, R.string.air_quality_ozone,
                 R.string.air_quality_nitrogen_dioxide, R.string.air_quality_sulphur_dioxide};
         String unit = getString(R.string.air_quality_unit);
-        for (int start = 0; start < fields.length; start += 3) {
+        int columns = largeText() ? 3 : fields.length;
+        for (int start = 0; start < fields.length; start += columns) {
             LinearLayout line = row();
             line.setGravity(Gravity.TOP);
-            for (int i = start; i < Math.min(start + 3, fields.length); i++) {
+            int end = Math.min(start + columns, fields.length);
+            for (int i = start; i < end; i++) {
                 LinearLayout cell = column();
+                cell.setGravity(Gravity.CENTER_HORIZONTAL);
                 cell.addView(label(symbols[i], 12, muted));
                 double concentration = result.optDouble(fields[i]);
                 TextView reading = label(number(concentration, "%.1f"), 16, ink);
                 reading.setTypeface(reading.getTypeface(), Typeface.BOLD);
+                reading.setGravity(Gravity.CENTER);
+                reading.setPadding(0, dp(2), 0, 0);
                 cell.addView(reading);
                 cell.setContentDescription(lineReading(getString(names[i]), concentration, unit));
                 cell.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
@@ -1689,8 +1700,7 @@ public final class MainActivity extends Activity {
                 }
                 line.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
             }
-            if (fields.length - start < 3) line.addView(new View(this), new LinearLayout.LayoutParams(0, 0, 1));
-            addSpaced(grid, line, 8);
+            addSpaced(grid, line, start == 0 ? 0 : 8);
         }
     }
 
