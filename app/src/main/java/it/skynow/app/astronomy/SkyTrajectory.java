@@ -17,7 +17,7 @@ public final class SkyTrajectory {
         public final double azimuth, elevation;
         final boolean plotted;
 
-        Point(long time, double azimuth, double elevation) {
+        public Point(long time, double azimuth, double elevation) {
             this(time, azimuth, elevation, elevation >= 0);
         }
 
