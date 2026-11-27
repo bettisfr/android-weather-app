@@ -3423,15 +3423,14 @@ public final class MainActivity extends Activity {
 
     private void highlightSolarExtremum(TextView cell, java.util.function.IntToLongFunction reading, int index, int end) {
         long value = reading.applyAsLong(index);
-        if (value < 0) return;
-        int before = index - 1;
-        while (before >= 0 && reading.applyAsLong(before) == value) before--;
+        if (value < 0 || index == 0) return;
+        long previous = reading.applyAsLong(index - 1);
+        if (previous < 0 || previous == value) return;
         int after = index + 1;
         while (after < end && reading.applyAsLong(after) == value) after++;
-        if (before < 0 || after >= end) return;
-        long previous = reading.applyAsLong(before);
+        if (after >= end) return;
         long next = reading.applyAsLong(after);
-        if (previous < 0 || next < 0) return;
+        if (next < 0) return;
         if (value < previous && value < next) {
             cell.setTextColor(getColor(R.color.sky_solar_minimum));
             cell.setTypeface(cell.getTypeface(), Typeface.BOLD);
