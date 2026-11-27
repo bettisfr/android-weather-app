@@ -918,6 +918,7 @@ public final class MainActivity extends Activity {
             summary.setGravity(Gravity.END);
             summary.setPadding(dp(12), 0, 0, 0);
             TextView condition = label(description(current.optInt("weather_code")), 17, ink);
+            condition.setTypeface(condition.getTypeface(), Typeface.BOLD);
             condition.setGravity(Gravity.END);
             summary.addView(condition);
             TextView feelsLike = label(getString(R.string.feels_like_value, temp(current.optDouble("apparent_temperature"))), 14, muted);
