@@ -63,7 +63,7 @@ The first signed GitHub release uses a different signing key from previous debug
 
 ## Notifications
 
-- ISS alerts can be enabled for the start of a visible pass or 5, 10, or 15 minutes before it. Tapping an alert opens the pass’s sky track.
+- ISS alerts are enabled by default at the start of a visible pass. You can also choose 5, 10, or 15 minutes of advance notice. Tapping an alert opens the pass’s sky track.
 - Solar eclipse, lunar eclipse, and transit alerts are enabled by default at the start of local visibility. Each has its own setting for 15 minutes, one hour, or one day of advance notice. Tapping an alert opens its section in Astronomy.
 - Earthquake alerts are enabled by default. A Raspberry Pi checks the INGV catalog once a minute and publishes newly listed events through Firebase Cloud Messaging. SkyHere filters events on the phone using the last detected location in Italy and the **Earthquakes** settings for radius and minimum magnitude. Tapping an alert opens the epicenter map. Android also schedules a direct INGV check every 15 minutes as a fallback. Both paths share event IDs to avoid duplicate alerts. Android can defer background checks.
 - Allow Android notifications to receive alerts. Exact alarm access lets Android deliver the locally scheduled astronomy alerts at the selected time.

@@ -80,7 +80,7 @@ public final class IssAlerts extends BroadcastReceiver {
     }
 
     public static int option(Context context) {
-        return settings(context).getInt("option", 0);
+        return settings(context).getInt("option", 1);
     }
 
     public static void setOption(Context context, int option) {
