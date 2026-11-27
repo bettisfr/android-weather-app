@@ -167,6 +167,40 @@ public final class SkyViews {
         return chevron;
     }
 
+    /** Header of a full-screen detail page: a back control and a title. */
+    public LinearLayout detailHeader(String title, int backDescription, Runnable goBack) {
+        LinearLayout header = row();
+        TextView back = label("‹", 28, ink);
+        back.setGravity(Gravity.CENTER);
+        back.setContentDescription(context.getString(backDescription));
+        back.setOnClickListener(v -> goBack.run());
+        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        TextView titleView = label(title, 19, ink);
+        titleView.setPaddingRelative(0, dp(7), dp(12), dp(7));
+        header.addView(titleView, new LinearLayout.LayoutParams(0, -2, 1));
+        return header;
+    }
+
+    // Badges
+
+    public TextView badge(String text) {
+        TextView badge = label(text, 13, ink);
+        badge.setPaddingRelative(dp(7), dp(3), dp(7), dp(3));
+        return badge;
+    }
+
+    /** A green badge for something observable right now. */
+    public TextView observingBadge(String text) {
+        TextView badge = badge(text);
+        badge.setTextColor(context.getColor(R.color.sky_observing));
+        badge.setBackground(background(SignalColors.tint(SignalColors.GREEN), 8));
+        return badge;
+    }
+
+    public TextView nowBadge() {
+        return observingBadge(context.getString(R.string.sky_track_now));
+    }
+
     // Buttons
 
     /** Makes a whole card clickable, with a ripple drawn over its content. */

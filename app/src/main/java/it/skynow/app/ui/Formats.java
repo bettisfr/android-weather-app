@@ -50,6 +50,10 @@ public final class Formats {
         return Double.isFinite(value) ? String.format(appLocale(), format, value) : "—";
     }
 
+    public String percent(double value) {
+        return Double.isFinite(value) ? number(value, "%.0f") + "%" : "—";
+    }
+
     public DateTimeFormatter shortDate(boolean year) {
         String pattern = italian() ? "EEE d MMM" : "EEE, MMM d";
         if (year) pattern += italian() ? " yyyy" : ", yyyy";

@@ -43,7 +43,7 @@ public final class SkyTheme {
         applySystemBars(activity.getWindow(), activity, activity.getColor(R.color.sky_background));
     }
 
-    static void applySystemBars(Window window, Context context, int background) {
+    public static void applySystemBars(Window window, Context context, int background) {
         window.setStatusBarColor(background);
         window.setNavigationBarColor(background);
         boolean light = !isDark(context);
