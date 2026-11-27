@@ -26,6 +26,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import it.skynow.app.R;
+import it.skynow.app.SkyLanguage;
 import it.skynow.app.net.HttpText;
 
 public final class GitHubUpdates {
@@ -48,7 +49,7 @@ public final class GitHubUpdates {
         IO.execute(() -> {
             try {
                 String tag = availableUpdate(app);
-                if (tag != null && !tag.equals(prefs.getString("notified", "")) && notifyUpdate(app, tag)) {
+                if (tag != null && !tag.equals(prefs.getString("notified", "")) && notifyUpdate(SkyLanguage.withPreference(app), tag)) {
                     prefs.edit().putString("notified", tag).apply();
                 }
             } catch (Exception error) {

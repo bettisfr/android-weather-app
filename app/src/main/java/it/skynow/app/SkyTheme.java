@@ -25,6 +25,7 @@ public final class SkyTheme {
     }
 
     public static Context withPreference(Context context) {
+        context = SkyLanguage.withPreference(context);
         int selection = preference(context);
         if (selection == SYSTEM) return context;
         Configuration override = new Configuration();

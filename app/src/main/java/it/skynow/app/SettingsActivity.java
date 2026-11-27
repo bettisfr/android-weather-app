@@ -84,6 +84,12 @@ public final class SettingsActivity extends Activity {
             SkyTheme.savePreference(this, index);
             recreate();
         });
+        choice(display, R.string.app_language, new String[]{
+                getString(R.string.theme_system), getString(R.string.language_italian), getString(R.string.language_english)
+        }, () -> SkyLanguage.preference(this), index -> {
+            SkyLanguage.savePreference(this, index);
+            recreate();
+        });
         choice(display, R.string.time_format, new String[]{getString(R.string.clock_12), getString(R.string.clock_24)},
                 () -> preferences.getBoolean("clock24", true) ? 1 : 0,
                 index -> preferences.edit().putBoolean("clock24", index == 1).apply());

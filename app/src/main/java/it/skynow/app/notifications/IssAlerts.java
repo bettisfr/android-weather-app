@@ -17,6 +17,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import it.skynow.app.MainActivity;
 import it.skynow.app.R;
+import it.skynow.app.SkyLanguage;
 import it.skynow.app.astronomy.IssPasses;
 import it.skynow.app.astronomy.EclipseCatalog;
 import it.skynow.app.astronomy.TransitCatalog;
@@ -258,6 +259,7 @@ public final class IssAlerts extends BroadcastReceiver {
     }
 
     @Override public void onReceive(Context context, Intent intent) {
+        context = SkyLanguage.withPreference(context);
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
             if (!anyEnabled(context)) return;
             context.getSystemService(JobScheduler.class).schedule(new JobInfo.Builder(JOB + 1,

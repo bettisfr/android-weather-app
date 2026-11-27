@@ -142,6 +142,7 @@ public final class MainActivity extends Activity {
     private int windUnit;
     private static final int SETTINGS_REQUEST = 403;
     private int appliedTheme;
+    private int appliedLanguage;
     private int pressureUnit;
 
     static final String[] WIND_UNITS = {"km/h", "mph", "m/s", "kn"};
@@ -274,6 +275,7 @@ public final class MainActivity extends Activity {
         latitude = Double.parseDouble(prefs.getString("latitude", "43.066"));
         longitude = Double.parseDouble(prefs.getString("longitude", "12.548"));
         appliedTheme = SkyTheme.preference(this);
+        appliedLanguage = SkyLanguage.preference(this);
         readDisplayPreferences(prefs);
         if (state != null && state.containsKey("forecastPlace")) {
             place = state.getString("forecastPlace");
@@ -3607,7 +3609,7 @@ public final class MainActivity extends Activity {
         boolean changed = readDisplayPreferences(getPreferences(MODE_PRIVATE));
         if (this.data != null) IssAlerts.update(this, latitude, longitude, this.data.optDouble("elevation"),
                 this.data.optString("timezone", "UTC"), place);
-        if (SkyTheme.preference(this) != appliedTheme) recreate();
+        if (SkyTheme.preference(this) != appliedTheme || SkyLanguage.preference(this) != appliedLanguage) recreate();
         else if (changed && this.data != null) render();
     }
 

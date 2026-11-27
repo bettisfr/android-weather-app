@@ -27,6 +27,7 @@ import java.util.Map;
 
 import it.skynow.app.MainActivity;
 import it.skynow.app.R;
+import it.skynow.app.SkyLanguage;
 import it.skynow.app.maps.RadarActivity;
 import it.skynow.app.seismic.EarthquakeFeed;
 
@@ -102,7 +103,7 @@ public final class EarthquakeAlerts extends FirebaseMessagingService {
         int minimum = filters.getInt("earthquakeMinimumMagnitude", 0);
         if (!event.matchesMagnitude(minimum) || distance[0] > 1000 * EarthquakeFeed.alertRadius(filters)) return;
         try {
-            show(context, event, Math.round(distance[0] / 1000), filters.getBoolean("clock24", true));
+            show(SkyLanguage.withPreference(context), event, Math.round(distance[0] / 1000), filters.getBoolean("clock24", true));
         } catch (org.json.JSONException invalidEvent) {
             android.util.Log.w("SkyHere", "Invalid INGV notification", invalidEvent);
         }
