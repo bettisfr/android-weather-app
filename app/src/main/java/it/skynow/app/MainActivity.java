@@ -1689,7 +1689,8 @@ public final class MainActivity extends Activity {
                     valueWithUnit.setSpan(new android.text.style.RelativeSizeSpan(0.73f),
                             value.length(), valueWithUnit.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 }
-                TextView reading = label(valueWithUnit, 16, ink);
+                TextView reading = label("", 16, ink);
+                reading.setText(valueWithUnit);
                 reading.setPadding(0, dp(2), 0, 0);
                 cell.addView(reading);
                 cell.setContentDescription(lineReading(getString(names[i]), concentration, unit));
