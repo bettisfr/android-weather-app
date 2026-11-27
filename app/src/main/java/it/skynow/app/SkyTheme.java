@@ -28,8 +28,12 @@ public final class SkyTheme {
         context = SkyLanguage.withPreference(context);
         int selection = preference(context);
         if (selection == SYSTEM) return context;
+        Configuration current = context.getResources().getConfiguration();
         Configuration override = new Configuration();
-        override.uiMode = (context.getResources().getConfiguration().uiMode & ~Configuration.UI_MODE_NIGHT_MASK)
+        // A configuration context replaces, not extends, the override it is created from,
+        // so carry over the app language chosen above.
+        override.setLocales(current.getLocales());
+        override.uiMode = (current.uiMode & ~Configuration.UI_MODE_NIGHT_MASK)
                 | (selection == DARK ? Configuration.UI_MODE_NIGHT_YES : Configuration.UI_MODE_NIGHT_NO);
         return context.createConfigurationContext(override);
     }
