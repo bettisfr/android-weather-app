@@ -25,7 +25,7 @@ def gitBuild = rootProject.file('.git').exists() ? providers.exec {
     ignoreExitValue = true
 }.standardOutput.asText.get().trim() : ''
 def buildDate = java.time.LocalDate.now().toString()
-def releaseVersion = '0.4.2'
+def releaseVersion = '0.4.3'
 
 android {
     namespace 'it.skynow.app'
@@ -34,7 +34,7 @@ android {
         applicationId 'it.skynow.app'
         minSdk 26
         targetSdk 35
-        versionCode 6
+        versionCode 7
         versionName(gitBuild ? "${releaseVersion}+${gitBuild}" : releaseVersion)
         resValue 'string', 'sky_version_name', versionName
         resValue 'string', 'sky_version_date', buildDate
