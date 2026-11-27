@@ -1893,9 +1893,8 @@ public final class MainActivity extends Activity {
             reading.setText(skyCoordinatesText(position.azimuth, 90 - position.zenith));
         }
         LinearLayout heading = moon ? moonTrackHeading : sunTrackHeading;
-        setSkyTrackAvailable(heading, heading.getChildAt(heading.getChildCount() - 1), above);
+        heading.getChildAt(heading.getChildCount() - 1).setVisibility(above ? View.VISIBLE : View.GONE);
         SkyPath path = moon ? moonPath : sunPath;
-        path.setClickable(above);
         path.updateNow(now, 90 - position.zenith);
     }
 
@@ -1993,7 +1992,6 @@ public final class MainActivity extends Activity {
         }
         FrameLayout chart = new FrameLayout(this);
         sunPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
-        sunPath.setOnClickListener(view -> sunTrackHeading.performClick());
         chart.addView(sunPath, new FrameLayout.LayoutParams(-1, -1));
         TextView maximum = label(getString(R.string.sun_max_today, solarMaximumElevation(date, zone, seconds)), 12, muted);
         maximum.setPaddingRelative(dp(4), 0, dp(4), 0);
@@ -2057,7 +2055,6 @@ public final class MainActivity extends Activity {
         }
         addSpaced(tile, readings, 7);
         moonPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24);
-        moonPath.setOnClickListener(view -> moonTrackHeading.performClick());
         LinearLayout.LayoutParams chartSize = new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP));
         chartSize.topMargin = dp(6);
         tile.addView(moonPath, chartSize);
@@ -2711,7 +2708,6 @@ public final class MainActivity extends Activity {
         LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
         badgeSize.setMarginStart(dp(6));
         heading.addView(now, badgeSize);
-        astronomyCardAction(heading, open);
         panel.addView(heading);
         return heading;
     }
