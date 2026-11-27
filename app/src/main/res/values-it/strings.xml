@@ -313,7 +313,6 @@
     <string name="air_quality_loading">Caricamento qualità dell’aria…</string>
     <string name="air_quality_unavailable">Qualità dell’aria non disponibile</string>
     <string name="air_quality_index">AQI · %1$s</string>
-    <string name="air_quality_particles">PM2,5 &lt;b>%1$s&lt;/b> · PM10 &lt;b>%2$s&lt;/b> µg/m³</string>
     <string name="air_quality_grid">AQI europeo</string>
     <string name="aqi_good">Buona</string>
     <string name="aqi_fair">Discreta</string>
@@ -422,4 +421,10 @@
     <string name="update_download">Scarica APK</string>
     <string name="app_language">Lingua</string>
     <string name="app_feedback">Segnala un bug o proponi un miglioramento</string>
+    <string name="air_quality_pm25">PM2,5</string>
+    <string name="air_quality_pm10">PM10</string>
+    <string name="air_quality_ozone">Ozono</string>
+    <string name="air_quality_nitrogen_dioxide">Biossido di azoto</string>
+    <string name="air_quality_sulphur_dioxide">Biossido di zolfo</string>
+    <string name="air_quality_unit">µg/m³</string>
 </resources>

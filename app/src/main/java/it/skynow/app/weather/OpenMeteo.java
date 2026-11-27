@@ -147,7 +147,7 @@ public final class OpenMeteo {
 
     public static JSONObject airQuality(double latitude, double longitude) throws Exception {
         return read(AIR_QUALITY + "latitude=" + latitude + "&longitude=" + longitude
-                + "&current=european_aqi,pm2_5,pm10,ozone,nitrogen_dioxide").getJSONObject("current");
+                + "&current=european_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide").getJSONObject("current");
     }
 
     private static JSONObject read(String address) throws Exception {

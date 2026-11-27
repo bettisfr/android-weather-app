@@ -1618,14 +1618,16 @@ public final class MainActivity extends Activity {
     private void airQuality() {
         LinearLayout tile = card();
         tile.addView(label(getString(R.string.air_quality), 14, muted));
-        LinearLayout footer = row();
-        LinearLayout readings = column();
-        footer.addView(readings, new LinearLayout.LayoutParams(0, -2, 1));
         TextView index = label(getString(R.string.air_quality_loading), 19, ink);
-        readings.addView(index, new LinearLayout.LayoutParams(-2, -2));
-        TextView particles = label("", 13, muted);
-        particles.setPadding(0, dp(5), 0, 0);
-        readings.addView(particles);
+        LinearLayout.LayoutParams indexSize = new LinearLayout.LayoutParams(-2, -2);
+        indexSize.topMargin = dp(5);
+        tile.addView(index, indexSize);
+        LinearLayout pollutants = column();
+        tile.addView(pollutants);
+        LinearLayout footer = row();
+        TextView unit = label(getString(R.string.air_quality_unit), 12, muted);
+        unit.setVisibility(View.INVISIBLE);
+        footer.addView(unit, new LinearLayout.LayoutParams(0, -2, 1));
         airQualityMapButton = mapButton(R.string.aurora_map_short, () -> openItalianMap(RadarActivity.Layer.AIR_QUALITY));
         airQualityMapButton.setContentDescription(getString(R.string.air_quality_map));
         LinearLayout.LayoutParams mapSize = new LinearLayout.LayoutParams(-2, -2);
@@ -1649,7 +1651,6 @@ public final class MainActivity extends Activity {
             double aqi = result == null ? Double.NaN : result.optDouble("european_aqi");
             if (!Double.isFinite(aqi)) {
                 index.setText(R.string.air_quality_unavailable);
-                particles.setVisibility(View.GONE);
                 return;
             }
             AirQualityBand band = AirQualityBand.forIndex(Math.round(aqi));
@@ -1660,10 +1661,37 @@ public final class MainActivity extends Activity {
             index.setCompoundDrawablePadding(dp(7));
             index.setBackground(background(SignalColors.tint(band.color), 9));
             index.setPaddingRelative(dp(9), dp(4), dp(9), dp(4));
-            String particulateReadings = getString(R.string.air_quality_particles,
-                    number(result.optDouble("pm2_5"), "%.1f"), number(result.optDouble("pm10"), "%.1f"));
-            particles.setText(android.text.Html.fromHtml(particulateReadings, android.text.Html.FROM_HTML_MODE_COMPACT));
+            addAirQualityPollutants(pollutants, result);
+            unit.setVisibility(View.VISIBLE);
         }));
+    }
+
+    private void addAirQualityPollutants(LinearLayout grid, JSONObject result) {
+        String[] fields = {"pm2_5", "pm10", "ozone", "nitrogen_dioxide", "sulphur_dioxide"};
+        String[] symbols = {getString(R.string.air_quality_pm25), "PM10", "O₃", "NO₂", "SO₂"};
+        int[] names = {R.string.air_quality_pm25, R.string.air_quality_pm10, R.string.air_quality_ozone,
+                R.string.air_quality_nitrogen_dioxide, R.string.air_quality_sulphur_dioxide};
+        String unit = getString(R.string.air_quality_unit);
+        for (int start = 0; start < fields.length; start += 3) {
+            LinearLayout line = row();
+            line.setGravity(Gravity.TOP);
+            for (int i = start; i < Math.min(start + 3, fields.length); i++) {
+                LinearLayout cell = column();
+                cell.addView(label(symbols[i], 12, muted));
+                double concentration = result.optDouble(fields[i]);
+                TextView reading = label(number(concentration, "%.1f"), 16, ink);
+                reading.setTypeface(reading.getTypeface(), Typeface.BOLD);
+                cell.addView(reading);
+                cell.setContentDescription(lineReading(getString(names[i]), concentration, unit));
+                cell.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+                for (int child = 0; child < cell.getChildCount(); child++) {
+                    cell.getChildAt(child).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                }
+                line.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
+            }
+            if (fields.length - start < 3) line.addView(new View(this), new LinearLayout.LayoutParams(0, 0, 1));
+            addSpaced(grid, line, 8);
+        }
     }
 
     private void metrics(String wind, double direction, double humidity, double dewPoint, double uv, double pressure) {
