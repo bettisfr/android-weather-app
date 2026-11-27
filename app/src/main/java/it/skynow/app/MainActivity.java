@@ -4060,7 +4060,8 @@ public final class MainActivity extends Activity {
     }
 
     private String tempDecimal(double celsius) {
-        return number(displayTemperature(celsius), "%.1f") + temperatureSuffix();
+        double displayed = displayTemperature(celsius);
+        return number(Math.abs(displayed) < 0.05 ? 0 : displayed, "%.1f") + temperatureSuffix();
     }
 
     private String temperatureSuffix() {
