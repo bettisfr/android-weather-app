@@ -1,5 +1,6 @@
 package it.skynow.app.dashboard;
 
+import it.skynow.app.net.Background;
 import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Handler;
@@ -628,7 +629,7 @@ public final class AstronomyTab {
                 android.util.Log.w("SkyHere", "ISS predictions unavailable", error);
                 return null;
             }
-        }).thenAccept(passes -> main.post(() -> {
+        }, Background.IO).thenAccept(passes -> main.post(() -> {
             if (activity.isDestroyed() || !tile.isAttachedToWindow()) return;
             if (passes == null || passes.isEmpty()) {
                 status.setText(passes == null ? R.string.iss_unavailable : R.string.iss_empty);
@@ -1059,7 +1060,7 @@ public final class AstronomyTab {
                     android.util.Log.w("SkyHere", "Additional Sun and Moon dates unavailable", error);
                     return null;
                 }
-            });
+            }, Background.IO);
         }
         return astronomyTail;
     }

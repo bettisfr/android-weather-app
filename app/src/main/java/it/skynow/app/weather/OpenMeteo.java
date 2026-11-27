@@ -1,5 +1,6 @@
 package it.skynow.app.weather;
 
+import it.skynow.app.net.Background;
 import it.skynow.app.net.HttpText;
 
 import org.json.JSONArray;
@@ -71,7 +72,7 @@ public final class OpenMeteo {
                 android.util.Log.w("MeteoLocale", "Forecast model unavailable: " + model, error);
             }
             return null;
-        });
+        }, Background.IO);
     }
 
     private static void formatForecastTimes(JSONObject forecast) throws org.json.JSONException {

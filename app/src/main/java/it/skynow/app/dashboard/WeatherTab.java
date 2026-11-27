@@ -1,5 +1,6 @@
 package it.skynow.app.dashboard;
 
+import it.skynow.app.net.Background;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Typeface;
@@ -364,7 +365,7 @@ public final class WeatherTab {
                 android.util.Log.w("MeteoAlarm", "Warning feed unavailable", error);
                 return null;
             }
-        }).thenAccept(result -> main.post(() -> {
+        }, Background.IO).thenAccept(result -> main.post(() -> {
             if (activity.isDestroyed()) return;
             warningsLoading = false;
             warnings = result == null ? List.of() : result;
@@ -647,7 +648,7 @@ public final class WeatherTab {
                 android.util.Log.w("SkyHere", "Air quality unavailable", unavailable);
                 return null;
             }
-        }).thenAccept(result -> main.post(() -> {
+        }, Background.IO).thenAccept(result -> main.post(() -> {
             if (activity.isDestroyed() || !tile.isAttachedToWindow()) return;
             double aqi = result == null ? Double.NaN : result.optDouble("european_aqi");
             if (!Double.isFinite(aqi)) {

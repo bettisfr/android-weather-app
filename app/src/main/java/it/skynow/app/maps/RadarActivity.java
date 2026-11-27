@@ -1,5 +1,7 @@
 package it.skynow.app.maps;
 
+import it.skynow.app.net.Background;
+import it.skynow.app.net.HttpText;
 import it.skynow.app.ui.SkyViews;
 import it.skynow.app.R;
 import it.skynow.app.SkyTheme;
@@ -23,12 +25,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -413,7 +410,7 @@ public final class RadarActivity extends Activity {
             } catch (Exception error) {
                 // UTC circumstances are already displayed when a local zone is unavailable offline.
             }
-        });
+        }, Background.IO);
     }
 
     private void sendVisibilityPoint(int sequence, JSONArray lines, String url, String label) {
@@ -445,7 +442,7 @@ public final class RadarActivity extends Activity {
                 } catch (IOException ignored) {
                     // The popup already displays the selected coordinates.
                 }
-            });
+            }, Background.IO);
         }
     }
 
@@ -468,21 +465,9 @@ public final class RadarActivity extends Activity {
 
     private void loadLatest() {
         try {
-            HttpURLConnection connection = (HttpURLConnection) new URL(METADATA).openConnection();
-            connection.setConnectTimeout(8000);
-            connection.setReadTimeout(8000);
-            connection.setRequestProperty("Origin", "https://radar.protezionecivile.it");
-            connection.setRequestProperty("User-Agent", userAgent());
-            JSONObject product;
-            try (InputStream stream = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
-                byte[] buffer = new byte[2048];
-                int count;
-                while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
-                product = new JSONObject(new String(bytes.toByteArray(), StandardCharsets.UTF_8))
-                        .getJSONArray("lastProducts").getJSONObject(0);
-            } finally {
-                connection.disconnect();
-            }
+            JSONObject product = new JSONObject(HttpText.read(METADATA, 8000,
+                    "Origin", "https://radar.protezionecivile.it", "User-Agent", userAgent()))
+                    .getJSONArray("lastProducts").getJSONObject(0);
             long time = product.getLong("time");
             long step = Duration.parse(product.getString("period")).toMillis();
             runOnUiThread(() -> evaluate("setRadarTime(" + time + "," + step + ")"));
@@ -499,26 +484,12 @@ public final class RadarActivity extends Activity {
         for (long time = newestBin; time >= oldest && !Thread.currentThread().isInterrupted();
              time -= LIGHTNING_STEP_MS) {
             try {
-                HttpURLConnection connection = (HttpURLConnection) new URL(LIGHTNING_ROOT + time + ".bin").openConnection();
-                connection.setConnectTimeout(2000);
-                connection.setReadTimeout(2000);
-                connection.setRequestProperty("User-Agent", userAgent());
-                try {
-                    int status = connection.getResponseCode();
-                    // The public bucket can return either status for a missing time slot.
-                    if (status == 403 || status == 404) continue;
-                    if (status != 200) continue;
-                    try (InputStream stream = connection.getInputStream(); ByteArrayOutputStream bytes = new ByteArrayOutputStream()) {
-                        byte[] buffer = new byte[8192];
-                        int count;
-                        while ((count = stream.read(buffer)) != -1) bytes.write(buffer, 0, count);
-                        String encoded = android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP);
-                        long binTime = time;
-                        runOnUiThread(() -> evaluate("setLightningFrame(" + binTime + "," + JSONObject.quote(encoded) + ")"));
-                    }
-                } finally {
-                    connection.disconnect();
-                }
+                // The public bucket answers 403 or 404 for a missing time slot.
+                byte[] frame = HttpText.bytesIfOk(LIGHTNING_ROOT + time + ".bin", 2000, "User-Agent", userAgent());
+                if (frame == null) continue;
+                String encoded = android.util.Base64.encodeToString(frame, android.util.Base64.NO_WRAP);
+                long binTime = time;
+                runOnUiThread(() -> evaluate("setLightningFrame(" + binTime + "," + JSONObject.quote(encoded) + ")"));
             } catch (IOException error) {
                 android.util.Log.d("SkyHere", "Radar-DPC lightning frame unavailable", error);
             }

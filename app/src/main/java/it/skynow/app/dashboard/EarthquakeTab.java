@@ -1,5 +1,6 @@
 package it.skynow.app.dashboard;
 
+import it.skynow.app.net.Background;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
@@ -146,7 +147,7 @@ public final class EarthquakeTab {
                 android.util.Log.w("SkyHere", "INGV events unavailable", error);
                 return null;
             }
-        }).thenAccept(events -> activity.runOnUiThread(() -> {
+        }, Background.IO).thenAccept(events -> activity.runOnUiThread(() -> {
             if (activity.isDestroyed() || panel != eventsPanel || status.getParent() != panel) return;
             if (events == null || events.isEmpty()) {
                 status.setText(events == null ? R.string.earthquake_unavailable : R.string.earthquake_empty);

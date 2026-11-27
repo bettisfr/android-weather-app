@@ -1,9 +1,7 @@
 package it.skynow.app.weather;
 
 import android.util.Xml;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import it.skynow.app.net.HttpText;
 import java.text.Normalizer;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -20,27 +18,27 @@ public final class MeteoAlarm {
     private static final String CAP = "urn:oasis:names:tc:emergency:cap:1.2";
 
     public static List<Warning> warnings() throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(FEED).openConnection();
-        connection.setConnectTimeout(8000);
-        connection.setReadTimeout(8000);
-        try (InputStream stream = connection.getInputStream()) {
+        return HttpText.stream(FEED, 8000, body -> {
             XmlPullParser xml = Xml.newPullParser();
-            xml.setInput(stream, null);
-            xml.nextTag();
-            xml.require(XmlPullParser.START_TAG, ATOM, "feed");
-            List<Warning> warnings = new ArrayList<>();
-            while (xml.next() != XmlPullParser.END_DOCUMENT) {
-                if (xml.getEventType() == XmlPullParser.START_TAG && xml.getDepth() == 2
-                        && ATOM.equals(xml.getNamespace()) && "entry".equals(xml.getName())) {
-                    Warning warning = readWarning(xml);
-                    if (warning != null) warnings.add(warning);
-                }
+            xml.setInput(body, null);
+            return parse(xml);
+        });
+    }
+
+    /** Reads the current public alerts from the CAP entries of a MeteoAlarm Atom feed, earliest first. */
+    static List<Warning> parse(XmlPullParser xml) throws Exception {
+        xml.nextTag();
+        xml.require(XmlPullParser.START_TAG, ATOM, "feed");
+        List<Warning> warnings = new ArrayList<>();
+        while (xml.next() != XmlPullParser.END_DOCUMENT) {
+            if (xml.getEventType() == XmlPullParser.START_TAG && xml.getDepth() == 2
+                    && ATOM.equals(xml.getNamespace()) && "entry".equals(xml.getName())) {
+                Warning warning = readWarning(xml);
+                if (warning != null) warnings.add(warning);
             }
-            warnings.sort(Comparator.comparing(warning -> warning.start));
-            return warnings;
-        } finally {
-            connection.disconnect();
         }
+        warnings.sort(Comparator.comparing(warning -> warning.start));
+        return warnings;
     }
 
     private static Warning readWarning(XmlPullParser xml) throws Exception {

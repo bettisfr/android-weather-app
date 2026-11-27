@@ -1,5 +1,6 @@
 package it.skynow.app.dashboard;
 
+import it.skynow.app.net.Background;
 import android.app.Activity;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
@@ -170,7 +171,7 @@ final class AuroraSection {
                 android.util.Log.w("AuroraForecast", "NOAA Kp forecast unavailable", error);
                 return null;
             }
-        }).thenAccept(result -> main.post(() -> {
+        }, Background.IO).thenAccept(result -> main.post(() -> {
             if (activity.isDestroyed()) return;
             kpLoading = false;
             if (result != null) kpPeriods = result;
@@ -238,7 +239,7 @@ final class AuroraSection {
                 android.util.Log.w("AuroraForecast", "NOAA current Kp unavailable", error);
                 return null;
             }
-        }).thenAccept(result -> main.post(() -> {
+        }, Background.IO).thenAccept(result -> main.post(() -> {
             if (activity.isDestroyed()) return;
             if (result != null) currentKp = result;
             updateCurrentKp(Instant.now());
@@ -250,7 +251,7 @@ final class AuroraSection {
                 android.util.Log.w("AuroraForecast", "NOAA forecast unavailable", error);
                 return null;
             }
-        }).thenAccept(result -> main.post(() -> {
+        }, Background.IO).thenAccept(result -> main.post(() -> {
             if (activity.isDestroyed()) return;
             auroraLoading = false;
             if (result != null) auroraForecast = result;

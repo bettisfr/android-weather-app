@@ -1,5 +1,6 @@
 package it.skynow.app.dashboard;
 
+import it.skynow.app.net.Background;
 import android.app.Activity;
 import android.content.Intent;
 import android.view.View;
@@ -212,7 +213,7 @@ final class EventsSection {
                     android.util.Log.w("SkyHere", "Eclipse catalog unavailable: " + error, error);
                     return null;
                 }
-            }).thenAccept(results -> activity.runOnUiThread(() -> {
+            }, Background.IO).thenAccept(results -> activity.runOnUiThread(() -> {
                 if (activity.isDestroyed() || !footer.isAttachedToWindow()) return;
                 if (results == null) {
                     footer.removeAllViews();

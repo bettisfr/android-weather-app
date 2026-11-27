@@ -1,13 +1,9 @@
 package it.skynow.app.astronomy;
 
+import it.skynow.app.net.HttpText;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -36,18 +32,26 @@ public final class AuroraForecast {
     }
 
     public static AuroraForecast load() throws Exception {
-        return new AuroraForecast(new JSONObject(read(FEED)));
+        return parse(new JSONObject(read(FEED)));
+    }
+
+    static AuroraForecast parse(JSONObject response) throws Exception {
+        return new AuroraForecast(response);
     }
 
     public static KpReading loadCurrentKp() throws Exception {
-        JSONArray rows = new JSONArray(read(CURRENT_KP));
+        return parseCurrentKp(new JSONArray(read(CURRENT_KP)));
+    }
+
+    /** The latest valid estimate in NOAA's one-minute planetary K index feed, or null. */
+    static KpReading parseCurrentKp(JSONArray rows) {
         KpReading latest = null;
         for (int i = 0; i < rows.length(); i++) {
             JSONObject row = rows.optJSONObject(i);
             if (row == null) continue;
             double kp = row.optDouble("estimated_kp");
             if (!(kp >= 0 && kp <= 9)) continue;
-            Instant time = LocalDateTime.parse(row.getString("time_tag")).toInstant(ZoneOffset.UTC);
+            Instant time = LocalDateTime.parse(row.optString("time_tag")).toInstant(ZoneOffset.UTC);
             if (latest == null || time.isAfter(latest.time)) latest = new KpReading(time, kp);
         }
         return latest;
@@ -64,14 +68,18 @@ public final class AuroraForecast {
     }
 
     public static List<KpPeriod> loadKp() throws Exception {
-        JSONArray rows = new JSONArray(read(KP_FEED));
+        return parseKp(new JSONArray(read(KP_FEED)));
+    }
+
+    /** The predicted three-hour periods of NOAA's planetary K index forecast. */
+    static List<KpPeriod> parseKp(JSONArray rows) {
         List<KpPeriod> periods = new ArrayList<>();
         for (int i = 0; i < rows.length(); i++) {
             JSONObject row = rows.optJSONObject(i);
             if (row == null || !"predicted".equals(row.optString("observed"))) continue;
             double kp = row.optDouble("kp");
             if (!(kp >= 0 && kp <= 9)) continue;
-            Instant start = LocalDateTime.parse(row.getString("time_tag")).toInstant(ZoneOffset.UTC);
+            Instant start = LocalDateTime.parse(row.optString("time_tag")).toInstant(ZoneOffset.UTC);
             periods.add(new KpPeriod(start, kp));
         }
         return periods;
@@ -92,19 +100,7 @@ public final class AuroraForecast {
     }
 
     private static String read(String address) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
-        connection.setConnectTimeout(8000);
-        connection.setReadTimeout(8000);
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder body = new StringBuilder();
-            char[] buffer = new char[8192];
-            int count;
-            while ((count = reader.read(buffer)) != -1) body.append(buffer, 0, count);
-            return body.toString();
-        } finally {
-            connection.disconnect();
-        }
+        return HttpText.read(address, 8000);
     }
 
     private void populateMapCells() {
