@@ -152,7 +152,44 @@ public final class SkyViews {
         view.setText(decorated == null ? text : decorated);
     }
 
+    /** A section heading such as "Seismic activity"; the caller adds it to the page. */
+    public TextView sectionTitle(String text) {
+        TextView title = label(text, 19, ink);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        title.setPadding(0, dp(23), 0, dp(11));
+        return title;
+    }
+
+    /** The "›" hint at the end of a row that opens a detail view. */
+    public TextView chevron() {
+        TextView chevron = label("›", 20, accent);
+        chevron.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return chevron;
+    }
+
     // Buttons
+
+    /** Makes a whole card clickable, with a ripple drawn over its content. */
+    public void cardAction(View card, Runnable action) {
+        card.setForeground(new RippleDrawable(ColorStateList.valueOf(context.getColor(R.color.sky_ripple)),
+                null, background(context.getColor(R.color.sky_card), 12)));
+        card.setOnClickListener(v -> action.run());
+    }
+
+    public Button iconActionButton(int title, int icon, Runnable open) {
+        Button button = actionButton(context.getString(title), context.getColor(R.color.sky_action), 24);
+        int foreground = context.getColor(R.color.sky_on_action);
+        button.setTextColor(foreground);
+        button.setCompoundDrawableTintList(ColorStateList.valueOf(foreground));
+        button.setCompoundDrawablePadding(dp(7));
+        button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
+        button.setOnClickListener(view -> open.run());
+        return button;
+    }
+
+    public Button mapButton(int title, Runnable open) {
+        return iconActionButton(title, R.drawable.ic_radar, open);
+    }
 
     public TextView button(String text, Runnable click) {
         TextView view = label(text, 15, accent);

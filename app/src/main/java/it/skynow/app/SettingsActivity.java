@@ -1,5 +1,6 @@
 package it.skynow.app;
 
+import it.skynow.app.dashboard.EarthquakeTab;
 import it.skynow.app.ui.Formats;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
@@ -109,10 +110,10 @@ public final class SettingsActivity extends Activity {
         LinearLayout earthquakes = section(content, R.string.tab_earthquakes);
         subpage(earthquakes, R.string.earthquake_radius, getString(R.string.earthquake_radius_value,
                 EarthquakeFeed.alertRadius(preferences)), this::addEarthquakeRadius);
-        choice(earthquakes, R.string.earthquake_minimum_magnitude, MainActivity.earthquakeMagnitudeOptions(this),
-                () -> MainActivity.earthquakeMagnitudeIndex(preferences.getInt("earthquakeMinimumMagnitude", 0)),
+        choice(earthquakes, R.string.earthquake_minimum_magnitude, EarthquakeTab.magnitudeOptions(this),
+                () -> EarthquakeTab.magnitudeIndex(preferences.getInt("earthquakeMinimumMagnitude", 0)),
                 index -> preferences.edit()
-                        .putInt("earthquakeMinimumMagnitude", MainActivity.EARTHQUAKE_MAGNITUDE_THRESHOLDS[index]).apply());
+                        .putInt("earthquakeMinimumMagnitude", EarthquakeTab.magnitudeThreshold(index)).apply());
         LinearLayout notifications = section(content, R.string.settings_notifications);
         String[] options = {getString(R.string.iss_alert_off), getString(R.string.iss_alert_at_start),
                 getString(R.string.iss_alert_lead, 5), getString(R.string.iss_alert_lead, 10),
