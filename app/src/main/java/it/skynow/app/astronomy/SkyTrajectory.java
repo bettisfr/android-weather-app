@@ -105,6 +105,36 @@ public final class SkyTrajectory {
                 visible.test(current) ? current : null, segments == 1);
     }
 
+    public static SkyTrajectory lunarPass(Instant now, ZoneId zone, double latitude, double longitude,
+                                          Instant moonrise, Instant moonset) {
+        LongFunction<Point> sample = second -> positionAt(second, latitude, longitude, true, null);
+        Point current = sample.apply(now.getEpochSecond());
+        Point rise = moonrise == null ? null : atHorizon(sample.apply(moonrise.getEpochSecond()));
+        Point set = moonset == null ? null : atHorizon(sample.apply(moonset.getEpochSecond()));
+        if (current.elevation >= 0) {
+            if (rise == null) rise = findHorizon(sample, current, -STEP_SECONDS);
+            if (set == null) set = findHorizon(sample, current, STEP_SECONDS);
+        }
+        LocalDate date = now.atZone(zone).toLocalDate();
+        long start = rise == null ? date.atStartOfDay(zone).toEpochSecond() : rise.time;
+        long end = set == null ? date.plusDays(1).atStartOfDay(zone).toEpochSecond() - 1 : set.time;
+        long step = Math.max(STEP_SECONDS, (end - start) / 480);
+        List<Point> points = new ArrayList<>();
+        Point peak = null;
+        for (long time = start; ; time = Math.min(end, time + step)) {
+            Point point = time == start && rise != null ? rise
+                    : time == end && set != null ? set : sample.apply(time);
+            points.add(point);
+            if (point.elevation >= 0 && (peak == null || point.elevation > peak.elevation)) peak = point;
+            if (time == end) break;
+        }
+        return new SkyTrajectory(points, rise, peak, set, current.elevation >= 0 ? current : atHorizon(current), true);
+    }
+
+    private static Point atHorizon(Point point) {
+        return new Point(point.time, point.azimuth, 0);
+    }
+
     public static Point positionAt(long second, double latitude, double longitude,
                                    boolean moon, Planets.Body planet) {
         Instant time = Instant.ofEpochSecond(second);

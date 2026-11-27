@@ -2795,21 +2795,39 @@ public final class MainActivity extends Activity {
         } else {
             magnitude = moon ? LunarPhases.apparentMagnitude(sun, body) : -26.74 + 5 * Math.log10(sun.distanceAu);
         }
-        SkyTrajectory track = SkyTrajectory.today(now, zone, latitude, longitude, moon, planet);
-        boolean nightOnly = moon || planet != null;
+        SkyTrajectory track;
+        if (moon) {
+            JSONObject daily = data.optJSONObject("daily");
+            LocalDateTime local = now.atZone(zone).toLocalDateTime();
+            Instant rise = null;
+            for (int i = 0; i < length(daily); i++) {
+                String timestamp = at(daily, "moonrise", i);
+                if (timestamp.length() < 16) continue;
+                Instant event = LocalDateTime.parse(timestamp).atZone(zone).toInstant();
+                if (!event.isAfter(now) && (rise == null || event.isAfter(rise))) rise = event;
+            }
+            LocalDateTime set = nextLunarEvent(daily, "moonset", 0, local);
+            track = SkyTrajectory.lunarPass(now, zone, latitude, longitude, rise,
+                    set == null ? null : set.atZone(zone).toInstant());
+        } else {
+            track = SkyTrajectory.today(now, zone, latitude, longitude, false, planet);
+        }
+        boolean nightOnly = planet != null;
         ZonedDateTime localNow = now.atZone(zone);
-        LocalDate date = localNow.toLocalDate();
-        long endOfDay = date.plusDays(1).atStartOfDay(zone).toEpochSecond();
+        LocalDate date = moon && track.rise != null ? Instant.ofEpochSecond(track.rise.time).atZone(zone).toLocalDate()
+                : localNow.toLocalDate();
+        long trackEnd = moon ? track.points.get(track.points.size() - 1).time
+                : localNow.toLocalDate().plusDays(1).atStartOfDay(zone).toEpochSecond() - 1;
         double lat = latitude;
         double lon = longitude;
-        String period = localNow.format(shortDate(true));
+        String period = date.format(shortDate(true));
         if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
             period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
         }
         int fill = planet == null ? SignalColors.PURPLE : magnitudeColor(magnitude);
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
             trackedCelestialPosition = second -> {
-                if (second >= endOfDay) return null;
+                if (second > trackEnd) return null;
                 if (planet != null) return SkyTrajectory.positionAt(second, lat, lon, false, planet);
                 Instant instant = Instant.ofEpochSecond(second);
                 SkyPosition position = SkyPosition.at(instant, lat, lon, moon);
