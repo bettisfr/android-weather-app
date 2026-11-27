@@ -98,7 +98,6 @@ public final class MainActivity extends Activity {
     private static final long FORECAST_REFRESH_MS = 5 * 60 * 1000;
     private static final int REFRESH_PULL_DP = 72;
     private static final int DETAIL_CHART_HEIGHT_DP = 180;
-    private static final int SKY_PATH_TIMES_WIDTH_DP = 93;
     private static final int SKY_PATH_HEIGHT_DP = 108;
     private int ink;
     private int muted;
@@ -1863,11 +1862,20 @@ public final class MainActivity extends Activity {
         return tile;
     }
 
-    private void addSunTime(LinearLayout times, String name, String time) {
+    private LinearLayout addRiseSetTime(LinearLayout times, String name, String time, boolean setting) {
+        LinearLayout cell = column();
+        int alignment = setting ? Gravity.END : Gravity.START;
+        cell.setGravity(alignment);
         TextView title = label(name, 13, muted);
-        if (times.getChildCount() > 0) title.setPadding(0, dp(7), 0, 0);
-        times.addView(title);
-        times.addView(label(time, 19, ink));
+        title.setGravity(alignment);
+        cell.addView(title);
+        TextView reading = label(time, 19, ink);
+        reading.setGravity(alignment);
+        cell.addView(reading);
+        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -2, 1);
+        if (setting) size.setMarginStart(dp(8));
+        times.addView(cell, size);
+        return cell;
     }
 
     private TextView skyCoordinates(boolean moon) {
@@ -1978,42 +1986,25 @@ public final class MainActivity extends Activity {
     private void addSunPathDetails(LinearLayout tile, JSONObject daily, int index, long seconds) {
         LocalTime sunrise = localTime(at(daily, "sunrise", index));
         LocalTime sunset = localTime(at(daily, "sunset", index));
-        boolean roomy = largeText();
-        LinearLayout content = roomy ? column() : row();
-        LinearLayout timeRow = roomy ? row() : column();
-        content.addView(timeRow, new LinearLayout.LayoutParams(roomy ? -1 : dp(SKY_PATH_TIMES_WIDTH_DP), -2));
         boolean polar = isPolarDaylight(seconds);
-        LinearLayout evening = roomy ? column() : timeRow;
-        if (polar) {
-            TextView status = label(getString(polarDaylightLabel(seconds)), 14, ink);
-            status.setPadding(0, dp(9), 0, 0);
-            timeRow.addView(status);
-        } else {
-            if (roomy) {
-                timeRow.setGravity(Gravity.TOP);
-                timeRow.setPadding(0, dp(9), 0, 0);
-                LinearLayout morning = column();
-                timeRow.addView(morning, new LinearLayout.LayoutParams(0, -2, 1));
-                timeRow.addView(evening, new LinearLayout.LayoutParams(0, -2, 1));
-                addSunTime(morning, getString(R.string.sunrise), formatTime(sunrise, clockFormat()));
-            } else {
-                addSunTime(timeRow, getString(R.string.sunrise), formatTime(sunrise, clockFormat()));
-            }
-            addSunTime(evening, getString(R.string.sunset), formatTime(sunset, clockFormat()));
-        }
-        TextView daylight = label(daylightSummary(seconds), 11, muted);
-        daylight.setPadding(0, dp(5), 0, 0);
-        daylight.setSingleLine(true);
-        boolean daylightFits = !roomy && textWidth(daylight, daylight.getText().toString()) <= dp(SKY_PATH_TIMES_WIDTH_DP);
-        if (daylightFits) (polar ? timeRow : evening).addView(daylight);
         LocalDate date = LocalDate.parse(at(daily, "time", index));
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         int twilight = SkyPath.civilTwilightMinutes(date, latitude);
-        LinearLayout chart = column();
-        content.addView(chart, new LinearLayout.LayoutParams(roomy ? -1 : 0, -2, roomy ? 0 : 1));
         sunPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
         sunPath.setOnClickListener(view -> sunTrackHeading.performClick());
-        chart.addView(sunPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+        tile.addView(sunPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+
+        if (polar) {
+            addSpaced(tile, label(getString(polarDaylightLabel(seconds)), 14, ink), 7);
+        } else {
+            LinearLayout times = row();
+            times.setGravity(Gravity.TOP);
+            addRiseSetTime(times, getString(R.string.sunrise), formatTime(sunrise, clockFormat()), false);
+            addRiseSetTime(times, getString(R.string.sunset), formatTime(sunset, clockFormat()), true);
+            addSpaced(tile, times, 7);
+        }
+        addSpaced(tile, label(daylightSummary(seconds), 11, muted), 4);
+
         LinearLayout legend = row();
         legend.setGravity(Gravity.TOP);
         legend.setPadding(dp(5), 0, dp(5), 0);
@@ -2026,9 +2017,7 @@ public final class MainActivity extends Activity {
         TextView duskLabel = label(getString(R.string.dusk) + "\n" + dusk, 12, muted);
         duskLabel.setGravity(Gravity.END);
         if (!polar) legend.addView(duskLabel, new LinearLayout.LayoutParams(0, -2, 1));
-        chart.addView(legend);
-        tile.addView(content);
-        if (!daylightFits) tile.addView(daylight);
+        addSpaced(tile, legend, 7);
     }
 
     private String solarMaximumElevation(LocalDate date, ZoneId zone, long seconds) {
@@ -2044,16 +2033,11 @@ public final class MainActivity extends Activity {
         LinearLayout tile = card();
         moonTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_moon_astronomy), getString(R.string.moon),
                 () -> showDailySkyTrack(getString(R.string.moon), true, null, null));
-        TextView eventLabel = label("", 13, muted);
-        int readingWidth = Math.max(dp(SKY_PATH_TIMES_WIDTH_DP), Math.max(
-                textWidth(eventLabel, getString(R.string.moonrise)),
-                textWidth(eventLabel, getString(R.string.moonset))) + dp(4));
-        boolean roomy = largeText();
-        LinearLayout content = roomy ? column() : row();
-        LinearLayout readings = roomy ? row() : column();
+        moonPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24);
+        moonPath.setOnClickListener(view -> moonTrackHeading.performClick());
+        tile.addView(moonPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+        LinearLayout readings = row();
         readings.setGravity(Gravity.TOP);
-        readings.setPadding(0, dp(9), 0, 0);
-        content.addView(readings, new LinearLayout.LayoutParams(roomy ? -1 : readingWidth, -2));
         for (String field : new String[]{"moonrise", "moonset"}) {
             boolean rise = field.equals("moonrise");
             String event = getString(rise ? R.string.moonrise : R.string.moonset);
@@ -2062,8 +2046,8 @@ public final class MainActivity extends Activity {
             while (timestamp.length() < 16 && eventDay + 1 < length(daily)) {
                 timestamp = at(daily, field, ++eventDay);
             }
-            LinearLayout time = roomy ? column() : readings;
-            addSunTime(time, event, timestamp.length() >= 16 ? clock(timestamp) : getString(R.string.unavailable));
+            LinearLayout time = addRiseSetTime(readings, event,
+                    timestamp.length() >= 16 ? clock(timestamp) : getString(R.string.unavailable), !rise);
             if (timestamp.length() >= 16) {
                 LocalDateTime eventTime = LocalDateTime.parse(timestamp);
                 LocalDate eventDate = eventTime.toLocalDate();
@@ -2072,14 +2056,11 @@ public final class MainActivity extends Activity {
                         : eventDate.format(shortDate(false));
                 TextView when = label(dayLabel, 11, muted);
                 when.setPadding(0, dp(3), 0, 0);
+                when.setGravity(rise ? Gravity.START : Gravity.END);
                 time.addView(when);
             }
-            if (roomy) readings.addView(time, new LinearLayout.LayoutParams(0, -2, 1));
         }
-        LinearLayout chart = column();
-        moonPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24);
-        moonPath.setOnClickListener(view -> moonTrackHeading.performClick());
-        chart.addView(moonPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
+        addSpaced(tile, readings, 7);
         LinearLayout phaseDetails = row();
         phaseDetails.setPadding(dp(5), dp(3), dp(5), 0);
         LinearLayout phaseLabels = column();
@@ -2099,9 +2080,7 @@ public final class MainActivity extends Activity {
             phaseLabels.addView(label(getString(R.string.phase_unavailable), 13, muted));
         }
         phaseDetails.addView(phaseLabels, new LinearLayout.LayoutParams(0, -2, 1));
-        chart.addView(phaseDetails);
-        content.addView(chart, new LinearLayout.LayoutParams(roomy ? -1 : 0, -2, roomy ? 0 : 1));
-        tile.addView(content);
+        addSpaced(tile, phaseDetails, 8);
         moonCoordinates = skyCoordinates(true);
         tile.addView(moonCoordinates);
         DateTimeFormatter format = shortDate(false);
