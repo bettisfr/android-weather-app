@@ -20,6 +20,7 @@ public final class OpenMeteo {
     public static final int UPCOMING_ASTRONOMY_DAYS = 16;
     private static final int FORECAST_DAYS = 16;
     private static final String ASTRONOMY = "sunrise,sunset,moonrise,moonset,moon_phase";
+    private static final java.util.List<String> ASTRONOMY_FIELDS = java.util.Arrays.asList(ASTRONOMY.split(","));
     private static final String CURRENT = "temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,wind_direction_10m,surface_pressure,is_day";
     private static final String HOURLY = "temperature_2m,apparent_temperature,weather_code,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,wind_direction_10m,relative_humidity_2m,dew_point_2m,uv_index,is_day,cloud_cover";
     private static final String DAILY = "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,moonrise,moonset,moon_phase,uv_index_max,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_direction_10m_dominant,relative_humidity_2m_mean";
@@ -116,7 +117,8 @@ public final class OpenMeteo {
         Iterator<String> keys = source.keys();
         while (keys.hasNext()) {
             String key = keys.next();
-            if (key.equals("time")) continue;
+            // The weather models can snap the same location to different grid points.
+            if (key.equals("time") || ASTRONOMY_FIELDS.contains(key)) continue;
             JSONArray sourceValues = source.optJSONArray(key);
             JSONArray targetValues = target.optJSONArray(key);
             if (sourceValues == null || targetValues == null) continue;
