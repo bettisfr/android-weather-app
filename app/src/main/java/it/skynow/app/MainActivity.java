@@ -2810,7 +2810,7 @@ public final class MainActivity extends Activity {
             track = SkyTrajectory.lunarPass(now, zone, latitude, longitude, rise,
                     set == null ? null : set.atZone(zone).toInstant());
         } else {
-            track = SkyTrajectory.today(now, zone, latitude, longitude, false, planet);
+            track = SkyTrajectory.today(now, zone, latitude, longitude, planet);
         }
         boolean nightOnly = planet != null;
         ZonedDateTime localNow = now.atZone(zone);

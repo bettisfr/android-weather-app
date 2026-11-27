@@ -43,15 +43,15 @@ public final class SkyTrajectory {
     }
 
     public static SkyTrajectory today(Instant now, ZoneId zone, double latitude, double longitude,
-                                      boolean moon, Planets.Body planet) {
-        LongFunction<Point> sample = time -> positionAt(time, latitude, longitude, moon, planet);
+                                      Planets.Body planet) {
+        LongFunction<Point> sample = time -> positionAt(time, latitude, longitude, false, planet);
         LocalDate date = now.atZone(zone).toLocalDate();
         long start = date.atStartOfDay(zone).toEpochSecond();
         long end = date.plusDays(1).atStartOfDay(zone).toEpochSecond() - 1;
         Point current = sample.apply(now.getEpochSecond());
         Point rise = null;
         Point set = null;
-        boolean nightOnly = moon || planet != null;
+        boolean nightOnly = planet != null;
         if (planet != null && current.elevation >= 0) {
             rise = findHorizon(sample, current, -STEP_SECONDS);
             set = findHorizon(sample, current, STEP_SECONDS);
@@ -124,6 +124,7 @@ public final class SkyTrajectory {
         for (long time = start; ; time = Math.min(end, time + step)) {
             Point point = time == start && rise != null ? rise
                     : time == end && set != null ? set : sample.apply(time);
+            if (rise != null && set != null && point.elevation < 0) point = atHorizon(point);
             points.add(point);
             if (point.elevation >= 0 && (peak == null || point.elevation > peak.elevation)) peak = point;
             if (time == end) break;
