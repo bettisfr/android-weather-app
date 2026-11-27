@@ -3,3 +3,5 @@
 local.properties
 .codex-project-id
 .idea/
+app/google-services.json
+app/src/*/google-services.json

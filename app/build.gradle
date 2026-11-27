@@ -3,8 +3,11 @@ plugins {
     id 'com.google.gms.google-services' version '4.4.2' apply false
 }
 
-if (file('google-services.json').isFile()) {
+if (file('src/release/google-services.json').isFile() || file('src/debug/google-services.json').isFile()) {
     apply plugin: 'com.google.gms.google-services'
+    googleServices {
+        missingGoogleServicesStrategy = com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.WARN
+    }
 }
 
 dependencies {
@@ -30,5 +33,12 @@ android {
         versionName(gitBuild ? "${releaseVersion}+${gitBuild}" : releaseVersion)
         resValue 'string', 'sky_version_name', versionName
         resValue 'string', 'sky_version_date', buildDate
+        resValue 'bool', 'check_for_release_updates', 'true'
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix '.debug'
+            resValue 'bool', 'check_for_release_updates', 'false'
+        }
     }
 }

@@ -307,9 +307,11 @@ public final class SettingsActivity extends Activity {
         author.setGravity(Gravity.CENTER);
         author.setPadding(0, dp(12), 0, dp(16));
         card.addView(author);
-        LinearLayout updates = settingRow(getString(R.string.update_check));
-        updates.setOnClickListener(view -> GitHubUpdates.checkManually(this));
-        addRow(card, updates);
+        if (getResources().getBoolean(R.bool.check_for_release_updates)) {
+            LinearLayout updates = settingRow(getString(R.string.update_check));
+            updates.setOnClickListener(view -> GitHubUpdates.checkManually(this));
+            addRow(card, updates);
+        }
         addCredit(card, R.string.app_github, "https://github.com/bettisfr/skyhere");
     }
 

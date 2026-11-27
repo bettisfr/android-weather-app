@@ -89,6 +89,8 @@ Use JDK 17 and Android SDK Platform 34. The app runs on Android 8.0 (API 26) or 
 ./gradlew :app:assembleDebug
 ```
 
+The debug build installs as **SkyHere Debug** (`it.skynow.app.debug`). It can run beside the GitHub release (`it.skynow.app`) on the same phone. The two apps keep separate settings and permissions. Attach Android Studio’s debugger to the `it.skynow.app.debug` process.
+
 To install the debug build on a connected device or running emulator:
 
 ```sh
@@ -99,6 +101,13 @@ The installable debug APK is written to `app/build/outputs/apk/debug/app-debug.a
 
 ### Earthquake push setup
 
-To use Firebase Cloud Messaging in a build, register Android application ID `it.skynow.app` in your Firebase project and place the generated Android configuration at `app/google-services.json`. The Android build also works without that file. In that case earthquake alerts use the direct INGV check.
+To use Firebase Cloud Messaging, register the Android application ID for the build you want to configure.
+
+| Build | Application ID | Firebase configuration |
+| --- | --- | --- |
+| Release | `it.skynow.app` | `app/src/release/google-services.json` |
+| Debug | `it.skynow.app.debug` | `app/src/debug/google-services.json` |
+
+You can register both apps in the same Firebase project to test pushes on the debug build. A build without Firebase configuration uses the direct INGV check for earthquake alerts.
 
 On the Raspberry Pi, [the INGV publisher](tools/ingv-fcm.py) can be run as a systemd service with Python 3, `google-auth`, and `requests`. Set `FIREBASE_PROJECT_ID` to the same Firebase project and `GOOGLE_APPLICATION_CREDENTIALS` to the path of the service account credential file. Keep the service account credentials on the Pi, outside the repository and APK. Configure a persistent `--state` path for the SQLite database of previously seen INGV event IDs. `--dry-run` checks the INGV feed without publishing.
