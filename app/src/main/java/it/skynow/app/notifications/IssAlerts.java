@@ -308,7 +308,7 @@ public final class IssAlerts extends BroadcastReceiver {
         PendingIntent open = PendingIntent.getActivity(context, id, destination,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         manager.notify(id, new Notification.Builder(context, channel)
-                .setSmallIcon(R.drawable.ic_weather_foreground).setContentTitle(title)
+                .setSmallIcon(R.drawable.ic_weather_notification).setContentTitle(title)
                 .setContentText(message).setContentIntent(open).setAutoCancel(true).build());
     }
 }

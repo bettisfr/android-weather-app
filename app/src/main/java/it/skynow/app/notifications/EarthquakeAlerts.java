@@ -136,7 +136,7 @@ public final class EarthquakeAlerts extends FirebaseMessagingService {
                 .putExtra("timeZone", "Europe/Rome").putExtra("clock24", clock24);
         PendingIntent open = PendingIntent.getActivity(context, 0, map, PendingIntent.FLAG_IMMUTABLE);
         manager.notify(eventKey, 0, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ic_weather_foreground)
+                .setSmallIcon(R.drawable.ic_weather_notification)
                 .setContentTitle(magnitude + " · " + event.zone)
                 .setContentText(detail).setContentIntent(open).setAutoCancel(true).build());
         seenUpdate.apply();

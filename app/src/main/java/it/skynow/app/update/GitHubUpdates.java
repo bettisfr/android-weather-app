@@ -135,7 +135,7 @@ public final class GitHubUpdates {
         if (manager.getNotificationChannel(CHANNEL).getImportance() == NotificationManager.IMPORTANCE_NONE) return false;
         PendingIntent open = PendingIntent.getActivity(context, 0, download(tag), PendingIntent.FLAG_IMMUTABLE);
         manager.notify(CHANNEL, 1, new Notification.Builder(context, CHANNEL)
-                .setSmallIcon(R.drawable.ic_weather_foreground)
+                .setSmallIcon(R.drawable.ic_weather_notification)
                 .setContentTitle(context.getString(R.string.update_available))
                 .setContentText(context.getString(R.string.update_version, tag))
                 .setContentIntent(open).setAutoCancel(true).build());
