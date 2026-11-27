@@ -1660,8 +1660,9 @@ public final class MainActivity extends Activity {
             index.setCompoundDrawablePadding(dp(7));
             index.setBackground(background(SignalColors.tint(band.color), 9));
             index.setPaddingRelative(dp(9), dp(4), dp(9), dp(4));
-            particles.setText(getString(R.string.air_quality_particles, number(result.optDouble("pm2_5"), "%.1f"),
-                    number(result.optDouble("pm10"), "%.1f")));
+            String particulateReadings = getString(R.string.air_quality_particles,
+                    number(result.optDouble("pm2_5"), "%.1f"), number(result.optDouble("pm10"), "%.1f"));
+            particles.setText(android.text.Html.fromHtml(particulateReadings, android.text.Html.FROM_HTML_MODE_COMPACT));
         }));
     }
 

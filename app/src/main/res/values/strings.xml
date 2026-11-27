@@ -315,7 +315,7 @@
     <string name="air_quality_loading">Loading air quality…</string>
     <string name="air_quality_unavailable">Air quality unavailable</string>
     <string name="air_quality_index">AQI · %1$s</string>
-    <string name="air_quality_particles">PM2.5 %1$s · PM10 %2$s µg/m³</string>
+    <string name="air_quality_particles">PM2.5 &lt;b>%1$s&lt;/b> · PM10 &lt;b>%2$s&lt;/b> µg/m³</string>
     <string name="air_quality_grid">European AQI</string>
     <string name="aqi_good">Good</string>
     <string name="aqi_fair">Fair</string>
