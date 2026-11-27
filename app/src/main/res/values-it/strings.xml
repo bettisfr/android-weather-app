@@ -388,7 +388,6 @@
     <string name="iss_alert_off">Disattivati</string>
     <string name="iss_alert_at_start">A inizio passaggio</string>
     <string name="iss_alert_lead">%1$d min prima</string>
-    <string name="iss_alert_exact">Gestisci il permesso per gli allarmi esatti</string>
     <string name="iss_alert_now">La ISS è visibile ora.</string>
     <plurals name="iss_alert_soon">
         <item quantity="one">Il passaggio della ISS inizia tra %d minuto.</item>
@@ -427,4 +426,6 @@
     <string name="air_quality_nitrogen_dioxide">Biossido di azoto</string>
     <string name="air_quality_sulphur_dioxide">Biossido di zolfo</string>
     <string name="air_quality_unit">µg/m³</string>
+    <string name="astronomy_alert_exact_enable">Consenti allarmi esatti per ricevere gli avvisi in orario</string>
+    <string name="astronomy_alert_exact_allowed">Allarmi esatti consentiti</string>
 </resources>

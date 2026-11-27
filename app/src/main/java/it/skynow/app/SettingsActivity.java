@@ -50,6 +50,7 @@ public final class SettingsActivity extends Activity {
     private ScrollView overview;
     private int overviewOffset;
     private boolean inSubpage;
+    private TextView exactAlarmStatus;
     private static final int ISS_PERMISSION = 1;
 
     @Override protected void attachBaseContext(Context base) {
@@ -67,6 +68,7 @@ public final class SettingsActivity extends Activity {
 
     private void showOverview() {
         inSubpage = false;
+        exactAlarmStatus = null;
         LinearLayout screen = stack();
         screen.setBackgroundColor(getColor(R.color.sky_background));
         screen.addView(header(R.string.settings));
@@ -115,21 +117,21 @@ public final class SettingsActivity extends Activity {
                 getString(R.string.iss_alert_lead, 5), getString(R.string.iss_alert_lead, 10),
                 getString(R.string.iss_alert_lead, 15)};
         subpage(notifications, R.string.iss_alerts, options[IssAlerts.option(this)], panel -> {
+            addExactAlarmSetting(panel);
             addChoices(panel, options, () -> IssAlerts.option(this), index -> {
                 IssAlerts.setOption(this, index);
                 if (index != 0) allowAstronomyNotifications();
             });
-            addExactAlarmSetting(panel);
         });
         String[] eventOptions = {options[0], getString(R.string.astronomy_alert_at_start), getString(R.string.iss_alert_lead, 15),
                 getString(R.string.astronomy_alert_hour_before), getString(R.string.astronomy_alert_day_before)};
         for (IssAlerts.Kind kind : IssAlerts.Kind.values()) {
             subpage(notifications, kind.title, eventOptions[IssAlerts.option(this, kind)], panel -> {
+                addExactAlarmSetting(panel);
                 addChoices(panel, eventOptions, () -> IssAlerts.option(this, kind), index -> {
                     IssAlerts.setOption(this, kind, index);
                     if (index != 0) allowAstronomyNotifications();
                 });
-                addExactAlarmSetting(panel);
             });
         }
         choice(notifications, R.string.earthquake_alerts,
@@ -157,11 +159,24 @@ public final class SettingsActivity extends Activity {
 
     private void addExactAlarmSetting(LinearLayout panel) {
         if (android.os.Build.VERSION.SDK_INT < 31) return;
-        LinearLayout exact = settingRow(getString(R.string.iss_alert_exact));
+        LinearLayout exact = settingRow("");
+        exactAlarmStatus = (TextView) exact.getChildAt(0);
+        updateExactAlarmStatus();
         exact.setOnClickListener(view -> startActivity(new Intent(
                 android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
                 Uri.parse("package:" + getPackageName()))));
         addRow(panel, exact);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        updateExactAlarmStatus();
+    }
+
+    private void updateExactAlarmStatus() {
+        if (exactAlarmStatus == null) return;
+        exactAlarmStatus.setText(IssAlerts.canScheduleExactly(this)
+                ? R.string.astronomy_alert_exact_allowed : R.string.astronomy_alert_exact_enable);
     }
 
     private void allowAstronomyNotifications() {

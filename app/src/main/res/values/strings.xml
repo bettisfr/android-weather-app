@@ -390,7 +390,6 @@
     <string name="iss_alert_off">Off</string>
     <string name="iss_alert_at_start">At the start of the pass</string>
     <string name="iss_alert_lead">%1$d min before</string>
-    <string name="iss_alert_exact">Manage exact alarm permission</string>
     <string name="iss_alert_now">The ISS is visible now.</string>
     <plurals name="iss_alert_soon">
         <item quantity="one">The ISS pass starts in %d minute.</item>
@@ -431,4 +430,6 @@
     <string name="air_quality_nitrogen_dioxide">Nitrogen dioxide</string>
     <string name="air_quality_sulphur_dioxide">Sulphur dioxide</string>
     <string name="air_quality_unit">µg/m³</string>
+    <string name="astronomy_alert_exact_enable">Allow exact alarms for timely alerts</string>
+    <string name="astronomy_alert_exact_allowed">Exact alarms allowed</string>
 </resources>

@@ -260,7 +260,8 @@ public final class IssAlerts extends BroadcastReceiver {
 
     @Override public void onReceive(Context context, Intent intent) {
         context = SkyLanguage.withPreference(context);
-        if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+        if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())
+                || AlarmManager.ACTION_SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED.equals(intent.getAction())) {
             if (!anyEnabled(context)) return;
             context.getSystemService(JobScheduler.class).schedule(new JobInfo.Builder(JOB + 1,
                     new ComponentName(context, IssAlertRefresh.class))
