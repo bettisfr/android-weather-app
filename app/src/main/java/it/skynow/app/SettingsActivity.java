@@ -41,10 +41,9 @@ import it.skynow.app.notifications.EarthquakeAlerts;
 import it.skynow.app.seismic.EarthquakeFeed;
 
 public final class SettingsActivity extends Activity {
-    static final String[] TEMPERATURE_UNITS = {"°C", "°F", "K"};
     static int temperatureUnit(SharedPreferences preferences) {
         int unit = preferences.getInt("temperatureUnit", preferences.getBoolean("fahrenheit", false) ? 1 : 0);
-        return Math.max(0, Math.min(unit, TEMPERATURE_UNITS.length - 1));
+        return Math.max(0, Math.min(unit, Formats.TEMPERATURE_UNITS.length - 1));
     }
 
     static final String PREFERENCES_FILE = "preferencesFile";

@@ -8,6 +8,7 @@ import java.util.Locale;
 
 /** Formats readings in the units and clock style chosen in Settings. Immutable: recreate it when they change. */
 public final class Formats {
+    public static final String[] TEMPERATURE_UNITS = {"°C", "°F", "K"};
     public static final String[] WIND_UNITS = {"km/h", "mph", "m/s", "kn"};
     public static final String[] PRESSURE_UNITS = {"hPa", "mbar", "inHg", "mmHg"};
     private static final double[] WIND_FACTORS = {1, 0.621371, 1.0 / 3.6, 1.0 / 1.852};
