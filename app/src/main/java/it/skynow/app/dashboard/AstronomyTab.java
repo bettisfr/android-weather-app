@@ -1,26 +1,14 @@
 package it.skynow.app.dashboard;
 
 import android.app.Activity;
-import android.app.Dialog;
-import android.content.Intent;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
 import android.widget.ScrollView;
 import it.skynow.app.R;
-import it.skynow.app.SkyTheme;
-import it.skynow.app.astronomy.AuroraForecast;
-import it.skynow.app.astronomy.EclipseCatalog;
-import it.skynow.app.astronomy.EclipseIcon;
 import it.skynow.app.astronomy.IssPasses;
 import it.skynow.app.astronomy.LunarPhases;
 import it.skynow.app.astronomy.MoonPhaseView;
@@ -31,7 +19,6 @@ import it.skynow.app.astronomy.SkyPath;
 import it.skynow.app.astronomy.SkyPosition;
 import it.skynow.app.astronomy.SkyTrack;
 import it.skynow.app.astronomy.SkyTrajectory;
-import it.skynow.app.astronomy.TransitCatalog;
 import it.skynow.app.maps.RadarActivity;
 import it.skynow.app.ui.Formats;
 import it.skynow.app.ui.SignalColors;
@@ -64,6 +51,10 @@ public final class AstronomyTab {
     private final Activity activity;
     private final SkyViews views;
     private final Host host;
+    private final AstronomyWidgets widgets;
+    private final AuroraSection auroraSection;
+    private final EventsSection events;
+    private final SkyTrackDialog skyTrack;
     private final Handler main = new Handler(Looper.getMainLooper());
     private boolean resumed;
 
@@ -75,24 +66,6 @@ public final class AstronomyTab {
     private double longitude;
     private String place;
 
-    private AuroraForecast auroraForecast;
-    private long auroraAttempt;
-    private boolean auroraLoading;
-    private TextView auroraStatus;
-    private TextView auroraNow;
-    private TextView auroraTimes;
-    private TextView currentKpView;
-    private View currentKpBar;
-    private AuroraForecast.KpReading currentKp;
-    private LinearLayout kpTable;
-    private List<AuroraForecast.KpPeriod> kpPeriods = List.of();
-    private long kpAttempt;
-    private boolean kpLoading;
-    private String pendingAstronomyEventSection;
-    private ZoneId astronomyNotificationZone;
-    private boolean solarEclipsesExpanded;
-    private boolean lunarEclipsesExpanded;
-    private boolean transitsExpanded;
     private TextView sunCoordinates;
     private TextView moonCoordinates;
     private LinearLayout sunTrackHeading, moonTrackHeading;
@@ -103,59 +76,23 @@ public final class AstronomyTab {
     private boolean observablePlanetsOnly;
     private TextView noObservablePlanets;
     private LocalDate planetWindowDate;
-    private double magneticDeclination = Double.NaN;
-    private TextView skyTrackDirection;
-    private TextView skyTrackCoordinates;
-    private java.util.function.LongFunction<SkyTrajectory.Point> trackedCelestialPosition;
-    private SkyTrack aimedSkyTrack;
     private final List<VisibilityBadge> visibilityBadges = new ArrayList<>();
-    private LiveIssBadge trackedIss;
     private final Runnable updateAstronomyVisibility = this::refreshAstronomyVisibility;
-    private boolean phoneOrientationActive;
-    private long lastPhoneReadingNanos;
-    private final float[] phoneRotation = new float[9];
     private static final int[] MOON_PHASE_NAMES = {R.string.moon_new, R.string.moon_waxing_crescent, R.string.moon_first_quarter,
             R.string.moon_waxing_gibbous, R.string.moon_full, R.string.moon_waning_gibbous,
             R.string.moon_last_quarter, R.string.moon_waning_crescent};
-    private static final int ASTRONOMY_PAGE_SIZE = 4;
+    static final int ASTRONOMY_PAGE_SIZE = 4;
     private static final int SKY_PATH_HEIGHT_DP = 108;
 
-    private final SensorEventListener phoneOrientation = new SensorEventListener() {
-        @Override public void onSensorChanged(SensorEvent event) {
-            if (skyTrackDirection == null) return;
-            SensorManager.getRotationMatrixFromVector(phoneRotation, event.values);
-            // The rear camera points along the negative device Z axis.
-            double east = -phoneRotation[2];
-            double north = -phoneRotation[5];
-            double horizontal = Math.hypot(east, north);
-            double altitudeAngle = Math.toDegrees(Math.atan2(-phoneRotation[8], horizontal));
-            double heading = Math.toDegrees(Math.atan2(east, north));
-            boolean trueNorth = Double.isFinite(magneticDeclination);
-            if (trueNorth) heading += magneticDeclination;
-            boolean unreliable = event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE;
-            if (aimedSkyTrack != null) {
-                boolean aligned = trueNorth && !unreliable;
-                aimedSkyTrack.setAim(aligned ? heading : Double.NaN, aligned ? altitudeAngle : Double.NaN);
-            }
-            if (lastPhoneReadingNanos != 0 && event.timestamp - lastPhoneReadingNanos < 100_000_000L) return;
-            lastPhoneReadingNanos = event.timestamp;
-            long elevation = Math.round(altitudeAngle);
-            long azimuth = Math.floorMod(Math.round(heading), 360);
-            boolean lowAccuracy = unreliable || event.accuracy == SensorManager.SENSOR_STATUS_ACCURACY_LOW;
-            String direction = unreliable || Math.abs(elevation) == 90 ? "—" : azimuth + "° " + compassDirection(azimuth);
-            String reading = activity.getString(trueNorth ? R.string.phone_direction_reading : R.string.phone_direction_magnetic,
-                    direction, elevation);
-            if (lowAccuracy) reading += "\n" + activity.getString(R.string.phone_compass_low_accuracy);
-            setPhoneReading(skyTrackDirection, reading);
-        }
-
-        @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
-    };
 
     public AstronomyTab(Activity activity, SkyViews views, Host host) {
         this.activity = activity;
         this.views = views;
         this.host = host;
+        widgets = new AstronomyWidgets(activity, views, this::formats);
+        auroraSection = new AuroraSection(activity, views, host, widgets);
+        skyTrack = new SkyTrackDialog(activity, views, host, widgets, this::refreshAstronomyVisibility);
+        events = new EventsSection(activity, views, host, widgets, visibilityBadges, this::refreshAstronomyVisibility);
     }
 
     private Formats formats() {
@@ -176,14 +113,14 @@ public final class AstronomyTab {
         astronomicalSeasons();
         planets();
         issPasses();
-        aurora();
-        eclipsesAndTransits();
+        auroraSection.attach(page, data, latitude, longitude);
+        events.attach(page, scroll, data, latitude, longitude, place);
     }
 
     /** Shows only eclipses and transits, for a notification opened before the forecast has loaded. */
     public void attachEvents(LinearLayout page, ScrollView scroll, double latitude, double longitude, String place) {
         show(page, scroll, null, latitude, longitude, place);
-        eclipsesAndTransits();
+        events.attach(page, scroll, data, latitude, longitude, place);
     }
 
     private void show(LinearLayout page, ScrollView scroll, JSONObject data, double latitude, double longitude,
@@ -200,12 +137,7 @@ public final class AstronomyTab {
     public void detach() {
         visibilityBadges.clear();
         refreshAstronomyVisibility();
-        auroraStatus = null;
-        auroraNow = null;
-        auroraTimes = null;
-        currentKpView = null;
-        currentKpBar = null;
-        kpTable = null;
+        auroraSection.detach();
         sunCoordinates = null;
         moonCoordinates = null;
         sunTrackHeading = null;
@@ -220,13 +152,13 @@ public final class AstronomyTab {
     public void onResume() {
         resumed = true;
         refreshAstronomyVisibility();
-        startPhoneOrientation();
+        skyTrack.onResume();
     }
 
     public void onPause() {
         resumed = false;
         main.removeCallbacks(updateAstronomyVisibility);
-        stopPhoneOrientation();
+        skyTrack.onPause();
     }
 
     /** Minute update of live positions and the aurora outlook. */
@@ -234,38 +166,35 @@ public final class AstronomyTab {
         if (sunCoordinates != null) setSkyCoordinates(sunCoordinates, now, false);
         if (moonCoordinates != null) setSkyCoordinates(moonCoordinates, now, true);
         if (!planetRows.isEmpty()) updatePlanets(now);
-        refreshAurora();
-        if (kpTable != null && kpTable.isShown()) refreshKp();
-        updateAurora(now);
+        auroraSection.tick(now);
     }
 
     /** Lets a manual refresh reload the aurora and Kp forecasts immediately. */
     public void resetRefreshThrottles() {
-        auroraAttempt = 0;
-        kpAttempt = 0;
+        auroraSection.resetRefreshThrottles();
     }
 
     /** The eclipse or transit section to scroll to, from a notification; null once the user touches the screen. */
     public void setPendingEventSection(String section) {
-        pendingAstronomyEventSection = section;
+        events.setPendingEventSection(section);
     }
 
     public boolean hasPendingEventSection() {
-        return pendingAstronomyEventSection != null;
+        return events.hasPendingEventSection();
     }
 
     /** Degrees between magnetic and true north at the phone, for the sky track compass. */
     public void setMagneticDeclination(double degrees) {
-        magneticDeclination = degrees;
+        skyTrack.setMagneticDeclination(degrees);
     }
 
     /** Time zone for event times while no forecast is loaded. */
     public void setNotificationZone(ZoneId zone) {
-        astronomyNotificationZone = zone;
+        events.setNotificationZone(zone);
     }
 
     public ZoneId notificationZone() {
-        return astronomyNotificationZone;
+        return events.notificationZone();
     }
 
     /** Local solar noon for day {@code index} of an Open-Meteo daily series, formatted for display. */
@@ -306,7 +235,7 @@ public final class AstronomyTab {
         boolean above = moon ? moonVisible(now, position) : sunVisible(now, position);
         reading.setVisibility(above ? View.VISIBLE : View.GONE);
         if (above) {
-            reading.setText(skyCoordinatesText(position.azimuth, 90 - position.zenith));
+            reading.setText(widgets.skyCoordinatesText(position.azimuth, 90 - position.zenith));
         }
         LinearLayout heading = moon ? moonTrackHeading : sunTrackHeading;
         heading.getChildAt(heading.getChildCount() - 1).setVisibility(above ? View.VISIBLE : View.GONE);
@@ -371,14 +300,9 @@ public final class AstronomyTab {
         return position.zenith < 90;
     }
 
-    private String skyCoordinatesText(double azimuth, double elevation) {
-        return activity.getString(R.string.sky_coordinates, Math.floorMod(Math.round(azimuth), 360),
-                compassDirection(azimuth), Math.round(elevation));
-    }
-
     private void sun(JSONObject daily, int index) {
         LinearLayout tile = views.card();
-        sunTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_sun_astronomy), activity.getString(R.string.sun),
+        sunTrackHeading = addSkyTrackHeading(tile, widgets.astronomyTitleIcon(R.drawable.ic_sun_astronomy), activity.getString(R.string.sun),
                 () -> showDailySkyTrack(activity.getString(R.string.sun), false, null, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
@@ -447,7 +371,7 @@ public final class AstronomyTab {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         double phase = moonPhaseForToday(daily, index, date, zone);
         LinearLayout tile = views.card();
-        moonTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_moon_astronomy), activity.getString(R.string.moon),
+        moonTrackHeading = addSkyTrackHeading(tile, widgets.astronomyTitleIcon(R.drawable.ic_moon_astronomy), activity.getString(R.string.moon),
                 () -> showDailySkyTrack(activity.getString(R.string.moon), true, null, null));
         LinearLayout readings = views.row();
         readings.setGravity(Gravity.TOP);
@@ -605,7 +529,7 @@ public final class AstronomyTab {
             entry.setBackground(views.background(activity.getColor(R.color.sky_subtle), 12));
             entry.setPadding(views.dp(11), views.dp(9), views.dp(11), views.dp(9));
             LinearLayout planetTitle = views.row();
-            addCelestialTitleIcon(planetTitle, new PlanetIcon(activity, body));
+            widgets.addCelestialTitleIcon(planetTitle, new PlanetIcon(activity, body));
             TextView name = views.label(activity.getString(names[body.ordinal()]), 16, views.ink);
             name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
             planetTitle.addView(name, new LinearLayout.LayoutParams(0, -2, 1));
@@ -613,7 +537,7 @@ public final class AstronomyTab {
             LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
             magnitudeSize.setMarginStart(views.dp(6));
             planetTitle.addView(magnitude, magnitudeSize);
-            TextView now = nowActionBadge(entry::performClick);
+            TextView now = widgets.nowActionBadge(entry::performClick);
             LinearLayout.LayoutParams nowSize = new LinearLayout.LayoutParams(-2, -2);
             nowSize.setMarginStart(views.dp(6));
             planetTitle.addView(now, nowSize);
@@ -647,26 +571,6 @@ public final class AstronomyTab {
         views.addSpaced(page, tile, 9);
     }
 
-    private void startPhoneOrientation() {
-        if (!resumed || skyTrackDirection == null || phoneOrientationActive) return;
-        SensorManager manager = activity.getSystemService(SensorManager.class);
-        Sensor sensor = manager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-        if (sensor == null) sensor = manager.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
-        phoneOrientationActive = sensor != null
-                && manager.registerListener(phoneOrientation, sensor, SensorManager.SENSOR_DELAY_GAME, 0);
-        if (!phoneOrientationActive) skyTrackDirection.setText(R.string.phone_direction_unavailable);
-    }
-
-    private void stopPhoneOrientation() {
-        if (phoneOrientationActive) activity.getSystemService(SensorManager.class).unregisterListener(phoneOrientation);
-        phoneOrientationActive = false;
-        lastPhoneReadingNanos = 0;
-    }
-
-    private void setPhoneReading(TextView direction, String reading) {
-        if (direction != null && !reading.contentEquals(direction.getText())) direction.setText(reading);
-    }
-
     private void updatePlanets(Instant now) {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         LocalDate today = now.atZone(zone).toLocalDate();
@@ -678,7 +582,7 @@ public final class AstronomyTab {
             boolean showMagnitude = reading.elevation > 0 && sunBelowHorizon;
             row.magnitude.setVisibility(showMagnitude ? View.VISIBLE : View.GONE);
             if (showMagnitude) {
-                setMagnitudeBadge(row.magnitude, reading.magnitude, magnitudeColor(reading.magnitude));
+                widgets.setMagnitudeBadge(row.magnitude, reading.magnitude, widgets.magnitudeColor(reading.magnitude));
             }
             if (!today.equals(planetWindowDate)) {
                 List<String> hours = new ArrayList<>();
@@ -698,247 +602,16 @@ public final class AstronomyTab {
             row.position.setVisibility(observingNow ? View.VISIBLE : View.GONE);
             if (observingNow) {
                 row.position.setText(activity.getString(R.string.planet_position, Math.round(reading.azimuth) % 360,
-                        compassDirection(reading.azimuth), Math.round(reading.elevation)));
+                        widgets.compassDirection(reading.azimuth), Math.round(reading.elevation)));
             }
         }
         noObservablePlanets.setVisibility(observablePlanetsOnly && !anyObservable ? View.VISIBLE : View.GONE);
         planetWindowDate = today;
     }
 
-    private String compassDirection(double azimuth) {
-        String[] directions = formats().italian()
-                ? new String[]{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"}
-                : new String[]{"N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"};
-        return directions[(int) Math.round(azimuth / 22.5) % directions.length];
-    }
-
-    private void aurora() {
-        LinearLayout tile = views.card();
-        LinearLayout heading = astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), activity.getString(R.string.aurora));
-        heading.setGravity(Gravity.CENTER_VERTICAL);
-        heading.setMinimumHeight(views.dp(32));
-        auroraNow = nowActionBadge(() -> host.openMap(RadarActivity.Layer.AURORA));
-        auroraNow.setVisibility(View.GONE);
-        LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
-        badgeSize.setMarginStart(views.dp(6));
-        heading.addView(auroraNow, badgeSize);
-        tile.addView(heading);
-        auroraStatus = views.label("", 15, views.ink);
-        auroraStatus.setPadding(0, views.dp(6), 0, 0);
-        tile.addView(auroraStatus);
-        auroraTimes = views.label("", 12, views.muted);
-        auroraTimes.setPadding(0, views.dp(4), 0, 0);
-        auroraTimes.setSingleLine(true);
-        auroraTimes.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tile.addView(auroraTimes);
-        LinearLayout mapRow = views.row();
-        mapRow.setGravity(Gravity.CENTER_VERTICAL);
-        mapRow.setPadding(0, views.dp(5), 0, 0);
-        LinearLayout kpSummary = views.column();
-        mapRow.addView(kpSummary, new LinearLayout.LayoutParams(0, -2, 1));
-        currentKpView = views.label("", 14, views.accent);
-        kpSummary.addView(currentKpView);
-        currentKpBar = kpBar();
-        LinearLayout.LayoutParams currentBarSize = new LinearLayout.LayoutParams(-1, views.dp(6));
-        currentBarSize.topMargin = views.dp(5);
-        kpSummary.addView(currentKpBar, currentBarSize);
-        Button map = views.mapButton(R.string.aurora_map_short, () -> host.openMap(RadarActivity.Layer.AURORA));
-        map.setContentDescription(activity.getString(R.string.aurora_map));
-        LinearLayout.LayoutParams mapSize = new LinearLayout.LayoutParams(-2, -2);
-        mapSize.setMarginStart(views.dp(8));
-        mapRow.addView(map, mapSize);
-        tile.addView(mapRow);
-        LinearLayout table = views.column();
-        kpTable = table;
-        table.setVisibility(View.GONE);
-        Button toggle = views.accordionButton(activity.getString(R.string.aurora_kp_forecast));
-        toggle.setOnClickListener(v -> {
-            boolean open = table.getVisibility() != View.VISIBLE;
-            table.setVisibility(open ? View.VISIBLE : View.GONE);
-            views.updateAccordion(toggle, open);
-            if (open) {
-                refreshKp();
-                renderKp();
-            }
-        });
-        LinearLayout.LayoutParams toggleSize = new LinearLayout.LayoutParams(-1, -2);
-        toggleSize.topMargin = views.dp(12);
-        toggleSize.bottomMargin = views.dp(8);
-        tile.addView(toggle, toggleSize);
-        tile.addView(table);
-        views.addSpaced(page, tile, 9);
-        refreshAurora();
-        updateAurora(Instant.now());
-    }
-
-    private void refreshKp() {
-        long elapsed = SystemClock.elapsedRealtime();
-        if (kpLoading || (kpAttempt != 0 && elapsed - kpAttempt < 15 * 60 * 1000L)) return;
-        kpAttempt = elapsed;
-        kpLoading = true;
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return AuroraForecast.loadKp();
-            } catch (Exception error) {
-                android.util.Log.w("AuroraForecast", "NOAA Kp forecast unavailable", error);
-                return null;
-            }
-        }).thenAccept(result -> main.post(() -> {
-            if (activity.isDestroyed()) return;
-            kpLoading = false;
-            if (result != null) kpPeriods = result;
-            renderKp();
-        }));
-    }
-
-    private void renderKp() {
-        if (kpTable == null || kpTable.getVisibility() != View.VISIBLE) return;
-        kpTable.removeAllViews();
-        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        DateTimeFormatter hours = DateTimeFormatter.ofPattern(formats().clock24 ? "HH:mm" : "h:mm a", formats().appLocale()).withZone(zone);
-        DateTimeFormatter dates = formats().shortDate(false).withZone(zone);
-        Instant now = Instant.now();
-        LocalDate currentDate = null;
-        for (AuroraForecast.KpPeriod period : kpPeriods) {
-            if (!period.end().isAfter(now)) continue;
-            LocalDate date = period.start.atZone(zone).toLocalDate();
-            if (!date.equals(currentDate)) {
-                TextView dayLabel = views.label(dates.format(period.start), 13, views.muted);
-                dayLabel.setPadding(0, views.dp(currentDate == null ? 0 : 12), 0, 0);
-                kpTable.addView(dayLabel);
-                currentDate = date;
-            }
-            LinearLayout line = views.row();
-            line.setPadding(0, views.dp(4), 0, views.dp(4));
-            line.addView(views.label(hours.format(period.start) + "–" + hours.format(period.end()), 14, views.ink));
-            View bar = kpBar();
-            bar.getBackground().setLevel((int) Math.round(period.kp * 10000 / 9));
-            LinearLayout.LayoutParams barSize = new LinearLayout.LayoutParams(0, views.dp(6), 1);
-            barSize.setMarginStart(views.dp(10));
-            barSize.setMarginEnd(views.dp(10));
-            line.addView(bar, barSize);
-            TextView kpReading = views.label("Kp " + formats().number(period.kp, "%.2f") + "/9", 14, views.accent);
-            line.addView(kpReading);
-            kpTable.addView(line);
-        }
-        int text = currentDate != null ? R.string.aurora_kp_hint
-                : kpLoading ? R.string.aurora_loading : R.string.aurora_unavailable;
-        views.addSpaced(kpTable, views.label(activity.getString(text), 12, views.muted), 8);
-    }
-
-    private View kpBar() {
-        View bar = new View(activity);
-        android.graphics.drawable.ClipDrawable fill = new android.graphics.drawable.ClipDrawable(
-                new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                        new int[]{SignalColors.GREEN, SignalColors.YELLOW, SignalColors.RED}),
-                Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
-        bar.setBackground(new android.graphics.drawable.LayerDrawable(new android.graphics.drawable.Drawable[]{
-                views.background(activity.getColor(R.color.sky_selected), 3), fill}));
-        bar.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        return bar;
-    }
-
-    private void refreshAurora() {
-        long elapsed = SystemClock.elapsedRealtime();
-        if (auroraStatus == null || auroraLoading
-                || (auroraAttempt != 0 && elapsed - auroraAttempt < 5 * 60 * 1000L)) return;
-        auroraAttempt = elapsed;
-        auroraLoading = true;
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return AuroraForecast.loadCurrentKp();
-            } catch (Exception error) {
-                android.util.Log.w("AuroraForecast", "NOAA current Kp unavailable", error);
-                return null;
-            }
-        }).thenAccept(result -> main.post(() -> {
-            if (activity.isDestroyed()) return;
-            if (result != null) currentKp = result;
-            updateCurrentKp(Instant.now());
-        }));
-        CompletableFuture.supplyAsync(() -> {
-            try {
-                return AuroraForecast.load();
-            } catch (Exception error) {
-                android.util.Log.w("AuroraForecast", "NOAA forecast unavailable", error);
-                return null;
-            }
-        }).thenAccept(result -> main.post(() -> {
-            if (activity.isDestroyed()) return;
-            auroraLoading = false;
-            if (result != null) auroraForecast = result;
-            updateAurora(Instant.now());
-        }));
-    }
-
-    private void updateCurrentKp(Instant now) {
-        if (currentKpView == null) return;
-        if (currentKp == null || now.isAfter(currentKp.time.plusSeconds(1800))) {
-            currentKpBar.setVisibility(View.GONE);
-            currentKpView.setText(R.string.aurora_kp_current_unavailable);
-            return;
-        }
-        currentKpBar.setVisibility(View.VISIBLE);
-        currentKpBar.getBackground().setLevel((int) Math.round(currentKp.kp * 10000 / 9));
-        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        currentKpView.setText(activity.getString(R.string.aurora_kp_current, formats().number(currentKp.kp, "%.2f"),
-                Formats.formatTime(currentKp.time.atZone(zone).toLocalTime(), formats().clockFormat())));
-    }
-
-    private void updateAurora(Instant now) {
-        if (auroraStatus == null) return;
-        updateCurrentKp(now);
-        boolean night = SkyPosition.at(now, latitude, longitude, false).zenith > 90;
-        auroraStatus.setVisibility(night ? View.VISIBLE : View.GONE);
-        auroraNow.setVisibility(View.GONE);
-        if (auroraForecast == null || !auroraForecast.isCurrentAt(now)) {
-            auroraStatus.setText(auroraLoading ? R.string.aurora_loading : R.string.aurora_unavailable);
-            auroraTimes.setVisibility(View.GONE);
-            return;
-        }
-        Instant forecastTime = auroraForecast.forecastTime;
-        Instant viewingTime = forecastTime.isBefore(now) ? now : forecastTime;
-        ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        LocalDate today = now.atZone(zone).toLocalDate();
-        auroraTimes.setVisibility(View.VISIBLE);
-        auroraTimes.setText(activity.getString(R.string.aurora_times,
-                auroraTimestamp(auroraForecast.observationTime.atZone(zone), today),
-                auroraTimestamp(forecastTime.atZone(zone), today)));
-        if (!night) return;
-        boolean covered = auroraForecast.coversOnMap(latitude, longitude);
-        auroraNow.setVisibility(covered ? View.VISIBLE : View.GONE);
-        double direction = auroraForecast.estimatedDirection(latitude, longitude);
-        if (!covered && !Double.isFinite(direction)) {
-            auroraStatus.setText(R.string.aurora_unlikely);
-        } else if (SkyPosition.at(viewingTime, latitude, longitude, false).zenith < 96) {
-            auroraStatus.setText(R.string.aurora_too_light);
-        } else if (auroraCloudCover(viewingTime, zone) >= 80) {
-            auroraStatus.setText(R.string.aurora_cloudy);
-        } else if (covered || direction < 0) {
-            auroraStatus.setText(R.string.aurora_possible);
-        } else {
-            auroraStatus.setText(activity.getString(R.string.aurora_direction, compassDirection(direction)));
-        }
-    }
-
-    private String auroraTimestamp(ZonedDateTime timestamp, LocalDate today) {
-        String time = timestamp.format(formats().clockFormat());
-        return timestamp.toLocalDate().equals(today) ? time
-                : timestamp.format(DateTimeFormatter.ofPattern(formats().italian() ? "d/M" : "M/d", formats().appLocale())) + " " + time;
-    }
-
-    private double auroraCloudCover(Instant time, ZoneId zone) {
-        JSONObject hourly = data.optJSONObject("hourly");
-        String hour = time.atZone(zone).format(DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH", Locale.ROOT));
-        for (int i = 0; i < length(hourly); i++) {
-            if (at(hourly, "time", i).startsWith(hour)) return value(hourly, "cloud_cover", i);
-        }
-        return Double.NaN;
-    }
-
     private void issPasses() {
         LinearLayout tile = views.card();
-        tile.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_iss_astronomy), activity.getString(R.string.iss_passes)));
+        tile.addView(widgets.astronomyTitle(widgets.astronomyTitleIcon(R.drawable.ic_iss_astronomy), activity.getString(R.string.iss_passes)));
         TextView note = views.label(activity.getString(R.string.iss_scope), 13, views.muted);
         views.addSpaced(tile, note, 8);
         TextView status = views.label(activity.getString(R.string.iss_loading), 13, views.muted);
@@ -992,11 +665,11 @@ public final class AstronomyTab {
             TextView period = views.label(headingText.replace(" – ", "\u00a0–\u00a0"), 15, views.ink);
             heading.addView(period, new LinearLayout.LayoutParams(0, -2, 1));
             TextView magnitude = views.badge("");
-            setMagnitudeBadge(magnitude, pass.magnitude, magnitudeColor(pass.magnitude));
+            widgets.setMagnitudeBadge(magnitude, pass.magnitude, widgets.magnitudeColor(pass.magnitude));
             LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
             magnitudeSize.setMarginStart(views.dp(6));
             heading.addView(magnitude, magnitudeSize);
-            TextView live = nowActionBadge(entry::performClick);
+            TextView live = widgets.nowActionBadge(entry::performClick);
             live.setVisibility(View.GONE);
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.setMarginStart(views.dp(6));
@@ -1010,9 +683,9 @@ public final class AstronomyTab {
             TextView details = views.label(activity.getString(R.string.iss_details, duration / 60, duration % 60,
                     Math.round(pass.peak.elevation)), 13, views.muted);
             views.addSpaced(entry, details, 3);
-            String appears = issBearing(pass.rise.azimuth);
-            String culminates = issBearing(pass.peak.azimuth);
-            String disappears = issBearing(pass.set.azimuth);
+            String appears = widgets.issBearing(pass.rise.azimuth);
+            String culminates = widgets.issBearing(pass.peak.azimuth);
+            String disappears = widgets.issBearing(pass.set.azimuth);
             TextView directions = views.label(activity.getString(R.string.iss_directions_short, appears, culminates, disappears), 13, views.muted);
             directions.setContentDescription(activity.getString(R.string.iss_directions, appears, culminates, disappears));
             entry.addView(directions);
@@ -1024,7 +697,7 @@ public final class AstronomyTab {
         refreshAstronomyVisibility();
     }
 
-    private static class VisibilityBadge {
+    static class VisibilityBadge {
         final long start;
         final long end;
         final TextView badge;
@@ -1047,21 +720,6 @@ public final class AstronomyTab {
         }
     }
 
-    private static final class LiveIssBadge extends VisibilityBadge {
-        final IssPasses.Pass pass;
-
-        LiveIssBadge(IssPasses.Pass pass, TextView badge) {
-            super(pass.rise.time, pass.set.time, badge, null);
-            this.pass = pass;
-        }
-    }
-
-    private TextView issVisibilityBadge() {
-        TextView badge = views.observingBadge(activity.getString(R.string.astronomy_visible_now));
-        badge.setVisibility(View.GONE);
-        return badge;
-    }
-
     private void refreshAstronomyVisibility() {
         main.removeCallbacks(updateAstronomyVisibility);
         if (!resumed) return;
@@ -1069,52 +727,14 @@ public final class AstronomyTab {
         long second = Math.floorDiv(millis, 1000L);
         long delay = Long.MAX_VALUE;
         for (VisibilityBadge live : visibilityBadges) delay = Math.min(delay, live.update(millis, second));
-        if (trackedIss != null && aimedSkyTrack != null) {
-            delay = Math.min(delay, trackedIss.update(millis, second));
-            SkyTrajectory.Point position = trackedIss.pass.positionAt(second);
-            updateSkyTrackPosition(position);
-            if (position != null) delay = Math.min(delay, 1000L - Math.floorMod(millis, 1000L));
-        } else if (trackedCelestialPosition != null && aimedSkyTrack != null) {
-            updateSkyTrackPosition(trackedCelestialPosition.apply(second));
-            delay = Math.min(delay, 60_000L - Math.floorMod(millis, 60_000L));
-        }
+        delay = Math.min(delay, skyTrack.updateLive(millis, second));
         if (delay != Long.MAX_VALUE) main.postDelayed(updateAstronomyVisibility, delay);
     }
 
-    private void updateSkyTrackPosition(SkyTrajectory.Point position) {
-        boolean above = position != null && position.elevation >= 0;
-        aimedSkyTrack.setCurrentPosition(above ? position : null);
-        skyTrackCoordinates.setVisibility(above ? View.VISIBLE : View.GONE);
-        if (above) {
-            skyTrackCoordinates.setText(activity.getString(R.string.sky_track_now) + " · "
-                    + skyCoordinatesText(position.azimuth, position.elevation));
-        }
-    }
-
-    private void addCelestialTitleIcon(LinearLayout heading, View icon) {
-        LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(views.dp(23), views.dp(23));
-        iconSize.setMarginEnd(views.dp(7));
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        heading.addView(icon, iconSize);
-    }
-
-    private View astronomyTitleIcon(int drawable) {
-        android.widget.ImageView icon = new android.widget.ImageView(activity);
-        icon.setImageResource(drawable);
-        return icon;
-    }
-
-    private LinearLayout astronomyTitle(View icon, String name) {
-        LinearLayout heading = views.row();
-        addCelestialTitleIcon(heading, icon);
-        heading.addView(views.label(name, 16, views.ink), new LinearLayout.LayoutParams(0, -2, 1));
-        return heading;
-    }
-
     private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
-        LinearLayout heading = astronomyTitle(icon, name);
+        LinearLayout heading = widgets.astronomyTitle(icon, name);
         heading.setMinimumHeight(views.dp(32));
-        TextView now = nowActionBadge(open);
+        TextView now = widgets.nowActionBadge(open);
         LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
         badgeSize.setMarginStart(views.dp(6));
         heading.addView(now, badgeSize);
@@ -1128,37 +748,23 @@ public final class AstronomyTab {
         indicator.setVisibility(available ? View.VISIBLE : View.GONE);
     }
 
-    private TextView nowActionBadge(Runnable open) {
-        TextView badge = views.observingBadge(activity.getString(R.string.sky_track_now) + "  ›");
-        badge.setContentDescription(activity.getString(R.string.astronomy_open_now_details));
-        views.cardAction(badge, open);
-        return badge;
-    }
-
-    private void setMagnitudeBadge(TextView badge, double magnitude, int fill) {
-        String value = formats().number(magnitude, "%+.1f");
-        badge.setText(activity.getString(R.string.astronomy_magnitude, value));
-        badge.setContentDescription(activity.getString(R.string.astronomy_magnitude_description, value));
-        badge.setBackground(views.background(SignalColors.tint(fill), 8));
-    }
-
     public void showIssPass(IssPasses.Pass pass, ZoneId zone, String period, String url) {
         LocalDate date = Instant.ofEpochSecond(pass.rise.time).atZone(zone).toLocalDate();
-        showSkyTrack(activity.getString(R.string.iss_track), period, pass.magnitude, magnitudeColor(pass.magnitude), panel -> {
-            TextView live = issVisibilityBadge();
+        skyTrack.showSkyTrack(activity.getString(R.string.iss_track), period, pass.magnitude, widgets.magnitudeColor(pass.magnitude), panel -> {
+            TextView live = skyTrack.issVisibilityBadge();
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.topMargin = views.dp(6);
             panel.addView(live, liveSize);
-            trackedIss = new LiveIssBadge(pass, live);
-            addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
-            addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
-            addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
-            addSkyTrackPoint(panel, R.string.iss_track_brightest, pass.brightest, SkyTrack.BRIGHTEST_COLOR, zone, date);
-            addSkyTrackPoint(panel, R.string.iss_track_end, pass.set, SkyTrack.END_COLOR, zone, date);
+            skyTrack.trackIss(pass, live);
+            skyTrack.addSkyTrack(panel, pass.track, pass.rise, pass.peak, pass.set, null, pass.brightest);
+            skyTrack.addSkyTrackPoint(panel, R.string.iss_track_start, pass.rise, SkyTrack.START_COLOR, zone, date);
+            skyTrack.addSkyTrackPoint(panel, R.string.iss_track_peak, pass.peak, SkyTrack.MAX_COLOR, zone, date);
+            skyTrack.addSkyTrackPoint(panel, R.string.iss_track_brightest, pass.brightest, SkyTrack.BRIGHTEST_COLOR, zone, date);
+            skyTrack.addSkyTrackPoint(panel, R.string.iss_track_end, pass.set, SkyTrack.END_COLOR, zone, date);
 
             if (url != null) {
                 Button link = views.iconActionButton(R.string.iss_open_heavens_above, R.drawable.ic_open_external,
-                        () -> openAstronomyPage(url));
+                        () -> widgets.openAstronomyPage(url));
                 LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-2, -2);
                 size.topMargin = views.dp(13);
                 size.gravity = Gravity.CENTER_HORIZONTAL;
@@ -1211,11 +817,11 @@ public final class AstronomyTab {
         double lon = longitude;
         String period = date.format(formats().shortDate(true));
         if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
-            period += " · " + skyTrackTime(track.rise, zone, date) + " – " + skyTrackTime(track.set, zone, date);
+            period += " · " + skyTrack.skyTrackTime(track.rise, zone, date) + " – " + skyTrack.skyTrackTime(track.set, zone, date);
         }
-        int fill = planet == null ? SignalColors.PURPLE : magnitudeColor(magnitude);
-        showSkyTrack(activity.getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
-            trackedCelestialPosition = second -> {
+        int fill = planet == null ? SignalColors.PURPLE : widgets.magnitudeColor(magnitude);
+        skyTrack.showSkyTrack(activity.getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
+            skyTrack.trackCelestial(second -> {
                 if (second > trackEnd) return null;
                 if (planet != null) return SkyTrajectory.positionAt(second, lat, lon, false, planet);
                 Instant instant = Instant.ofEpochSecond(second);
@@ -1223,135 +829,22 @@ public final class AstronomyTab {
                 return (moon ? moonVisible(instant, position) : sunVisible(instant, position))
                         ? new SkyTrajectory.Point(second, position.azimuth, Math.max(0, 90 - position.zenith))
                         : null;
-            };
+            });
             if (observingWindows != null) {
                 views.addSpaced(panel, views.label(observingWindows.toString(), 13, views.accent), 6);
             }
-            addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
+            skyTrack.addSkyTrack(panel, track.points, track.rise, track.peak, track.set, track.now, null);
             if (track.peak == null) {
                 int message = nightOnly ? R.string.sky_track_no_night_path : R.string.sky_track_no_path;
                 panel.addView(views.label(activity.getString(message), 14, views.muted));
             }
-            addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_start : R.string.sky_track_rise,
+            skyTrack.addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_start : R.string.sky_track_rise,
                     track.rise, SkyTrack.START_COLOR, zone, date);
-            addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone, date);
-            addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_end : R.string.sky_track_set,
+            skyTrack.addSkyTrackPoint(panel, R.string.iss_track_peak, track.peak, SkyTrack.MAX_COLOR, zone, date);
+            skyTrack.addSkyTrackPoint(panel, nightOnly ? R.string.iss_track_end : R.string.sky_track_set,
                     track.set, SkyTrack.END_COLOR, zone, date);
         });
         refreshAstronomyVisibility();
-    }
-
-    private void showSkyTrack(String title, String period, double magnitude, int magnitudeFill,
-                              java.util.function.Consumer<LinearLayout> content) {
-        Dialog dialog = new Dialog(activity, R.style.SkyHereTheme);
-        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
-        LinearLayout screen = views.column();
-        screen.setBackgroundColor(views.surfaceColor);
-        screen.addView(views.detailHeader(title, R.string.sky_track_back, dialog::dismiss));
-
-        ScrollView viewport = new ScrollView(activity);
-        viewport.setFillViewport(true);
-        LinearLayout body = views.column();
-        body.setPadding(views.dp(12), views.dp(4), views.dp(12), views.dp(12));
-        LinearLayout panel = views.column();
-        panel.setBackground(views.background(activity.getColor(R.color.sky_card), 16));
-        panel.setPadding(views.dp(14), views.dp(12), views.dp(14), views.dp(14));
-        LinearLayout summary = views.row();
-        summary.setGravity(Gravity.TOP);
-        summary.addView(views.label(period, 14, views.muted), new LinearLayout.LayoutParams(0, -2, 1));
-        if (Double.isFinite(magnitude)) {
-            TextView badge = views.badge("");
-            setMagnitudeBadge(badge, magnitude, magnitudeFill);
-            LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
-            badgeSize.setMarginStart(views.dp(8));
-            summary.addView(badge, badgeSize);
-        }
-        panel.addView(summary);
-        content.accept(panel);
-        body.addView(panel);
-        viewport.addView(body);
-        screen.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
-        dialog.setContentView(screen);
-        dialog.setOnDismissListener(ignored -> {
-            aimedSkyTrack = null;
-            skyTrackCoordinates = null;
-            trackedCelestialPosition = null;
-            trackedIss = null;
-            refreshAstronomyVisibility();
-            skyTrackDirection = null;
-            stopPhoneOrientation();
-        });
-
-        android.view.Window window = dialog.getWindow();
-        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        dialog.show();
-        window.setLayout(-1, -1);
-        SkyTheme.applySystemBars(window, activity, views.surfaceColor);
-        startPhoneOrientation();
-    }
-
-    private void addSkyTrack(LinearLayout panel, List<? extends SkyTrajectory.Point> points, SkyTrajectory.Point start,
-                             SkyTrajectory.Point peak, SkyTrajectory.Point end, SkyTrajectory.Point now,
-                             SkyTrajectory.Point brightest) {
-        String[] cardinal = {compassDirection(0), compassDirection(90), compassDirection(180), compassDirection(270)};
-        skyTrackCoordinates = views.label("", 15, activity.getColor(R.color.sky_observing));
-        skyTrackCoordinates.setPadding(0, views.dp(7), 0, views.dp(3));
-        skyTrackCoordinates.setVisibility(View.GONE);
-        panel.addView(skyTrackCoordinates);
-        aimedSkyTrack = new SkyTrack(activity, points, start, peak, end, now, brightest, cardinal);
-        int chartSize = Math.min(380, activity.getResources().getConfiguration().screenWidthDp - 52);
-        panel.addView(aimedSkyTrack, new LinearLayout.LayoutParams(-1, views.dp(chartSize)));
-        LinearLayout direction = views.column();
-        direction.setBackground(views.background(activity.getColor(R.color.sky_subtle), 12));
-        direction.setPadding(views.dp(11), views.dp(9), views.dp(11), views.dp(9));
-        direction.addView(views.label(activity.getString(R.string.phone_direction), 14, views.ink));
-        skyTrackDirection = views.label(activity.getString(R.string.phone_direction_waiting), 17, views.ink);
-        views.addSpaced(direction, skyTrackDirection, 5);
-        views.addSpaced(direction, views.label(activity.getString(R.string.phone_direction_hint), 12, views.muted), 5);
-        LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, -2);
-        size.bottomMargin = views.dp(9);
-        panel.addView(direction, size);
-        addSkyTrackLegendItem(panel, activity.getString(R.string.sky_track_now), SkyTrack.NOW_COLOR, 10);
-    }
-
-    private void addSkyTrackPoint(LinearLayout panel, int title, SkyTrajectory.Point point, int color,
-                                  ZoneId zone, LocalDate date) {
-        if (point == null) return;
-        String time = skyTrackTime(point, zone, date);
-        String position = point.elevation >= 0 ? issBearing(point.azimuth) + " · " + Math.round(point.elevation) + "°"
-                : activity.getString(R.string.planet_below_horizon);
-        String details = activity.getString(title) + " · " + time + " · " + position;
-        addSkyTrackLegendItem(panel, details, color, 8);
-    }
-
-    private void addSkyTrackLegendItem(LinearLayout panel, String details, int color, int diameter) {
-        LinearLayout item = views.row();
-        View marker = new View(activity);
-        marker.setBackground(views.background(color, diameter / 2));
-        LinearLayout.LayoutParams markerSize = new LinearLayout.LayoutParams(views.dp(diameter), views.dp(diameter));
-        markerSize.setMarginEnd(views.dp(8));
-        item.addView(marker, markerSize);
-        item.addView(views.label(details, 14, views.ink), new LinearLayout.LayoutParams(0, -2, 1));
-        views.addSpaced(panel, item, 6);
-    }
-
-    private String skyTrackTime(SkyTrajectory.Point point, ZoneId zone, LocalDate date) {
-        ZonedDateTime localTime = Instant.ofEpochSecond(point.time).atZone(zone);
-        String time = localTime.format(formats().clockFormat());
-        return localTime.toLocalDate().equals(date) ? time : localTime.format(formats().shortDate(false)) + " " + time;
-    }
-
-    private String issBearing(double azimuth) {
-        return compassDirection(azimuth) + " " + (Math.round(azimuth) % 360) + "°";
-    }
-
-    private static int magnitudeColor(double magnitude) {
-        if (magnitude <= -4) return SignalColors.RED;
-        if (magnitude <= -3) return SignalColors.ORANGE;
-        if (magnitude <= -2) return SignalColors.YELLOW;
-        if (magnitude <= -1) return SignalColors.BLUE;
-        return SignalColors.GRAY;
     }
 
     public String issPassUrl(IssPasses.Pass pass, ZoneId zone, double latitude, double longitude,
@@ -1369,84 +862,10 @@ public final class AstronomyTab {
                 .appendQueryParameter("cul", formats().italian() ? "it" : "en").build().toString();
     }
 
-    private ZoneId astronomyEventZone() {
-        if (data != null) return ZoneId.of(data.optString("timezone", "UTC"));
-        return astronomyNotificationZone == null ? ZoneId.systemDefault() : astronomyNotificationZone;
-    }
-
-    private void eclipsesAndTransits() {
-        double lat = latitude;
-        double lon = longitude;
-        ZoneId zone = astronomyEventZone();
-        boolean openFromNotification = pendingAstronomyEventSection != null;
-        boolean openTransits = "TRANSIT".equals(pendingAstronomyEventSection);
-        boolean openLunar = "LUNAR".equals(pendingAstronomyEventSection);
-        solarEclipsesExpanded |= "SOLAR".equals(pendingAstronomyEventSection);
-        lunarEclipsesExpanded |= openLunar;
-        transitsExpanded |= openTransits;
-        LinearLayout solarEclipses = astronomyAccordion(R.string.solar_eclipses, solarEclipsesExpanded,
-                expanded -> solarEclipsesExpanded = expanded,
-                content -> {
-                    content.setPadding(0, views.dp(10), 0, 0);
-                    new EclipseList(content, false, lat, lon, zone).showNext();
-                });
-        LinearLayout lunarEclipses = astronomyAccordion(R.string.lunar_eclipses, lunarEclipsesExpanded,
-                expanded -> lunarEclipsesExpanded = expanded,
-                content -> {
-                    content.setPadding(0, views.dp(10), 0, 0);
-                    new EclipseList(content, true, lat, lon, zone).showNext();
-                });
-        views.addSpaced(page, solarEclipses, 12);
-        views.addSpaced(page, lunarEclipses, 9);
-        LinearLayout transitsCard = astronomyAccordion(R.string.planetary_transits, transitsExpanded,
-                expanded -> transitsExpanded = expanded, content -> {
-            content.setPadding(0, views.dp(10), 0, 0);
-            List<TransitCatalog.Event> transits = TransitCatalog.upcoming(lat, lon, Instant.now());
-            if (transits.isEmpty()) content.addView(views.label(activity.getString(R.string.no_transits), 14, views.muted));
-            else appendTransits(content, transits, zone, 0);
-        });
-        views.addSpaced(page, transitsCard, 9);
-        if (openFromNotification) {
-            View section = openTransits ? transitsCard : openLunar ? lunarEclipses : solarEclipses;
-            ScrollView target = scroll;
-            LinearLayout eventPage = page;
-            Runnable reveal = () -> {
-                if (pendingAstronomyEventSection == null || !section.isAttachedToWindow()) return;
-                android.graphics.Rect bounds = new android.graphics.Rect();
-                section.getDrawingRect(bounds);
-                eventPage.offsetDescendantRectToMyCoords(section, bounds);
-                target.scrollTo(0, bounds.top);
-            };
-            section.addOnLayoutChangeListener((view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
-                    target.post(reveal));
-            target.post(reveal);
-        }
-    }
-
-    private LinearLayout astronomyAccordion(int title, boolean expanded,
-            java.util.function.Consumer<Boolean> saveExpanded, java.util.function.Consumer<LinearLayout> populate) {
-        LinearLayout card = views.card();
-        LinearLayout content = views.column();
-        content.setVisibility(expanded ? View.VISIBLE : View.GONE);
-        Button toggle = views.accordionButton(activity.getString(title));
-        views.updateAccordion(toggle, expanded);
-        toggle.setOnClickListener(v -> {
-            boolean open = content.getVisibility() != View.VISIBLE;
-            saveExpanded.accept(open);
-            content.setVisibility(open ? View.VISIBLE : View.GONE);
-            views.updateAccordion(toggle, open);
-            if (open && content.getChildCount() == 0) populate.accept(content);
-        });
-        card.addView(toggle, new LinearLayout.LayoutParams(-1, -2));
-        card.addView(content);
-        if (expanded) populate.accept(content);
-        return card;
-    }
-
     private void astronomicalSeasons() {
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         LinearLayout seasons = views.card();
-        seasons.addView(astronomyTitle(astronomyTitleIcon(R.drawable.ic_seasons_astronomy),
+        seasons.addView(widgets.astronomyTitle(widgets.astronomyTitleIcon(R.drawable.ic_seasons_astronomy),
                 activity.getString(R.string.astronomical_seasons)));
         LinearLayout content = views.column();
         content.setPadding(0, views.dp(6), 0, 0);
@@ -1509,266 +928,6 @@ public final class AstronomyTab {
                 formats().number(SkyPosition.solarDeclinationDegrees(Instant.now()), "%.2f")), 13, views.muted));
         views.addSpaced(page, seasons, 9);
         refreshAstronomyVisibility();
-    }
-
-    private void appendTransits(LinearLayout list, List<TransitCatalog.Event> items, ZoneId zone, int start) {
-        int end = Math.min(items.size(), start + ASTRONOMY_PAGE_SIZE);
-        for (int i = start; i < end; i++) addTransit(list, items.get(i), zone);
-        refreshAstronomyVisibility();
-        if (end >= items.size()) return;
-        Button more = views.moreButton();
-        more.setContentDescription(activity.getString(R.string.more_transits));
-        more.setOnClickListener(v -> {
-            list.removeView(more);
-            appendTransits(list, items, zone, end);
-        });
-        list.addView(more);
-    }
-
-    private final class EclipseList {
-        private final LinearLayout events;
-        private final LinearLayout footer;
-        private final List<EclipseCatalog.Event> items = new ArrayList<>();
-        private final boolean lunar;
-        private final double latitude;
-        private final double longitude;
-        private final ZoneId zone;
-        private int year;
-        private int shown;
-        private int goal;
-
-        EclipseList(LinearLayout parent, boolean lunar, double latitude, double longitude, ZoneId zone) {
-            this.lunar = lunar;
-            this.latitude = latitude;
-            this.longitude = longitude;
-            this.zone = zone;
-            year = Instant.now().atZone(zone).getYear();
-            events = views.column();
-            footer = views.column();
-            parent.addView(events);
-            parent.addView(footer);
-        }
-
-        void showNext() {
-            goal = shown + ASTRONOMY_PAGE_SIZE;
-            fill(2);
-        }
-
-        private void fill(int requestsLeft) {
-            footer.removeAllViews();
-            int available = Math.min(goal, items.size());
-            while (shown < available) addEclipse(events, items.get(shown++), zone);
-            refreshAstronomyVisibility();
-            int catalogLastYear = lunar ? EclipseCatalog.LAST_OFFLINE_LUNAR_YEAR : EclipseCatalog.LAST_OFFLINE_SOLAR_YEAR;
-            boolean hasMoreYears = year <= catalogLastYear;
-            if (shown < goal && requestsLeft > 0 && hasMoreYears) {
-                fetch(requestsLeft);
-                return;
-            }
-            if (shown == 0) {
-                int lastYear = Math.min(year - 1, catalogLastYear);
-                footer.addView(views.label(activity.getString(R.string.no_eclipses_until, lastYear), 14, views.muted));
-            }
-            if (!hasMoreYears && shown >= items.size()) return;
-            Button more = views.moreButton();
-            more.setOnClickListener(v -> showNext());
-            more.setContentDescription(lunar ? activity.getString(R.string.more_lunar_eclipses) : activity.getString(R.string.more_solar_eclipses));
-            footer.addView(more);
-        }
-
-        private void fetch(int requestsLeft) {
-            footer.addView(views.loadingStatus(activity.getString(R.string.loading_eclipses)));
-            int startYear = year;
-            CompletableFuture.supplyAsync(() -> {
-                try {
-                    return EclipseCatalog.upcoming(activity.getApplicationContext(), lunar, startYear, latitude, longitude, Instant.now());
-                } catch (Exception error) {
-                    android.util.Log.w("SkyHere", "Eclipse catalog unavailable: " + error, error);
-                    return null;
-                }
-            }).thenAccept(results -> activity.runOnUiThread(() -> {
-                if (activity.isDestroyed() || !footer.isAttachedToWindow()) return;
-                if (results == null) {
-                    footer.removeAllViews();
-                    footer.addView(views.label(activity.getString(R.string.eclipse_data_unavailable), 14, views.muted));
-                    footer.addView(views.button(activity.getString(R.string.retry), () -> fill(requestsLeft)));
-                    return;
-                }
-                year += EclipseCatalog.yearsPerRequest(lunar);
-                items.addAll(results);
-                fill(requestsLeft - 1);
-            }));
-        }
-    }
-
-    private void addEclipse(LinearLayout parent, EclipseCatalog.Event event, ZoneId zone) {
-        LinearLayout entry = views.column();
-        entry.setPadding(views.dp(11), views.dp(10), views.dp(11), views.dp(10));
-        entry.setBackground(views.background(activity.getColor(R.color.sky_subtle), 12));
-        String eventUrl = event.detailsUrl(latitude, longitude);
-        ArrayList<String> localDetails = new ArrayList<>();
-        LinearLayout heading = views.row();
-        EclipseIcon icon = new EclipseIcon(activity, event);
-        LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(views.dp(36), views.dp(36));
-        iconSize.rightMargin = views.dp(9);
-        heading.addView(icon, iconSize);
-        LinearLayout title = views.column();
-        title.addView(views.label(EclipseCatalog.typeLabel(activity, event.type), 15, views.ink));
-        heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView live = nowActionBadge(entry::performClick);
-        live.setVisibility(View.GONE);
-        LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
-        liveSize.setMarginStart(views.dp(6));
-        heading.addView(live, liveSize);
-        View arrow = views.chevron();
-        heading.addView(arrow);
-        visibilityBadges.add(new VisibilityBadge(event.start.getEpochSecond(), event.end.getEpochSecond(), live, arrow));
-        entry.addView(heading);
-        ZonedDateTime start = event.start.atZone(zone);
-        ZonedDateTime end = event.end.atZone(zone);
-        DateTimeFormatter date = formats().shortDate(true);
-        TextView when = views.label(start.format(date), 13, views.muted);
-        localDetails.add(EclipseCatalog.typeLabel(activity, event.type) + " · " + when.getText());
-        when.setPadding(0, views.dp(3), 0, 0);
-        title.addView(when);
-        String range = start.format(formats().clockFormat()) + " – " + end.format(formats().clockFormat());
-        if (!start.toLocalDate().equals(end.toLocalDate())) range += activity.getString(R.string.next_day_suffix);
-        TextView visible = views.label(activity.getString(R.string.visible_range, range), 14, views.ink);
-        localDetails.add(visible.getText().toString());
-        visible.setPadding(0, views.dp(7), 0, 0);
-        entry.addView(visible);
-        Duration duration = Duration.between(event.start, event.end);
-        long minutes = Math.max(1, Math.round(duration.getSeconds() / 60.0));
-        String durationText = formats().durationText(minutes);
-        String durationLabel = activity.getString(event.horizonLimited ? R.string.estimated_duration : R.string.duration_value, durationText);
-        durationLabel += " · " + activity.getString(event.estimatedPeak ? R.string.best_visible : R.string.peak_time,
-                event.maximum.atZone(zone).format(formats().clockFormat()));
-        TextView details = views.label(durationLabel, 13, views.muted);
-        localDetails.add(durationLabel);
-        details.setPadding(0, views.dp(3), 0, 0);
-        entry.addView(details);
-        String centralDuration = EclipseCatalog.centralPhaseDuration(activity, event);
-        if (centralDuration != null) {
-            TextView centralLabel = views.label(centralDuration, 13, views.accent);
-            localDetails.add(centralDuration);
-            centralLabel.setPadding(0, views.dp(3), 0, 0);
-            entry.addView(centralLabel);
-        }
-        if (Double.isFinite(event.obscuration)) {
-            int disk = event.lunar ? (event.penumbral ? R.string.moon_penumbra : R.string.moon_shadow) : R.string.sun_covered;
-            String coverageText = activity.getString(disk, event.formattedObscuration(formats().appLocale()));
-            if (event.estimatedPeak) coverageText = activity.getString(R.string.approximate_value, coverageText);
-            TextView coverage = views.label(coverageText, 13, views.accent);
-            localDetails.add(coverageText);
-            coverage.setPadding(0, views.dp(3), 0, 0);
-            entry.addView(coverage);
-        }
-        views.cardAction(entry, () -> openEclipseMap(event, eventUrl, localDetails));
-        views.addSpaced(parent, entry, 7);
-    }
-
-    private void openEclipseMap(EclipseCatalog.Event event, String url, ArrayList<String> localDetails) {
-        try {
-            activity.startActivity(visibilityMapIntent(event.catalogDate(), url, localDetails)
-                    .putExtra("visibilityKind", event.lunar ? "lunar" : "solar")
-                    .putExtra("visibilitySamples", event.lunarVisibilitySamples().toString()));
-        } catch (org.json.JSONException error) {
-            openAstronomyPage(url);
-        }
-    }
-
-    private android.content.Intent visibilityMapIntent(LocalDate date, String url, ArrayList<String> localDetails) {
-        return new android.content.Intent(activity, RadarActivity.class)
-                .putExtra("layer", RadarActivity.Layer.ECLIPSE.name())
-                .putExtra("place", place).putExtra("lat", latitude).putExtra("lon", longitude)
-                .putExtra("timeZone", astronomyEventZone().getId())
-                .putExtra("clock24", formats().clock24)
-                .putExtra("eventDate", date.toString()).putExtra("detailsUrl", url)
-                .putStringArrayListExtra("localDetails", localDetails);
-    }
-
-    private void addTransit(LinearLayout parent, TransitCatalog.Event event, ZoneId zone) {
-        LinearLayout entry = views.column();
-        entry.setPadding(views.dp(11), views.dp(10), views.dp(11), views.dp(10));
-        entry.setBackground(views.background(activity.getColor(R.color.sky_subtle), 12));
-        String eventUrl = event.detailsUrl(latitude, longitude);
-        String transitName = activity.getString(R.string.transit_of,
-                activity.getString(event.transit.planet.equals("Mercury") ? R.string.mercury : R.string.venus));
-        TransitCatalog.DiskPosition position = event.transit.diskPosition(event.visibleStart, event.visibleEnd);
-
-        LinearLayout header = views.row();
-        View icon = new View(activity) {
-            private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-            @Override protected void onDraw(android.graphics.Canvas canvas) {
-                float x = getWidth() / 2f;
-                float y = getHeight() / 2f;
-                float radius = Math.min(x, y) * .73f;
-                paint.setColor(0xffffeaca);
-                canvas.drawCircle(x, y, radius * 1.25f, paint);
-                paint.setColor(0xffe9a946);
-                canvas.drawCircle(x, y, radius, paint);
-                paint.setColor(0xff293a58);
-                canvas.drawCircle(x + radius * (float) position.x, y + radius * (float) position.y,
-                        radius * (event.transit.planet.equals("Mercury") ? .10f : .18f), paint);
-            }
-        };
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(views.dp(36), views.dp(36));
-        iconSize.rightMargin = views.dp(9);
-        header.addView(icon, iconSize);
-        LinearLayout title = views.column();
-        title.addView(views.label(transitName, 15, views.ink));
-        ZonedDateTime date = event.visibleStart.atZone(zone);
-        TextView when = views.label(date.format(formats().shortDate(true)), 13, views.muted);
-        when.setPadding(0, views.dp(3), 0, 0);
-        title.addView(when);
-        header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView live = nowActionBadge(entry::performClick);
-        live.setVisibility(View.GONE);
-        LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
-        liveSize.setMarginStart(views.dp(6));
-        header.addView(live, liveSize);
-        View arrow = views.chevron();
-        header.addView(arrow);
-        visibilityBadges.add(new VisibilityBadge(event.visibleStart.getEpochSecond(),
-                event.visibleEnd.getEpochSecond(), live, arrow));
-        entry.addView(header);
-
-        ZonedDateTime start = event.visibleStart.atZone(zone);
-        ZonedDateTime end = event.visibleEnd.atZone(zone);
-        String range = start.format(formats().clockFormat()) + " – " + end.format(formats().clockFormat());
-        if (!start.toLocalDate().equals(end.toLocalDate())) range += activity.getString(R.string.next_day_suffix);
-        TextView visible = views.label(activity.getString(R.string.estimated_visible_range, range), 14, views.ink);
-        visible.setPadding(0, views.dp(7), 0, 0);
-        entry.addView(visible);
-        long minutes = Math.max(1, Math.round(Duration.between(event.visibleStart, event.visibleEnd).getSeconds() / 60.0));
-        String duration = formats().durationText(minutes);
-        TextView details = views.label(activity.getString(R.string.estimated_duration, duration), 13, views.muted);
-        details.setPadding(0, views.dp(3), 0, 0);
-        entry.addView(details);
-        ArrayList<String> localDetails = new ArrayList<>();
-        localDetails.add(transitName + " · " + when.getText());
-        localDetails.add(visible.getText().toString());
-        localDetails.add(details.getText().toString());
-        views.cardAction(entry, () -> {
-            try {
-                activity.startActivity(visibilityMapIntent(event.catalogDate(), eventUrl, localDetails)
-                        .putExtra("visibilityKind", "transit").putExtra("transitName", transitName)
-                        .putExtra("catalogUrl", event.catalogUrl())
-                        .putExtra("visibilitySamples", event.visibilitySamples().toString()));
-            } catch (org.json.JSONException error) {
-                openAstronomyPage(eventUrl);
-            }
-        });
-        views.addSpaced(parent, entry, 7);
-    }
-
-    private void openAstronomyPage(String url) {
-        try {
-            activity.startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)));
-        } catch (android.content.ActivityNotFoundException error) {
-            Toast.makeText(activity, activity.getString(R.string.no_browser), Toast.LENGTH_SHORT).show();
-        }
     }
 
     private static double moonPhaseForToday(JSONObject daily, int index, LocalDate date, ZoneId zone) {
