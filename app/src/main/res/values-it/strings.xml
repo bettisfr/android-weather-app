@@ -421,4 +421,5 @@
     <string name="update_version">SkyHere %1$s è disponibile.</string>
     <string name="update_download">Scarica APK</string>
     <string name="app_language">Lingua</string>
+    <string name="app_feedback">Segnala un bug o proponi un miglioramento</string>
 </resources>

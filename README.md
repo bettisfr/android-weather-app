@@ -4,11 +4,15 @@ SkyHere is an Android app for local weather, interactive maps, skywatching, and 
 
 ## Download and updates
 
-Download the signed [SkyHere APK](https://github.com/bettisfr/skyhere/releases/latest/download/SkyHere.apk) from GitHub Releases. Android asks you to confirm the installation.
+Download the signed [SkyHere APK](https://github.com/bettisfr/skyhere/releases/latest/download/SkyHere.apk) from GitHub Releases. You can also share this APK directly. It uses the same update channel. Android asks you to confirm installation and subsequent updates.
 
 SkyHere checks for a new release when opened, at most once a day. You can also use **Settings → About → Check for updates** at any time. Update notices link to the APK download. Future builds from this release channel use the same signing key and a higher Android version code.
 
 The first signed GitHub release uses a different signing key from previous debug builds. Android requires removing the debug build before installing it, which resets the app’s local data.
+
+## Feedback
+
+[Report a bug or suggest an improvement on GitHub](https://github.com/bettisfr/skyhere/issues/new). The same link is in **Settings → About**. For a bug report, include your SkyHere version, Android version, and steps to reproduce it.
 
 ## Screenshots
 
@@ -89,9 +93,11 @@ Use JDK 17 and Android SDK Platform 34. The app runs on Android 8.0 (API 26) or 
 ./gradlew :app:assembleDebug
 ```
 
-The debug build installs as **SkyHere Debug** (`it.skynow.app.debug`). It can run beside the GitHub release (`it.skynow.app`) on the same phone. The two apps keep separate settings and permissions. Attach Android Studio’s debugger to the `it.skynow.app.debug` process.
+Release and Debug are built from the same application module and source code. The debug build installs as **SkyHere Debug** (`it.skynow.app.debug`). It can run beside the GitHub release (`it.skynow.app`) on the same phone. The two apps keep separate settings and permissions. Attach Android Studio’s debugger to the `it.skynow.app.debug` process.
 
-To install the debug build on a connected device or running emulator:
+For a ready-made development build, download [SkyHere-Debug.apk](https://github.com/bettisfr/skyhere/releases/latest/download/SkyHere-Debug.apk) and open it on your Android device. Debug updates are installed manually.
+
+To build and install Debug on a connected device or running emulator:
 
 ```sh
 ./gradlew :app:installDebug

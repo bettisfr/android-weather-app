@@ -319,6 +319,7 @@ public final class SettingsActivity extends Activity {
             addRow(card, updates);
         }
         addCredit(card, R.string.app_github, "https://github.com/bettisfr/skyhere");
+        addCredit(card, R.string.app_feedback, "https://github.com/bettisfr/skyhere/issues/new");
     }
 
     private void addCredits(LinearLayout links) {

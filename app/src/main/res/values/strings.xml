@@ -425,4 +425,5 @@
     <string name="app_language">Language</string>
     <string name="language_italian" translatable="false">Italiano</string>
     <string name="language_english" translatable="false">English</string>
+    <string name="app_feedback">Report a bug or suggest an improvement</string>
 </resources>
