@@ -1617,28 +1617,26 @@ public final class MainActivity extends Activity {
 
     private void airQuality() {
         LinearLayout tile = card();
-        tile.addView(label(getString(R.string.air_quality), 14, muted));
+        LinearLayout heading = row();
+        heading.addView(label(getString(R.string.air_quality), 14, muted), new LinearLayout.LayoutParams(0, -2, 1));
+        TextView unit = label(getString(R.string.air_quality_unit), 12, muted);
+        unit.setVisibility(View.GONE);
+        heading.addView(unit);
+        tile.addView(heading);
         TextView index = label(getString(R.string.air_quality_loading), 19, ink);
         LinearLayout.LayoutParams indexSize = new LinearLayout.LayoutParams(-2, -2);
         indexSize.topMargin = dp(5);
         tile.addView(index, indexSize);
         LinearLayout pollutants = column();
         pollutants.setVisibility(View.GONE);
-        pollutants.setPadding(dp(5), dp(9), dp(5), dp(9));
-        pollutants.setBackground(background(getColor(R.color.sky_subtle), 10));
         LinearLayout.LayoutParams pollutantSize = new LinearLayout.LayoutParams(-1, -2);
         pollutantSize.topMargin = dp(10);
         tile.addView(pollutants, pollutantSize);
         LinearLayout footer = row();
-        TextView unit = label(getString(R.string.air_quality_unit), 12, muted);
-        unit.setVisibility(View.INVISIBLE);
-        footer.addView(unit, new LinearLayout.LayoutParams(0, -2, 1));
+        footer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         airQualityMapButton = mapButton(R.string.aurora_map_short, () -> openItalianMap(RadarActivity.Layer.AIR_QUALITY));
         airQualityMapButton.setContentDescription(getString(R.string.air_quality_map));
-        LinearLayout.LayoutParams mapSize = new LinearLayout.LayoutParams(-2, -2);
-        mapSize.gravity = Gravity.BOTTOM;
-        mapSize.setMarginStart(dp(8));
-        footer.addView(airQualityMapButton, mapSize);
+        footer.addView(airQualityMapButton, new LinearLayout.LayoutParams(-2, -2));
         LinearLayout.LayoutParams footerSize = new LinearLayout.LayoutParams(-1, -2);
         footerSize.topMargin = dp(5);
         tile.addView(footer, footerSize);
