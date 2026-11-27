@@ -1,5 +1,6 @@
 package it.skynow.app;
 
+import it.skynow.app.ui.Formats;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -100,9 +101,9 @@ public final class SettingsActivity extends Activity {
         choice(units, R.string.temperature, new String[]{getString(R.string.celsius), getString(R.string.fahrenheit), getString(R.string.kelvin)},
                 () -> temperatureUnit(preferences),
                 index -> preferences.edit().putInt("temperatureUnit", index).apply());
-        choice(units, R.string.wind_speed, MainActivity.WIND_UNITS,
+        choice(units, R.string.wind_speed, Formats.WIND_UNITS,
                 () -> preferences.getInt("windUnit", 0), index -> preferences.edit().putInt("windUnit", index).apply());
-        choice(units, R.string.pressure, MainActivity.PRESSURE_UNITS,
+        choice(units, R.string.pressure, Formats.PRESSURE_UNITS,
                 () -> preferences.getInt("pressureUnit", 0), index -> preferences.edit().putInt("pressureUnit", index).apply());
 
         LinearLayout earthquakes = section(content, R.string.tab_earthquakes);
