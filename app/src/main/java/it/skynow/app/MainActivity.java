@@ -964,7 +964,8 @@ public final class MainActivity extends Activity {
                     tile.addView(dateLabel, new LinearLayout.LayoutParams(0, -2, 1));
                 }
                 double probability = index == 0 ? rainRemaining : value(daily, "precipitation_probability_max", index);
-                TextView chance = label(probability > 0 ? percent(probability) : "", 14, accent);
+                double displayedProbability = Math.floor(Math.min(probability, 100) / 10) * 10;
+                TextView chance = label(displayedProbability > 0 ? percent(displayedProbability) : "", 14, accent);
                 chance.setGravity(roomy ? Gravity.START : Gravity.END);
                 chance.setSingleLine(true);
                 int chanceWidth = Math.max(dp(40), Math.max(textWidth(chance, percent(100)),
