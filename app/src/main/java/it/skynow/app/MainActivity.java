@@ -1819,7 +1819,7 @@ public final class MainActivity extends Activity {
 
     private void setSkyCoordinates(TextView reading, Instant now, boolean moon) {
         SkyPosition position = SkyPosition.at(now, latitude, longitude, moon);
-        boolean above = position.zenith < 90;
+        boolean above = moon ? position.zenith < 90 : sunVisible(now, position);
         reading.setVisibility(above ? View.VISIBLE : View.GONE);
         if (above) {
             reading.setText(skyCoordinatesText(position.azimuth, 90 - position.zenith));
@@ -1829,6 +1829,29 @@ public final class MainActivity extends Activity {
         SkyPath path = moon ? moonPath : sunPath;
         path.setClickable(above);
         path.updateNow(now, 90 - position.zenith);
+    }
+
+    private boolean sunVisible(Instant now, SkyPosition position) {
+        if (data != null) {
+            JSONObject daily = data.optJSONObject("daily");
+            ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
+            String date = now.atZone(zone).toLocalDate().toString();
+            for (int i = 0; i < length(daily); i++) {
+                if (!date.equals(at(daily, "time", i))) continue;
+                String rise = at(daily, "sunrise", i);
+                String set = at(daily, "sunset", i);
+                if (rise.length() >= 16 && set.length() >= 16) {
+                    Instant start = LocalDateTime.parse(rise).atZone(zone).toInstant();
+                    Instant end = LocalDateTime.parse(set).atZone(zone).toInstant();
+                    long duration = Duration.between(start, end).getSeconds();
+                    if (duration == 0) return false;
+                    if (duration >= 86400) return true;
+                    if (duration > 0) return !now.isBefore(start) && now.isBefore(end);
+                }
+                break;
+            }
+        }
+        return position.zenith <= 90.833;
     }
 
     private String skyCoordinatesText(double azimuth, double elevation) {
@@ -2565,7 +2588,7 @@ public final class MainActivity extends Activity {
     }
 
     private void updateSkyTrackPosition(SkyTrajectory.Point position) {
-        boolean above = position != null && position.elevation > 0;
+        boolean above = position != null && position.elevation >= 0;
         aimedSkyTrack.setCurrentPosition(above ? position : null);
         skyTrackCoordinates.setVisibility(above ? View.VISIBLE : View.GONE);
         if (above) {
@@ -2673,7 +2696,7 @@ public final class MainActivity extends Activity {
         Instant now = Instant.now();
         SkyPosition sun = SkyPosition.at(now, latitude, longitude, false);
         SkyPosition body = moon ? SkyPosition.at(now, latitude, longitude, true) : sun;
-        if (planet == null && body.zenith >= 90) {
+        if (planet == null && (moon ? body.zenith >= 90 : !sunVisible(now, sun))) {
             setSkyCoordinates(moon ? moonCoordinates : sunCoordinates, now, moon);
             return;
         }
@@ -2697,8 +2720,15 @@ public final class MainActivity extends Activity {
         }
         int fill = planet == null ? SignalColors.PURPLE : magnitudeColor(magnitude);
         showSkyTrack(getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
-            trackedCelestialPosition = second -> second < endOfDay
-                    ? SkyTrajectory.positionAt(second, lat, lon, moon, planet) : null;
+            trackedCelestialPosition = second -> {
+                if (second >= endOfDay) return null;
+                if (nightOnly) return SkyTrajectory.positionAt(second, lat, lon, moon, planet);
+                Instant instant = Instant.ofEpochSecond(second);
+                SkyPosition position = SkyPosition.at(instant, lat, lon, false);
+                return sunVisible(instant, position)
+                        ? new SkyTrajectory.Point(second, position.azimuth, Math.max(0, 90 - position.zenith))
+                        : null;
+            };
             if (observingWindows != null) {
                 addSpaced(panel, label(observingWindows.toString(), 13, accent), 6);
             }
