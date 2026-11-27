@@ -1971,7 +1971,7 @@ public final class MainActivity extends Activity {
         tile.addView(sunCoordinates);
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         addOrbitalApsides(tile, zone, false);
-        addUpcomingTimes(tile, daily, index, false);
+        addUpcomingTimes(tile, daily, index, false, Double.NaN);
         addSpaced(page, tile, 9);
     }
 
@@ -2099,7 +2099,7 @@ public final class MainActivity extends Activity {
         }
         tile.addView(phases);
         addOrbitalApsides(tile, zone, true);
-        addUpcomingTimes(tile, daily, index, true);
+        addUpcomingTimes(tile, daily, index, true, phase);
         addSpaced(page, tile, 9);
     }
 
@@ -3442,7 +3442,7 @@ public final class MainActivity extends Activity {
         return getString(R.string.daylight_duration, duration);
     }
 
-    private void addUpcomingTimes(LinearLayout tile, JSONObject daily, int index, boolean moon) {
+    private void addUpcomingTimes(LinearLayout tile, JSONObject daily, int index, boolean moon, double currentMoonPhase) {
         int count = OpenMeteo.UPCOMING_ASTRONOMY_DAYS;
         int end = Math.min(length(daily), index + count);
         LocalDate date = LocalDate.parse(at(daily, "time", index));
@@ -3493,9 +3493,9 @@ public final class MainActivity extends Activity {
                 }
                 if (moon) {
                     table.removeViews(1, table.getChildCount() - 1);
-                    appendUpcomingTimeRows(table, daily, index, end, true, zone, extra);
+                    appendUpcomingTimeRows(table, daily, index, end, true, zone, extra, currentMoonPhase);
                 }
-                appendUpcomingTimeRows(table, extra, 0, remaining, moon, zone, null);
+                appendUpcomingTimeRows(table, extra, 0, remaining, moon, zone, null, Double.NaN);
                 if (!moon) sizeSolarColumns(table, tile);
                 complete[0] = true;
                 status.setVisibility(View.GONE);
@@ -3512,7 +3512,7 @@ public final class MainActivity extends Activity {
             addEventTableRow(table, getString(R.string.date), null, muted, getString(R.string.sunrise),
                     getString(R.string.sunset), getString(R.string.daylight_column), getString(R.string.max_elevation));
         }
-        appendUpcomingTimeRows(table, daily, index, end, moon, zone, null);
+        appendUpcomingTimeRows(table, daily, index, end, moon, zone, null, currentMoonPhase);
         if (!moon) sizeSolarColumns(table, tile);
     }
 
@@ -3536,7 +3536,7 @@ public final class MainActivity extends Activity {
     }
 
     private void appendUpcomingTimeRows(LinearLayout table, JSONObject daily, int from, int end, boolean moon,
-                                        ZoneId zone, JSONObject lunarTail) {
+                                        ZoneId zone, JSONObject lunarTail, double currentMoonPhase) {
         String rise = moon ? "moonrise" : "sunrise";
         String set = moon ? "moonset" : "sunset";
         DateTimeFormatter dateFormat = shortDate(false);
@@ -3561,7 +3561,7 @@ public final class MainActivity extends Activity {
                 continue;
             }
             View phaseIcon;
-            double phase = value(daily, "moon_phase", i);
+            double phase = i == from && Double.isFinite(currentMoonPhase) ? currentMoonPhase : value(daily, "moon_phase", i);
             if (Double.isFinite(phase)) {
                 LinearLayout phaseCell = largeText() ? column() : row();
                 phaseCell.setGravity(Gravity.CENTER);
@@ -3587,6 +3587,9 @@ public final class MainActivity extends Activity {
                 LocalDateTime moonrise = LocalDateTime.parse(riseTime);
                 moonset = nextLunarEvent(daily, set, i, moonrise);
                 if (moonset == null && lunarTail != null) moonset = nextLunarEvent(lunarTail, set, 0, moonrise);
+            } else {
+                String timestamp = at(daily, set, i);
+                if (timestamp.length() >= 16) moonset = LocalDateTime.parse(timestamp);
             }
             String setTime = moonset == null ? "—" : moonset.format(clock24 ? CLOCK_24_SECONDS : CLOCK_SECONDS);
             LinearLayout line = addEventTableRow(table, date, phaseIcon, ink, eventClock(riseTime), setTime);
