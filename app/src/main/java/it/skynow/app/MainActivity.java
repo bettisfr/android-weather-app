@@ -3431,6 +3431,19 @@ public final class MainActivity extends Activity {
         int upcomingDays = count - 1;
         LocalDate last = date.plusDays(upcomingDays);
         LocalDate firstMissing = date.plusDays(end - index);
+        LocalDate tailEnd = last;
+        if (moon) {
+            for (int i = end - 1; i >= index; i--) {
+                String rise = at(daily, "moonrise", i);
+                if (rise.length() < 16) continue;
+                if (nextLunarEvent(daily, "moonset", i, LocalDateTime.parse(rise)) == null) {
+                    tailEnd = last.plusDays(1);
+                }
+                break;
+            }
+            if (!firstMissing.isAfter(last)) tailEnd = last.plusDays(1);
+        }
+        LocalDate fetchThrough = tailEnd;
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         String title = getString(R.string.next_days, upcomingDays);
         LinearLayout collapsible = column();
@@ -3440,7 +3453,7 @@ public final class MainActivity extends Activity {
         addSpaced(collapsible, status, 6);
         status.setVisibility(View.GONE);
         boolean[] loading = {false};
-        boolean[] complete = {firstMissing.isAfter(last)};
+        boolean[] complete = {firstMissing.isAfter(fetchThrough)};
         collapsible.setVisibility(View.GONE);
         Button toggle = accordionButton(title);
         toggle.setOnClickListener(v -> {
@@ -3451,14 +3464,20 @@ public final class MainActivity extends Activity {
             loading[0] = true;
             status.setText(R.string.upcoming_astronomy_loading);
             status.setVisibility(View.VISIBLE);
-            loadAstronomyTail(firstMissing, last).thenAccept(extra -> main.post(() -> {
+            loadAstronomyTail(firstMissing, fetchThrough).thenAccept(extra -> main.post(() -> {
                 if (isDestroyed() || !table.isAttachedToWindow()) return;
                 loading[0] = false;
-                if (extra == null || length(extra) != index + count - end) {
-                    status.setText(R.string.upcoming_astronomy_unavailable);
+                int remaining = index + count - end;
+                if (extra == null || length(extra) < remaining) {
+                    if (remaining > 0) status.setText(R.string.upcoming_astronomy_unavailable);
+                    else status.setVisibility(View.GONE);
                     return;
                 }
-                appendUpcomingTimeRows(table, extra, 0, length(extra), moon, zone);
+                if (moon) {
+                    table.removeViews(1, table.getChildCount() - 1);
+                    appendUpcomingTimeRows(table, daily, index, end, true, zone, extra);
+                }
+                appendUpcomingTimeRows(table, extra, 0, remaining, moon, zone, null);
                 if (!moon) sizeSolarColumns(table, tile);
                 complete[0] = true;
                 status.setVisibility(View.GONE);
@@ -3475,7 +3494,7 @@ public final class MainActivity extends Activity {
             addEventTableRow(table, getString(R.string.date), null, muted, getString(R.string.sunrise),
                     getString(R.string.sunset), getString(R.string.daylight_column), getString(R.string.max_elevation));
         }
-        appendUpcomingTimeRows(table, daily, index, end, moon, zone);
+        appendUpcomingTimeRows(table, daily, index, end, moon, zone, null);
         if (!moon) sizeSolarColumns(table, tile);
     }
 
@@ -3498,7 +3517,8 @@ public final class MainActivity extends Activity {
         return astronomyTail;
     }
 
-    private void appendUpcomingTimeRows(LinearLayout table, JSONObject daily, int from, int end, boolean moon, ZoneId zone) {
+    private void appendUpcomingTimeRows(LinearLayout table, JSONObject daily, int from, int end, boolean moon,
+                                        ZoneId zone, JSONObject lunarTail) {
         String rise = moon ? "moonrise" : "sunrise";
         String set = moon ? "moonset" : "sunset";
         DateTimeFormatter dateFormat = shortDate(false);
@@ -3543,7 +3563,27 @@ public final class MainActivity extends Activity {
                 ((TextView) phaseIcon).setGravity(Gravity.CENTER);
                 phaseIcon.setContentDescription(getString(R.string.phase_unavailable));
             }
-            addEventTableRow(table, date, phaseIcon, ink, eventClock(at(daily, rise, i)), eventClock(at(daily, set, i)));
+            String riseTime = at(daily, rise, i);
+            LocalDateTime moonset = null;
+            if (riseTime.length() >= 16) {
+                LocalDateTime moonrise = LocalDateTime.parse(riseTime);
+                moonset = nextLunarEvent(daily, set, i, moonrise);
+                if (moonset == null && lunarTail != null) moonset = nextLunarEvent(lunarTail, set, 0, moonrise);
+            }
+            String setTime = moonset == null ? "—" : moonset.format(clock24 ? CLOCK_24_SECONDS : CLOCK_SECONDS);
+            LinearLayout line = addEventTableRow(table, date, phaseIcon, ink, eventClock(riseTime), setTime);
+            if (moonset != null) {
+                long offset = ChronoUnit.DAYS.between(day, moonset.toLocalDate());
+                if (offset > 0) {
+                    TextView setting = (TextView) line.getChildAt(line.getChildCount() - 1);
+                    android.text.SpannableString reading = new android.text.SpannableString(setTime + "+" + offset);
+                    int flags = android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
+                    reading.setSpan(new android.text.style.SuperscriptSpan(), setTime.length(), reading.length(), flags);
+                    reading.setSpan(new android.text.style.RelativeSizeSpan(0.7f), setTime.length(), reading.length(), flags);
+                    setting.setText(reading);
+                    setting.setContentDescription(setTime + " · " + moonset.toLocalDate().format(dateFormat));
+                }
+            }
         }
     }
 
