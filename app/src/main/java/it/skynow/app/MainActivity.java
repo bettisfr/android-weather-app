@@ -1967,17 +1967,9 @@ public final class MainActivity extends Activity {
                 () -> showDailySkyTrack(getString(R.string.sun), false, null, null));
         long seconds = daylightSeconds(daily, index);
         addSunPathDetails(tile, daily, index, seconds);
-        LinearLayout readings = row();
-        readings.setGravity(Gravity.BOTTOM | Gravity.END);
         sunCoordinates = skyCoordinates(false);
-        readings.addView(sunCoordinates, new LinearLayout.LayoutParams(0, -2, 1));
-        LocalDate date = LocalDate.parse(at(daily, "time", index));
+        tile.addView(sunCoordinates);
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        TextView maximum = label(getString(R.string.sun_max_today, solarMaximumElevation(date, zone, seconds)), 12, muted);
-        maximum.setGravity(Gravity.END);
-        maximum.setPaddingRelative(dp(8), dp(8), 0, 0);
-        readings.addView(maximum, new LinearLayout.LayoutParams(-2, -2));
-        tile.addView(readings);
         addOrbitalApsides(tile, zone, false);
         addUpcomingTimes(tile, daily, index, false);
         addSpaced(page, tile, 9);
@@ -1990,10 +1982,6 @@ public final class MainActivity extends Activity {
         LocalDate date = LocalDate.parse(at(daily, "time", index));
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         int twilight = SkyPath.civilTwilightMinutes(date, latitude);
-        sunPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
-        sunPath.setOnClickListener(view -> sunTrackHeading.performClick());
-        tile.addView(sunPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
-
         if (polar) {
             addSpaced(tile, label(getString(polarDaylightLabel(seconds)), 14, ink), 7);
         } else {
@@ -2003,6 +1991,20 @@ public final class MainActivity extends Activity {
             addRiseSetTime(times, getString(R.string.sunset), formatTime(sunset, clockFormat()), true);
             addSpaced(tile, times, 7);
         }
+        FrameLayout chart = new FrameLayout(this);
+        sunPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, false, clock24);
+        sunPath.setOnClickListener(view -> sunTrackHeading.performClick());
+        chart.addView(sunPath, new FrameLayout.LayoutParams(-1, -1));
+        TextView maximum = label(getString(R.string.sun_max_today, solarMaximumElevation(date, zone, seconds)), 12, muted);
+        maximum.setPaddingRelative(dp(4), 0, dp(4), 0);
+        maximum.setBackground(background(getColor(R.color.sky_card), 4));
+        FrameLayout.LayoutParams maximumSize = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
+        maximumSize.setMarginEnd(dp(4));
+        chart.addView(maximum, maximumSize);
+        LinearLayout.LayoutParams chartSize = new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP));
+        chartSize.topMargin = dp(6);
+        tile.addView(chart, chartSize);
+
         addSpaced(tile, label(daylightSummary(seconds), 11, muted), 4);
 
         LinearLayout legend = row();
@@ -2033,9 +2035,6 @@ public final class MainActivity extends Activity {
         LinearLayout tile = card();
         moonTrackHeading = addSkyTrackHeading(tile, astronomyTitleIcon(R.drawable.ic_moon_astronomy), getString(R.string.moon),
                 () -> showDailySkyTrack(getString(R.string.moon), true, null, null));
-        moonPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24);
-        moonPath.setOnClickListener(view -> moonTrackHeading.performClick());
-        tile.addView(moonPath, new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP)));
         LinearLayout readings = row();
         readings.setGravity(Gravity.TOP);
         for (String field : new String[]{"moonrise", "moonset"}) {
@@ -2061,6 +2060,11 @@ public final class MainActivity extends Activity {
             }
         }
         addSpaced(tile, readings, 7);
+        moonPath = new SkyPath(this, date, zone, Instant.now(), latitude, longitude, true, clock24);
+        moonPath.setOnClickListener(view -> moonTrackHeading.performClick());
+        LinearLayout.LayoutParams chartSize = new LinearLayout.LayoutParams(-1, dp(SKY_PATH_HEIGHT_DP));
+        chartSize.topMargin = dp(6);
+        tile.addView(moonPath, chartSize);
         LinearLayout phaseDetails = row();
         phaseDetails.setPadding(dp(5), dp(3), dp(5), 0);
         LinearLayout phaseLabels = column();
