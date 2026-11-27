@@ -1,5 +1,6 @@
 package it.skynow.app.maps;
 
+import it.skynow.app.ui.SkyViews;
 import it.skynow.app.R;
 import it.skynow.app.SkyTheme;
 import it.skynow.app.astronomy.AuroraForecast;
@@ -16,7 +17,6 @@ import android.location.Geocoder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.View;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
@@ -78,6 +78,7 @@ public final class RadarActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        SkyViews views = new SkyViews(this);
         String requested = getIntent().getStringExtra("layer");
         layer = requested == null ? Layer.RADAR : Layer.valueOf(requested);
         if (layer == Layer.EARTHQUAKES) selectedEarthquake = getIntent().getStringExtra("selectedEarthquake");
@@ -98,7 +99,7 @@ public final class RadarActivity extends Activity {
         back.setGravity(Gravity.CENTER);
         back.setContentDescription(getString(R.string.radar_back));
         back.setOnClickListener(view -> finish());
-        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
+        header.addView(back, new LinearLayout.LayoutParams(views.dp(48), views.dp(48)));
         TextView title = new TextView(this);
         String visibilityKind = getIntent().getStringExtra("visibilityKind");
         int titleResource = layer == Layer.ECLIPSE && "lunar".equals(visibilityKind)
@@ -109,7 +110,7 @@ public final class RadarActivity extends Activity {
                 : getString(titleResource, place));
         title.setTextColor(ink);
         title.setTextSize(19);
-        title.setPadding(0, dp(7), dp(12), dp(7));
+        title.setPadding(0, views.dp(7), views.dp(12), views.dp(7));
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         screen.addView(header);
 
@@ -551,9 +552,5 @@ public final class RadarActivity extends Activity {
             web = null;
         }
         super.onDestroy();
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }

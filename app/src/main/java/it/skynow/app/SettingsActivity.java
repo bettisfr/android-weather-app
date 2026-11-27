@@ -2,6 +2,7 @@ package it.skynow.app;
 
 import it.skynow.app.dashboard.EarthquakeTab;
 import it.skynow.app.ui.Formats;
+import it.skynow.app.ui.SkyViews;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
@@ -48,6 +49,7 @@ public final class SettingsActivity extends Activity {
 
     static final String PREFERENCES_FILE = "preferencesFile";
     private SharedPreferences preferences;
+    private SkyViews views;
     private ScrollView overview;
     private int overviewOffset;
     private boolean inSubpage;
@@ -60,6 +62,7 @@ public final class SettingsActivity extends Activity {
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        views = new SkyViews(this);
         preferences = getSharedPreferences(getIntent().getStringExtra(PREFERENCES_FILE), MODE_PRIVATE);
         setResult(RESULT_OK);
         SkyTheme.applySystemBars(this);
@@ -70,14 +73,14 @@ public final class SettingsActivity extends Activity {
     private void showOverview() {
         inSubpage = false;
         exactAlarmStatus = null;
-        LinearLayout screen = stack();
+        LinearLayout screen = views.column();
         screen.setBackgroundColor(getColor(R.color.sky_background));
         screen.addView(header(R.string.settings));
         ScrollView scroller = new ScrollView(this);
         overview = scroller;
         screen.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
-        LinearLayout content = stack();
-        content.setPadding(dp(16), dp(4), dp(16), dp(20));
+        LinearLayout content = views.column();
+        content.setPadding(views.dp(16), views.dp(4), views.dp(16), views.dp(20));
         scroller.addView(content);
 
         LinearLayout display = section(content, R.string.settings_display);
@@ -188,16 +191,16 @@ public final class SettingsActivity extends Activity {
     }
 
     private LinearLayout header(int heading) {
-        LinearLayout header = row();
+        LinearLayout header = views.row();
         header.setBackgroundColor(getColor(R.color.sky_card));
         TextView back = text("‹", 28, R.color.sky_text);
         back.setGravity(Gravity.CENTER);
         back.setContentDescription(getString(R.string.settings_back));
         back.setOnClickListener(view -> back());
         ripple(back);
-        header.addView(back, new LinearLayout.LayoutParams(dp(48), dp(48)));
-        LinearLayout titles = stack();
-        titles.setPaddingRelative(dp(4), dp(12), dp(16), dp(12));
+        header.addView(back, new LinearLayout.LayoutParams(views.dp(48), views.dp(48)));
+        LinearLayout titles = views.column();
+        titles.setPaddingRelative(views.dp(4), views.dp(12), views.dp(16), views.dp(12));
         TextView title = text(getString(heading), 24, R.color.sky_text);
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         titles.addView(title);
@@ -208,13 +211,13 @@ public final class SettingsActivity extends Activity {
     private LinearLayout section(LinearLayout content, int title) {
         TextView heading = text(getString(title), 14, R.color.sky_accent);
         heading.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-        heading.setPaddingRelative(dp(3), dp(15), 0, dp(6));
+        heading.setPaddingRelative(views.dp(3), views.dp(15), 0, views.dp(6));
         content.addView(heading);
-        LinearLayout section = stack();
+        LinearLayout section = views.column();
         GradientDrawable fill = new GradientDrawable();
-        fill.setCornerRadius(dp(14));
+        fill.setCornerRadius(views.dp(14));
         fill.setColor(getColor(R.color.sky_card));
-        fill.setStroke(dp(1), getColor(R.color.sky_card_outline));
+        fill.setStroke(views.dp(1), getColor(R.color.sky_card_outline));
         section.setBackground(fill);
         section.setClipToOutline(true);
         content.addView(section, new LinearLayout.LayoutParams(-1, -2));
@@ -229,19 +232,19 @@ public final class SettingsActivity extends Activity {
         LinearLayout row = settingRow(getString(title));
         if (value != null) row.addView(text(value, 14, R.color.sky_muted));
         TextView arrow = text("›", 22, R.color.sky_accent);
-        arrow.setPaddingRelative(dp(8), 0, 0, 0);
+        arrow.setPaddingRelative(views.dp(8), 0, 0, 0);
         arrow.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         row.addView(arrow);
         row.setOnClickListener(view -> {
             overviewOffset = overview.getScrollY();
             inSubpage = true;
-            LinearLayout screen = stack();
+            LinearLayout screen = views.column();
             screen.setBackgroundColor(getColor(R.color.sky_background));
             screen.addView(header(title));
             ScrollView scroller = new ScrollView(this);
             screen.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
-            LinearLayout panel = stack();
-            panel.setPadding(dp(16), dp(8), dp(16), dp(20));
+            LinearLayout panel = views.column();
+            panel.setPadding(views.dp(16), views.dp(8), views.dp(16), views.dp(20));
             scroller.addView(panel);
             populate.accept(panel);
             setContentView(screen);
@@ -257,7 +260,7 @@ public final class SettingsActivity extends Activity {
             option.setId(View.generateViewId());
             option.setText(value);
             option.setTextColor(getColor(R.color.sky_text));
-            option.setMinHeight(dp(48));
+            option.setMinHeight(views.dp(48));
             options.addView(option);
         }
         options.check(options.getChildAt(selected.getAsInt()).getId());
@@ -283,7 +286,7 @@ public final class SettingsActivity extends Activity {
         slider.setProgress(radius / EarthquakeFeed.RADIUS_STEP_KM);
         slider.setKeyProgressIncrement(1);
         value.setText(getString(R.string.earthquake_radius_value, radius));
-        slider.setPaddingRelative(dp(12), 0, dp(12), 0);
+        slider.setPaddingRelative(views.dp(12), 0, views.dp(12), 0);
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar view, int progress, boolean fromUser) {
                 int kilometers = progress * EarthquakeFeed.RADIUS_STEP_KM;
@@ -293,28 +296,28 @@ public final class SettingsActivity extends Activity {
             @Override public void onStartTrackingTouch(SeekBar view) {}
             @Override public void onStopTrackingTouch(SeekBar view) {}
         });
-        section.addView(slider, new LinearLayout.LayoutParams(-1, dp(42)));
+        section.addView(slider, new LinearLayout.LayoutParams(-1, views.dp(42)));
     }
 
     private void showAbout(LinearLayout panel) {
-        LinearLayout card = stack();
+        LinearLayout card = views.column();
         card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPaddingRelative(dp(16), dp(24), dp(16), dp(12));
+        card.setPaddingRelative(views.dp(16), views.dp(24), views.dp(16), views.dp(12));
         GradientDrawable surface = new GradientDrawable();
         surface.setColor(getColor(R.color.sky_card));
-        surface.setCornerRadius(dp(18));
-        surface.setStroke(dp(1), getColor(R.color.sky_card_outline));
+        surface.setCornerRadius(views.dp(18));
+        surface.setStroke(views.dp(1), getColor(R.color.sky_card_outline));
         card.setBackground(surface);
         panel.addView(card, new LinearLayout.LayoutParams(-1, -2));
 
         ImageView logo = new ImageView(this);
         logo.setImageResource(R.mipmap.ic_weather);
         logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        card.addView(logo, new LinearLayout.LayoutParams(dp(76), dp(76)));
+        card.addView(logo, new LinearLayout.LayoutParams(views.dp(76), views.dp(76)));
         TextView name = text(getString(R.string.app_name), 26, R.color.sky_text);
         name.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         name.setGravity(Gravity.CENTER);
-        name.setPadding(0, dp(10), 0, 0);
+        name.setPadding(0, views.dp(10), 0, 0);
         card.addView(name);
 
         Locale locale = Locale.forLanguageTag(getString(R.string.app_language_tag));
@@ -323,11 +326,11 @@ public final class SettingsActivity extends Activity {
         TextView version = text(getString(R.string.app_version, getString(R.string.sky_version_name), date),
                 15, R.color.sky_muted);
         version.setGravity(Gravity.CENTER);
-        version.setPadding(0, dp(4), 0, 0);
+        version.setPadding(0, views.dp(4), 0, 0);
         card.addView(version);
         TextView author = text(getString(R.string.app_author, "Francesco Betti Sorbelli"), 15, R.color.sky_text);
         author.setGravity(Gravity.CENTER);
-        author.setPadding(0, dp(12), 0, dp(16));
+        author.setPadding(0, views.dp(12), 0, views.dp(16));
         card.addView(author);
         if (getResources().getBoolean(R.bool.check_for_release_updates)) {
             LinearLayout updates = settingRow(getString(R.string.update_check));
@@ -370,9 +373,9 @@ public final class SettingsActivity extends Activity {
     }
 
     private LinearLayout settingRow(String title) {
-        LinearLayout row = row();
-        row.setMinimumHeight(dp(48));
-        row.setPaddingRelative(dp(12), dp(6), dp(12), dp(6));
+        LinearLayout row = views.row();
+        row.setMinimumHeight(views.dp(48));
+        row.setPaddingRelative(views.dp(12), views.dp(6), views.dp(12), views.dp(6));
         row.addView(text(title, 15, R.color.sky_text), new LinearLayout.LayoutParams(0, -2, 1));
         return row;
     }
@@ -381,9 +384,9 @@ public final class SettingsActivity extends Activity {
         if (section.getChildCount() > 0) {
             View divider = new View(this);
             divider.setBackgroundColor(getColor(R.color.sky_card_outline));
-            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, dp(1));
-            size.setMarginStart(dp(12));
-            size.setMarginEnd(dp(12));
+            LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(-1, views.dp(1));
+            size.setMarginStart(views.dp(12));
+            size.setMarginEnd(views.dp(12));
             section.addView(divider, size);
         }
         ripple(row);
@@ -395,27 +398,11 @@ public final class SettingsActivity extends Activity {
                 new android.graphics.drawable.ColorDrawable(android.graphics.Color.WHITE)));
     }
 
-    private LinearLayout stack() {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        return layout;
-    }
-
-    private LinearLayout row() {
-        LinearLayout layout = new LinearLayout(this);
-        layout.setGravity(Gravity.CENTER_VERTICAL);
-        return layout;
-    }
-
     private TextView text(String label, int size, int color) {
         TextView view = new TextView(this);
         view.setText(label);
         view.setTextSize(size);
         view.setTextColor(getColor(color));
         return view;
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
     }
 }
