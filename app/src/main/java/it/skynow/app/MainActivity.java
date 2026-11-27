@@ -3495,7 +3495,7 @@ public final class MainActivity extends Activity {
                     table.removeViews(1, table.getChildCount() - 1);
                     appendUpcomingTimeRows(table, daily, index, end, true, zone, extra, currentMoonPhase);
                 }
-                appendUpcomingTimeRows(table, extra, 0, remaining, moon, zone, null, Double.NaN);
+                appendUpcomingTimeRows(table, extra, 0, remaining, moon, zone, moon ? daily : null, Double.NaN);
                 if (!moon) sizeSolarColumns(table, tile);
                 complete[0] = true;
                 status.setVisibility(View.GONE);
@@ -3536,7 +3536,7 @@ public final class MainActivity extends Activity {
     }
 
     private void appendUpcomingTimeRows(LinearLayout table, JSONObject daily, int from, int end, boolean moon,
-                                        ZoneId zone, JSONObject lunarTail, double currentMoonPhase) {
+                                        ZoneId zone, JSONObject lunarNeighbor, double currentMoonPhase) {
         String rise = moon ? "moonrise" : "sunrise";
         String set = moon ? "moonset" : "sunset";
         DateTimeFormatter dateFormat = shortDate(false);
@@ -3582,30 +3582,50 @@ public final class MainActivity extends Activity {
                 phaseIcon.setContentDescription(getString(R.string.phase_unavailable));
             }
             String riseTime = at(daily, rise, i);
+            LocalDateTime moonrise = riseTime.length() >= 16 ? LocalDateTime.parse(riseTime) : null;
             LocalDateTime moonset = null;
-            if (riseTime.length() >= 16) {
-                LocalDateTime moonrise = LocalDateTime.parse(riseTime);
+            if (moonrise != null) {
                 moonset = nextLunarEvent(daily, set, i, moonrise);
-                if (moonset == null && lunarTail != null) moonset = nextLunarEvent(lunarTail, set, 0, moonrise);
+                if (moonset == null && lunarNeighbor != null) moonset = nextLunarEvent(lunarNeighbor, set, 0, moonrise);
             } else {
                 String timestamp = at(daily, set, i);
-                if (timestamp.length() >= 16) moonset = LocalDateTime.parse(timestamp);
-            }
-            String setTime = moonset == null ? "—" : moonset.format(clock24 ? CLOCK_24_SECONDS : CLOCK_SECONDS);
-            LinearLayout line = addEventTableRow(table, date, phaseIcon, ink, eventClock(riseTime), setTime);
-            if (moonset != null) {
-                long offset = ChronoUnit.DAYS.between(day, moonset.toLocalDate());
-                if (offset > 0) {
-                    TextView setting = (TextView) line.getChildAt(line.getChildCount() - 1);
-                    android.text.SpannableString reading = new android.text.SpannableString(setTime + "+" + offset);
-                    int flags = android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
-                    reading.setSpan(new android.text.style.SuperscriptSpan(), setTime.length(), reading.length(), flags);
-                    reading.setSpan(new android.text.style.RelativeSizeSpan(0.7f), setTime.length(), reading.length(), flags);
-                    setting.setText(reading);
-                    setting.setContentDescription(setTime + " · " + moonset.toLocalDate().format(dateFormat));
+                if (timestamp.length() >= 16) {
+                    moonset = LocalDateTime.parse(timestamp);
+                    moonrise = previousMoonrise(daily, moonset);
+                    if (moonrise == null && lunarNeighbor != null) moonrise = previousMoonrise(lunarNeighbor, moonset);
                 }
             }
+            DateTimeFormatter timeFormat = clock24 ? CLOCK_24_SECONDS : CLOCK_SECONDS;
+            String rising = moonrise == null ? "—" : moonrise.format(timeFormat);
+            String setTime = moonset == null ? "—" : moonset.format(timeFormat);
+            LinearLayout line = addEventTableRow(table, date, phaseIcon, ink, rising, setTime);
+            addLunarDateOffset((TextView) line.getChildAt(2), rising, day, moonrise, dateFormat);
+            addLunarDateOffset((TextView) line.getChildAt(3), setTime, day, moonset, dateFormat);
         }
+    }
+
+    private LocalDateTime previousMoonrise(JSONObject daily, LocalDateTime moonset) {
+        for (int i = length(daily) - 1; i >= 0; i--) {
+            String timestamp = at(daily, "moonrise", i);
+            if (timestamp.length() < 16) continue;
+            LocalDateTime moonrise = LocalDateTime.parse(timestamp);
+            if (moonrise.isBefore(moonset)) return moonrise;
+        }
+        return null;
+    }
+
+    private void addLunarDateOffset(TextView cell, String time, LocalDate day, LocalDateTime event,
+                                    DateTimeFormatter dateFormat) {
+        if (event == null) return;
+        long offset = ChronoUnit.DAYS.between(day, event.toLocalDate());
+        if (offset == 0) return;
+        String suffix = (offset < 0 ? "−" : "+") + Math.abs(offset);
+        android.text.SpannableString reading = new android.text.SpannableString(time + suffix);
+        int flags = android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE;
+        reading.setSpan(new android.text.style.SuperscriptSpan(), time.length(), reading.length(), flags);
+        reading.setSpan(new android.text.style.RelativeSizeSpan(0.7f), time.length(), reading.length(), flags);
+        cell.setText(reading);
+        cell.setContentDescription(time + " · " + event.toLocalDate().format(dateFormat));
     }
 
     private void highlightSolarExtremum(TextView cell, java.util.function.IntToLongFunction reading, int index, int end) {
