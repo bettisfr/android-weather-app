@@ -432,4 +432,5 @@
     <string name="air_quality_unit">µg/m³</string>
     <string name="astronomy_alert_exact_enable">Allow exact alarms for timely alerts</string>
     <string name="astronomy_alert_exact_allowed">Exact alarms allowed</string>
+    <string name="astronomy_open_now_details">Visible now. Open details</string>
 </resources>

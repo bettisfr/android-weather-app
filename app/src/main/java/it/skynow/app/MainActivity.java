@@ -2194,8 +2194,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
             magnitudeSize.setMarginStart(dp(6));
             planetTitle.addView(magnitude, magnitudeSize);
-            TextView now = nowBadge();
-            now.setContentDescription(getString(R.string.planet_now_status, getString(R.string.planet_visible_now)));
+            TextView now = nowActionBadge(entry::performClick);
             LinearLayout.LayoutParams nowSize = new LinearLayout.LayoutParams(-2, -2);
             nowSize.setMarginStart(dp(6));
             planetTitle.addView(now, nowSize);
@@ -2299,7 +2298,7 @@ public final class MainActivity extends Activity {
         LinearLayout heading = astronomyTitle(astronomyTitleIcon(R.drawable.ic_aurora_astronomy), getString(R.string.aurora));
         heading.setGravity(Gravity.CENTER_VERTICAL);
         heading.setMinimumHeight(dp(32));
-        auroraNow = nowBadge();
+        auroraNow = nowActionBadge(() -> openMap(RadarActivity.Layer.AURORA));
         auroraNow.setVisibility(View.GONE);
         LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
         badgeSize.setMarginStart(dp(6));
@@ -2578,8 +2577,7 @@ public final class MainActivity extends Activity {
             LinearLayout.LayoutParams magnitudeSize = new LinearLayout.LayoutParams(-2, -2);
             magnitudeSize.setMarginStart(dp(6));
             heading.addView(magnitude, magnitudeSize);
-            TextView live = nowBadge();
-            live.setContentDescription(getString(R.string.astronomy_visible_now));
+            TextView live = nowActionBadge(entry::performClick);
             live.setVisibility(View.GONE);
             LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
             liveSize.setMarginStart(dp(6));
@@ -2703,7 +2701,7 @@ public final class MainActivity extends Activity {
     private LinearLayout addSkyTrackHeading(LinearLayout panel, View icon, String name, Runnable open) {
         LinearLayout heading = astronomyTitle(icon, name);
         heading.setMinimumHeight(dp(32));
-        TextView now = nowBadge();
+        TextView now = nowActionBadge(open);
         LinearLayout.LayoutParams badgeSize = new LinearLayout.LayoutParams(-2, -2);
         badgeSize.setMarginStart(dp(6));
         heading.addView(now, badgeSize);
@@ -2733,6 +2731,13 @@ public final class MainActivity extends Activity {
 
     private TextView nowBadge() {
         return observingBadge(getString(R.string.sky_track_now));
+    }
+
+    private TextView nowActionBadge(Runnable open) {
+        TextView badge = observingBadge(getString(R.string.sky_track_now) + "  ›");
+        badge.setContentDescription(getString(R.string.astronomy_open_now_details));
+        astronomyCardAction(badge, open);
+        return badge;
     }
 
     private void setMagnitudeBadge(TextView badge, double magnitude, int fill) {
@@ -3109,6 +3114,7 @@ public final class MainActivity extends Activity {
     private void appendTransits(LinearLayout list, List<TransitCatalog.Event> items, ZoneId zone, int start) {
         int end = Math.min(items.size(), start + ASTRONOMY_PAGE_SIZE);
         for (int i = start; i < end; i++) addTransit(list, items.get(i), zone);
+        refreshAstronomyVisibility();
         if (end >= items.size()) return;
         Button more = moreButton();
         more.setContentDescription(getString(R.string.more_transits));
@@ -3209,8 +3215,7 @@ public final class MainActivity extends Activity {
         LinearLayout title = column();
         title.addView(label(EclipseCatalog.typeLabel(this, event.type), 15, ink));
         heading.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        TextView live = nowBadge();
-        live.setContentDescription(getString(R.string.astronomy_visible_now));
+        TextView live = nowActionBadge(entry::performClick);
         live.setVisibility(View.GONE);
         LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
         liveSize.setMarginStart(dp(6));
@@ -3318,7 +3323,15 @@ public final class MainActivity extends Activity {
         when.setPadding(0, dp(3), 0, 0);
         title.addView(when);
         header.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        header.addView(skyTrackChevron());
+        TextView live = nowActionBadge(entry::performClick);
+        live.setVisibility(View.GONE);
+        LinearLayout.LayoutParams liveSize = new LinearLayout.LayoutParams(-2, -2);
+        liveSize.setMarginStart(dp(6));
+        header.addView(live, liveSize);
+        View arrow = skyTrackChevron();
+        header.addView(arrow);
+        visibilityBadges.add(new VisibilityBadge(event.visibleStart.getEpochSecond(),
+                event.visibleEnd.getEpochSecond(), live, arrow));
         entry.addView(header);
 
         ZonedDateTime start = event.visibleStart.atZone(zone);

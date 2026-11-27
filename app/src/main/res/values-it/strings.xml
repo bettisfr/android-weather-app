@@ -428,4 +428,5 @@
     <string name="air_quality_unit">µg/m³</string>
     <string name="astronomy_alert_exact_enable">Consenti allarmi esatti per ricevere gli avvisi in orario</string>
     <string name="astronomy_alert_exact_allowed">Allarmi esatti consentiti</string>
+    <string name="astronomy_open_now_details">Visibile ora. Apri dettagli</string>
 </resources>
