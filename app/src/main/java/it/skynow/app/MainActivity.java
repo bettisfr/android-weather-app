@@ -1,5 +1,6 @@
 package it.skynow.app;
 
+import it.skynow.app.update.GitHubUpdates;
 import it.skynow.app.notifications.IssAlerts;
 import it.skynow.app.notifications.EarthquakeAlerts;
 import it.skynow.app.notifications.EarthquakeAlertCheck;
@@ -601,6 +602,7 @@ public final class MainActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         resumed = true;
+        GitHubUpdates.checkAutomatically(this);
         EarthquakeAlerts.syncSubscription(this);
         EarthquakeAlertCheck.updateSchedule(this);
         requestAstronomyNotificationPermission();

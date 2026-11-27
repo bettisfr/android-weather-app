@@ -30,6 +30,7 @@ import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
 
+import it.skynow.app.update.GitHubUpdates;
 import it.skynow.app.astronomy.AuroraForecast;
 import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.maps.SatelliteImagery;
@@ -306,6 +307,9 @@ public final class SettingsActivity extends Activity {
         author.setGravity(Gravity.CENTER);
         author.setPadding(0, dp(12), 0, dp(16));
         card.addView(author);
+        LinearLayout updates = settingRow(getString(R.string.update_check));
+        updates.setOnClickListener(view -> GitHubUpdates.checkManually(this));
+        addRow(card, updates);
         addCredit(card, R.string.app_github, "https://github.com/bettisfr/skyhere");
     }
 

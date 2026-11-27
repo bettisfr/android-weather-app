@@ -412,4 +412,12 @@
     <string name="earthquake_alert_on">Attivati</string>
     <string name="earthquake_alert_detail">Scossa alle %1$s · A %2$d km</string>
     <string name="app_github">Apri il repository su GitHub</string>
+    <string name="update_channel">Aggiornamenti app</string>
+    <string name="update_check">Controlla aggiornamenti</string>
+    <string name="update_checking">Controllo le release su GitHub…</string>
+    <string name="update_up_to_date">SkyHere è aggiornata.</string>
+    <string name="update_check_failed">Impossibile controllare gli aggiornamenti.</string>
+    <string name="update_available">Aggiornamento disponibile</string>
+    <string name="update_version">SkyHere %1$s è disponibile.</string>
+    <string name="update_download">Scarica APK</string>
 </resources>

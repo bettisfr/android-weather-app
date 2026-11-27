@@ -2,6 +2,14 @@
 
 SkyHere is an Android app for local weather, interactive maps, skywatching, and recent seismic activity in Italy. Use your current location or choose a saved city. The interface follows Android’s language settings and is available in English and Italian.
 
+## Download and updates
+
+Download the signed [SkyHere APK](https://github.com/bettisfr/skyhere/releases/latest/download/SkyHere.apk) from GitHub Releases. Android asks you to confirm the installation.
+
+SkyHere checks for a new release when opened, at most once a day. You can also use **Settings → About → Check for updates** at any time. Update notices link to the APK download. Future builds from this release channel use the same signing key and a higher Android version code.
+
+The first signed GitHub release uses a different signing key from previous debug builds. Android requires removing the debug build before installing it, which resets the app’s local data.
+
 ## Screenshots
 
 <p>
