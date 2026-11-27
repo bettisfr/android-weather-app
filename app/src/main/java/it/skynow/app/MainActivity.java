@@ -1693,14 +1693,24 @@ public final class MainActivity extends Activity {
                 }
                 TextView reading = label("", 16, ink);
                 reading.setText(valueWithUnit);
-                reading.setPadding(0, dp(2), 0, 0);
-                cell.addView(reading);
-                cell.setContentDescription(lineReading(getString(names[i]), concentration, unit));
+                AirQualityBand band = AirQualityBand.forConcentration(fields[i], concentration);
+                String description = lineReading(getString(names[i]), concentration, unit);
+                if (band != null) {
+                    reading.setBackground(background(SignalColors.tint(band.color), 7));
+                    reading.setPaddingRelative(dp(6), dp(2), dp(6), dp(2));
+                    description += " · " + getString(band.label);
+                }
+                LinearLayout.LayoutParams readingSize = new LinearLayout.LayoutParams(-2, -2);
+                readingSize.topMargin = dp(3);
+                cell.addView(reading, readingSize);
+                cell.setContentDescription(description);
                 cell.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
                 for (int child = 0; child < cell.getChildCount(); child++) {
                     cell.getChildAt(child).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
                 }
-                line.addView(cell, new LinearLayout.LayoutParams(0, -2, 1));
+                LinearLayout.LayoutParams cellSize = new LinearLayout.LayoutParams(0, -2, 1);
+                if (i - start < columns - 1) cellSize.setMarginEnd(dp(4));
+                line.addView(cell, cellSize);
             }
             for (int i = end - start; i < columns; i++) {
                 line.addView(new View(this), new LinearLayout.LayoutParams(0, 0, 1));

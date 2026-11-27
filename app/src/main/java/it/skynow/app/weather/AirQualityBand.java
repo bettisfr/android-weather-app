@@ -28,4 +28,22 @@ public enum AirQualityBand {
         }
         return EXTREME;
     }
+
+    // Open-Meteo's European AQI bands for hourly concentrations in µg/m³.
+    public static AirQualityBand forConcentration(String pollutant, double value) {
+        if (!Double.isFinite(value) || value < 0) return null;
+        int[] thresholds;
+        switch (pollutant) {
+            case "pm2_5": thresholds = new int[]{5, 15, 50, 90, 140}; break;
+            case "pm10": thresholds = new int[]{15, 45, 120, 195, 270}; break;
+            case "ozone": thresholds = new int[]{60, 100, 120, 160, 180}; break;
+            case "nitrogen_dioxide": thresholds = new int[]{10, 25, 60, 100, 150}; break;
+            case "sulphur_dioxide": thresholds = new int[]{20, 40, 125, 190, 275}; break;
+            default: return null;
+        }
+        for (int i = 0; i < thresholds.length; i++) {
+            if (value <= thresholds[i]) return BANDS[i];
+        }
+        return EXTREME;
+    }
 }
