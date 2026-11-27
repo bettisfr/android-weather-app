@@ -2037,18 +2037,14 @@ public final class MainActivity extends Activity {
                 () -> showDailySkyTrack(getString(R.string.moon), true, null, null));
         LinearLayout readings = row();
         readings.setGravity(Gravity.TOP);
+        LocalDateTime moonrise = nextLunarEvent(daily, "moonrise", index, null);
         for (String field : new String[]{"moonrise", "moonset"}) {
             boolean rise = field.equals("moonrise");
             String event = getString(rise ? R.string.moonrise : R.string.moonset);
-            int eventDay = index;
-            String timestamp = at(daily, field, eventDay);
-            while (timestamp.length() < 16 && eventDay + 1 < length(daily)) {
-                timestamp = at(daily, field, ++eventDay);
-            }
+            LocalDateTime eventTime = rise ? moonrise : nextLunarEvent(daily, field, index, moonrise);
             LinearLayout time = addRiseSetTime(readings, event,
-                    timestamp.length() >= 16 ? clock(timestamp) : getString(R.string.unavailable), !rise);
-            if (timestamp.length() >= 16) {
-                LocalDateTime eventTime = LocalDateTime.parse(timestamp);
+                    eventTime == null ? getString(R.string.unavailable) : eventTime.format(clockFormat()), !rise);
+            if (eventTime != null) {
                 LocalDate eventDate = eventTime.toLocalDate();
                 String dayLabel = eventDate.equals(date) ? getString(R.string.today)
                         : eventDate.equals(date.plusDays(1)) ? getString(R.string.tomorrow)
@@ -2105,6 +2101,16 @@ public final class MainActivity extends Activity {
         addOrbitalApsides(tile, zone, true);
         addUpcomingTimes(tile, daily, index, true);
         addSpaced(page, tile, 9);
+    }
+
+    private LocalDateTime nextLunarEvent(JSONObject daily, String field, int index, LocalDateTime after) {
+        for (int day = index; day < length(daily); day++) {
+            String timestamp = at(daily, field, day);
+            if (timestamp.length() < 16) continue;
+            LocalDateTime event = LocalDateTime.parse(timestamp);
+            if (after == null || event.isAfter(after)) return event;
+        }
+        return null;
     }
 
     private void addOrbitalApsides(LinearLayout tile, ZoneId zone, boolean moon) {
