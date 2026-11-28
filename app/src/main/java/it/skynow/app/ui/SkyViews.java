@@ -210,12 +210,17 @@ public final class SkyViews {
         card.setOnClickListener(v -> action.run());
     }
 
+    /** A compact pill with an icon, for secondary actions such as opening a map. */
     public Button iconActionButton(int title, int icon, Runnable open) {
         Button button = actionButton(context.getString(title), context.getColor(R.color.sky_action), 24);
         int foreground = context.getColor(R.color.sky_on_action);
         button.setTextColor(foreground);
+        button.setTextSize(13);
+        button.setMinHeight(0);
+        button.setMinimumHeight(0);
+        button.setPaddingRelative(dp(10), dp(5), dp(12), dp(5));
         button.setCompoundDrawableTintList(ColorStateList.valueOf(foreground));
-        button.setCompoundDrawablePadding(dp(7));
+        button.setCompoundDrawablePadding(dp(5));
         button.setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0);
         button.setOnClickListener(view -> open.run());
         return button;
