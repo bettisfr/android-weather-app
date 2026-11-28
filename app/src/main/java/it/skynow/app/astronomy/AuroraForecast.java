@@ -14,7 +14,6 @@ public final class AuroraForecast {
     public static final String MAP = "https://www.spaceweather.gov/products/aurora-30-minute-forecast";
     public static final int MAP_MIN_ACTIVITY = 5;
     private static final String FEED = "https://services.swpc.noaa.gov/json/ovation_aurora_latest.json";
-    private static final String CURRENT_KP = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json";
     private static final String KP_FEED = "https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json";
     private static final double EARTH_RADIUS_KM = 6371;
     private static final double SEARCH_RADIUS_KM = 1000;
@@ -39,24 +38,29 @@ public final class AuroraForecast {
         return new AuroraForecast(response);
     }
 
-    public static KpReading loadCurrentKp() throws Exception {
-        return parseCurrentKp(new JSONArray(read(CURRENT_KP)));
+    /**
+     * NOAA's Kp for the three-hour interval in progress, from the same SWPC feed as the forecast.
+     * The one-minute "estimated Kp" product is not used: it restarts from 0 every three hours.
+     */
+    public static KpReading loadCurrentKp(Instant now) throws Exception {
+        return parseCurrentKp(new JSONArray(read(KP_FEED)), now);
     }
 
-    /** The latest valid estimate in NOAA's one-minute planetary K index feed, or null. */
-    static KpReading parseCurrentKp(JSONArray rows) {
-        KpReading latest = null;
+    /** The row of the interval containing {@code now}, or null. */
+    static KpReading parseCurrentKp(JSONArray rows, Instant now) {
         for (int i = 0; i < rows.length(); i++) {
             JSONObject row = rows.optJSONObject(i);
             if (row == null) continue;
-            double kp = row.optDouble("estimated_kp");
+            double kp = row.optDouble("kp");
             if (!(kp >= 0 && kp <= 9)) continue;
-            Instant time = LocalDateTime.parse(row.optString("time_tag")).toInstant(ZoneOffset.UTC);
-            if (latest == null || time.isAfter(latest.time)) latest = new KpReading(time, kp);
+            Instant start = LocalDateTime.parse(row.optString("time_tag")).toInstant(ZoneOffset.UTC);
+            KpReading reading = new KpReading(start, kp);
+            if (!start.isAfter(now) && reading.end().isAfter(now)) return reading;
         }
-        return latest;
+        return null;
     }
 
+    /** The planetary K index of the three-hour interval starting at {@code time}. */
     public static final class KpReading {
         public final Instant time;
         public final double kp;
@@ -65,18 +69,22 @@ public final class AuroraForecast {
             this.time = time;
             this.kp = kp;
         }
+
+        public Instant end() {
+            return time.plusSeconds(10800);
+        }
     }
 
     public static List<KpPeriod> loadKp() throws Exception {
         return parseKp(new JSONArray(read(KP_FEED)));
     }
 
-    /** The predicted three-hour periods of NOAA's planetary K index forecast. */
+    /** The estimated and predicted three-hour periods of NOAA's planetary K index forecast. */
     static List<KpPeriod> parseKp(JSONArray rows) {
         List<KpPeriod> periods = new ArrayList<>();
         for (int i = 0; i < rows.length(); i++) {
             JSONObject row = rows.optJSONObject(i);
-            if (row == null || !"predicted".equals(row.optString("observed"))) continue;
+            if (row == null || "observed".equals(row.optString("observed"))) continue;
             double kp = row.optDouble("kp");
             if (!(kp >= 0 && kp <= 9)) continue;
             Instant start = LocalDateTime.parse(row.optString("time_tag")).toInstant(ZoneOffset.UTC);

@@ -188,7 +188,8 @@ final class AuroraSection {
         Instant now = Instant.now();
         LocalDate currentDate = null;
         for (AuroraForecast.KpPeriod period : kpPeriods) {
-            if (!period.end().isAfter(now)) continue;
+            // The interval in progress is shown above as the current Kp.
+            if (!period.start.isAfter(now)) continue;
             LocalDate date = period.start.atZone(zone).toLocalDate();
             if (!date.equals(currentDate)) {
                 TextView dayLabel = views.label(dates.format(period.start), 13, views.muted);
@@ -234,7 +235,7 @@ final class AuroraSection {
         auroraLoading = true;
         CompletableFuture.supplyAsync(() -> {
             try {
-                return AuroraForecast.loadCurrentKp();
+                return AuroraForecast.loadCurrentKp(Instant.now());
             } catch (Exception error) {
                 android.util.Log.w("AuroraForecast", "NOAA current Kp unavailable", error);
                 return null;
@@ -261,7 +262,8 @@ final class AuroraSection {
 
     private void updateCurrentKp(Instant now) {
         if (currentKpView == null) return;
-        if (currentKp == null || now.isAfter(currentKp.time.plusSeconds(1800))) {
+        // The reading belongs to one interval; the minute refresh replaces it soon after the next begins.
+        if (currentKp == null || now.isAfter(currentKp.end().plusSeconds(600))) {
             currentKpBar.setVisibility(View.GONE);
             currentKpView.setText(R.string.aurora_kp_current_unavailable);
             return;
@@ -269,8 +271,9 @@ final class AuroraSection {
         currentKpBar.setVisibility(View.VISIBLE);
         currentKpBar.getBackground().setLevel((int) Math.round(currentKp.kp * 10000 / 9));
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
-        currentKpView.setText(activity.getString(R.string.aurora_kp_current, formats().number(currentKp.kp, "%.2f"),
-                Formats.formatTime(currentKp.time.atZone(zone).toLocalTime(), formats().clockFormat())));
+        String interval = Formats.formatTime(currentKp.time.atZone(zone).toLocalTime(), formats().clockFormat())
+                + "–" + Formats.formatTime(currentKp.end().atZone(zone).toLocalTime(), formats().clockFormat());
+        currentKpView.setText(activity.getString(R.string.aurora_kp_current, formats().number(currentKp.kp, "%.2f"), interval));
     }
 
     private void updateAurora(Instant now) {

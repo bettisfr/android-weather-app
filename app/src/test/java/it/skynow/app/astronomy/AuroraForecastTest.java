@@ -63,27 +63,31 @@ public class AuroraForecastTest {
         assertTrue(Double.isNaN(ovation(new int[]{19, 50, 60}).estimatedDirection(68.35, 18.83)));
     }
 
-    @Test public void currentKpIsTheLatestValidEstimate() throws Exception {
-        JSONArray rows = new JSONArray()
-                .put(new JSONObject().put("time_tag", "2026-11-27T21:57:00").put("estimated_kp", 2.33))
-                .put(new JSONObject().put("time_tag", "2026-11-27T21:59:00").put("estimated_kp", -1))
-                .put(new JSONObject().put("time_tag", "2026-11-27T21:58:00").put("estimated_kp", 2.67));
-        AuroraForecast.KpReading reading = AuroraForecast.parseCurrentKp(rows);
-        assertEquals(Instant.parse("2026-11-27T21:58:00Z"), reading.time);
-        assertEquals(2.67, reading.kp, 0);
-        assertNull(AuroraForecast.parseCurrentKp(new JSONArray()));
+    /** Rows of SWPC's noaa-planetary-k-index-forecast.json as published on 28 November 2026. */
+    private static JSONArray forecastRows() throws Exception {
+        return new JSONArray()
+                .put(new JSONObject().put("time_tag", "2026-11-28T15:00:00").put("kp", 3.67).put("observed", "observed"))
+                .put(new JSONObject().put("time_tag", "2026-11-28T18:00:00").put("kp", 2.67).put("observed", "estimated"))
+                .put(new JSONObject().put("time_tag", "2026-11-28T21:00:00").put("kp", 3.67).put("observed", "estimated"))
+                .put(new JSONObject().put("time_tag", "2026-11-29T00:00:00").put("kp", 3.67).put("observed", "predicted"))
+                .put(new JSONObject().put("time_tag", "2026-11-29T03:00:00").put("kp", 10).put("observed", "predicted"));
     }
 
-    @Test public void forecastKeepsOnlyPredictedPeriods() throws Exception {
-        JSONArray rows = new JSONArray()
-                .put(new JSONObject().put("time_tag", "2026-11-27T18:00:00").put("kp", 3).put("observed", "observed"))
-                .put(new JSONObject().put("time_tag", "2026-11-28T00:00:00").put("kp", 4).put("observed", "predicted"))
-                .put(new JSONObject().put("time_tag", "2026-11-28T03:00:00").put("kp", 10).put("observed", "predicted"))
-                .put(new JSONObject().put("time_tag", "2026-11-28T06:00:00").put("kp", 3.67).put("observed", "predicted"));
-        List<AuroraForecast.KpPeriod> periods = AuroraForecast.parseKp(rows);
-        assertEquals(2, periods.size());
-        assertEquals(Instant.parse("2026-11-28T00:00:00Z"), periods.get(0).start);
-        assertEquals(Instant.parse("2026-11-28T03:00:00Z"), periods.get(0).end());
-        assertEquals(3.67, periods.get(1).kp, 0);
+    @Test public void currentKpIsTheIntervalInProgress() throws Exception {
+        AuroraForecast.KpReading reading = AuroraForecast.parseCurrentKp(forecastRows(), Instant.parse("2026-11-28T18:27:00Z"));
+        assertEquals(Instant.parse("2026-11-28T18:00:00Z"), reading.time);
+        assertEquals(Instant.parse("2026-11-28T21:00:00Z"), reading.end());
+        assertEquals(2.67, reading.kp, 0);
+        // At the boundary the new interval takes over.
+        assertEquals(3.67, AuroraForecast.parseCurrentKp(forecastRows(), Instant.parse("2026-11-28T21:00:00Z")).kp, 0);
+        assertNull(AuroraForecast.parseCurrentKp(forecastRows(), Instant.parse("2026-12-05T00:00:00Z")));
+    }
+
+    @Test public void forecastSkipsObservedAndInvalidPeriods() throws Exception {
+        List<AuroraForecast.KpPeriod> periods = AuroraForecast.parseKp(forecastRows());
+        assertEquals(3, periods.size());
+        assertEquals(Instant.parse("2026-11-28T18:00:00Z"), periods.get(0).start);
+        assertEquals(Instant.parse("2026-11-28T21:00:00Z"), periods.get(0).end());
+        assertEquals(3.67, periods.get(2).kp, 0);
     }
 }
