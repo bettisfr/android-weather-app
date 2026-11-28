@@ -25,6 +25,7 @@ public final class AuroraAlerts {
     public static final String OPEN_ASTRONOMY = "openAuroraAlert";
     private static final String CHANNEL = "aurora_alerts";
     private static final int JOB_ID = 176;
+    private static final int CHECK_NOW_JOB_ID = 177;
     private static final long CHECK_INTERVAL_MS = 30 * 60_000L;
 
     private AuroraAlerts() {}
@@ -40,6 +41,7 @@ public final class AuroraAlerts {
     public static void setEnabled(Context context, boolean enabled) {
         settings(context).edit().putBoolean("enabled", enabled).remove("covered").apply();
         updateSchedule(context);
+        if (enabled) checkSoon(context);
     }
 
     /** Remembers the forecast place, the one the alerts are for. */
@@ -54,12 +56,14 @@ public final class AuroraAlerts {
         if (moved) edit.remove("covered").remove("alertedAt");
         edit.apply();
         updateSchedule(context);
+        if (moved && enabled(context)) checkSoon(context);
     }
 
     public static void updateSchedule(Context context) {
         JobScheduler jobs = context.getSystemService(JobScheduler.class);
         if (!enabled(context) || settings(context).getString("latitude", "").isEmpty()) {
             jobs.cancel(JOB_ID);
+            jobs.cancel(CHECK_NOW_JOB_ID);
         } else if (jobs.getPendingJob(JOB_ID) == null) {
             jobs.schedule(new JobInfo.Builder(JOB_ID, new ComponentName(context, AuroraAlertCheck.class))
                     .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
@@ -67,6 +71,17 @@ public final class AuroraAlerts {
                     .setPersisted(true)
                     .build());
         }
+    }
+
+    /**
+     * Checks once as soon as there is a network. The periodic job may first run up to an hour after it
+     * is scheduled, which is too late right after alerts are turned on or the place changes.
+     */
+    private static void checkSoon(Context context) {
+        context.getSystemService(JobScheduler.class).schedule(
+                new JobInfo.Builder(CHECK_NOW_JOB_ID, new ComponentName(context, AuroraAlertCheck.class))
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .build());
     }
 
     private static boolean canDeliver(Context context) {
