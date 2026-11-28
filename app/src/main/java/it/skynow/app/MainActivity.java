@@ -2,6 +2,7 @@ package it.skynow.app;
 
 import it.skynow.app.update.GitHubUpdates;
 import it.skynow.app.notifications.IssAlerts;
+import it.skynow.app.notifications.AuroraAlerts;
 import it.skynow.app.notifications.EarthquakeAlerts;
 import it.skynow.app.notifications.EarthquakeAlertCheck;
 import it.skynow.app.astronomy.IssPasses;
@@ -171,7 +172,8 @@ public final class MainActivity extends Activity {
             load();
         } else {
             astronomy.setPendingEventSection(getIntent().getStringExtra(IssAlerts.OPEN_EVENT_SECTION));
-            if (astronomy.hasPendingEventSection() || getIntent().getBooleanExtra("openIssAlerts", false)) {
+            if (astronomy.hasPendingEventSection() || getIntent().getBooleanExtra("openIssAlerts", false)
+                    || getIntent().getBooleanExtra(AuroraAlerts.OPEN_ASTRONOMY, false)) {
                 dashboardTab = DashboardTab.ASTRONOMY;
             }
             currentLocation(!prefs.getBoolean("askedForLocation", false));
@@ -210,6 +212,12 @@ public final class MainActivity extends Activity {
     }
 
     private void openIssNotification(Intent intent) {
+        if (intent.getBooleanExtra(AuroraAlerts.OPEN_ASTRONOMY, false)) {
+            day = -1;
+            dashboardTab = DashboardTab.ASTRONOMY;
+            if (data != null) render();
+            return;
+        }
         if (!intent.getBooleanExtra("openIssAlerts", false)) return;
         day = -1;
         dashboardTab = DashboardTab.ASTRONOMY;
@@ -364,6 +372,8 @@ public final class MainActivity extends Activity {
                 if (gps && name != null && !name.trim().isEmpty()) {
                     place = name;
                     devicePlace = name;
+                    // The forecast may have been saved for alerts before the new place had a name.
+                    AuroraAlerts.setLocation(this, lat, lon, name);
                     if (placeHeader != null) updatePlaceHeader();
                     updateCurrentLocationShortcut();
                 }
@@ -483,6 +493,7 @@ public final class MainActivity extends Activity {
         if (getResources().getBoolean(R.bool.check_for_release_updates)) GitHubUpdates.checkAutomatically(this);
         EarthquakeAlerts.syncSubscription(this);
         EarthquakeAlertCheck.updateSchedule(this);
+        AuroraAlerts.updateSchedule(this);
         requestAstronomyNotificationPermission();
         weather.refreshWarnings();
         astronomy.onResume();
@@ -504,7 +515,7 @@ public final class MainActivity extends Activity {
     private void requestAstronomyNotificationPermission() {
         if (android.os.Build.VERSION.SDK_INT < 33 || !resumed || data == null
                 || choosingLocation || locationListener != null
-                || (!IssAlerts.anyEnabled(this) && !EarthquakeAlerts.enabled(this))
+                || (!IssAlerts.anyEnabled(this) && !EarthquakeAlerts.enabled(this) && !AuroraAlerts.enabled(this))
                 || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
         android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
         if (prefs.getBoolean("askedForAstronomyNotifications", false)) return;
@@ -559,6 +570,7 @@ public final class MainActivity extends Activity {
                     astronomy.setNotificationZone(null);
                     IssAlerts.update(this, lat, lon, response.optDouble("elevation"),
                             response.optString("timezone", "UTC"), place);
+                    AuroraAlerts.setLocation(this, lat, lon, place);
                     cachedForecastAt = null;
                     ForecastCache.write(this, serialized, updatedAt, lat, lon, place, selectedCountry, selectedRegion);
                     if (usingCurrentLocation) {
@@ -788,8 +800,11 @@ public final class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != SETTINGS_REQUEST || resultCode != RESULT_OK) return;
         boolean changed = readDisplayPreferences(getPreferences(MODE_PRIVATE));
-        if (this.data != null) IssAlerts.update(this, latitude, longitude, this.data.optDouble("elevation"),
-                this.data.optString("timezone", "UTC"), place);
+        if (this.data != null) {
+            IssAlerts.update(this, latitude, longitude, this.data.optDouble("elevation"),
+                    this.data.optString("timezone", "UTC"), place);
+            AuroraAlerts.setLocation(this, latitude, longitude, place);
+        }
         if (SkyTheme.preference(this) != appliedTheme || SkyLanguage.preference(this) != appliedLanguage) recreate();
         else if (changed && this.data != null) render();
     }

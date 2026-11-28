@@ -425,6 +425,12 @@
         <item quantity="one">Visibility starts in %d minute.</item>
         <item quantity="other">Visibility starts in %d minutes.</item>
     </plurals>
+    <string name="aurora_alerts">Aurora alerts</string>
+    <string name="aurora_alert_off">Off</string>
+    <string name="aurora_alert_on">When visible now</string>
+    <string name="aurora_alert_title">Aurora possible now</string>
+    <string name="aurora_alert_text">%1$s is under NOAA\'s forecast aurora oval and the sky is dark.</string>
+    <string name="aurora_alert_text_here">Your place is under NOAA\'s forecast aurora oval and the sky is dark.</string>
     <string name="earthquake_alerts">Earthquake alerts</string>
     <string name="earthquake_alert_off">Off</string>
     <string name="earthquake_alert_on">On</string>

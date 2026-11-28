@@ -39,6 +39,7 @@ import it.skynow.app.astronomy.HorizonsDistance;
 import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.maps.SatelliteImagery;
 import it.skynow.app.notifications.IssAlerts;
+import it.skynow.app.notifications.AuroraAlerts;
 import it.skynow.app.notifications.EarthquakeAlerts;
 import it.skynow.app.seismic.EarthquakeFeed;
 
@@ -139,6 +140,12 @@ public final class SettingsActivity extends Activity {
                 });
             });
         }
+        choice(notifications, R.string.aurora_alerts,
+                new String[]{getString(R.string.aurora_alert_off), getString(R.string.aurora_alert_on)},
+                () -> AuroraAlerts.enabled(this) ? 1 : 0, index -> {
+                    AuroraAlerts.setEnabled(this, index != 0);
+                    if (index != 0) allowAstronomyNotifications();
+                });
         choice(notifications, R.string.earthquake_alerts,
                 new String[]{getString(R.string.earthquake_alert_off), getString(R.string.earthquake_alert_on)},
                 () -> EarthquakeAlerts.enabled(this) ? 1 : 0, index -> {

@@ -421,6 +421,12 @@
         <item quantity="one">La visibilità inizia tra %d minuto.</item>
         <item quantity="other">La visibilità inizia tra %d minuti.</item>
     </plurals>
+    <string name="aurora_alerts">Avvisi aurora</string>
+    <string name="aurora_alert_off">Disattivati</string>
+    <string name="aurora_alert_on">Quando è visibile ora</string>
+    <string name="aurora_alert_title">Aurora possibile ora</string>
+    <string name="aurora_alert_text">%1$s è sotto l\'ovale aurorale previsto dalla NOAA e il cielo è buio.</string>
+    <string name="aurora_alert_text_here">La tua località è sotto l\'ovale aurorale previsto dalla NOAA e il cielo è buio.</string>
     <string name="earthquake_alerts">Avvisi terremoti</string>
     <string name="earthquake_alert_off">Disattivati</string>
     <string name="earthquake_alert_on">Attivati</string>
