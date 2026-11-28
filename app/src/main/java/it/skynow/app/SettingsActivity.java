@@ -35,6 +35,7 @@ import java.util.function.IntSupplier;
 
 import it.skynow.app.update.GitHubUpdates;
 import it.skynow.app.astronomy.AuroraForecast;
+import it.skynow.app.astronomy.HorizonsDistance;
 import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.maps.SatelliteImagery;
 import it.skynow.app.notifications.IssAlerts;
@@ -358,6 +359,7 @@ public final class SettingsActivity extends Activity {
         addCredit(links, R.string.transit_credit, "https://eclipse.gsfc.nasa.gov/transit/transit.html");
         addCredit(links, R.string.seasons_credit, "https://aa.usno.navy.mil/data/Earth_Seasons");
         addCredit(links, R.string.orbital_apsides_credit, OrbitalApsides.SOURCE);
+        addCredit(links, R.string.distance_credit, HorizonsDistance.SOURCE);
     }
 
     private void addCredit(LinearLayout section, int title, String url) {

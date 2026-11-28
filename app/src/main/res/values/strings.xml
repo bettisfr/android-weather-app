@@ -111,6 +111,7 @@
     <string name="moonset">Moonset</string>
     <string name="unavailable">Unavailable</string>
     <string name="tomorrow">Tomorrow</string>
+    <string name="distance_from_earth">Distance from Earth</string>
     <string name="next_full_moon">Next full moon</string>
     <string name="next_new_moon">Next new moon</string>
     <string name="eclipses">Eclipses</string>
@@ -128,6 +129,7 @@
     <string name="next_perigee">Next perigee</string>
     <string name="next_apogee">Next apogee</string>
     <string name="orbital_apsides_credit">Orbital apsides · NASA/JPL DE440</string>
+    <string name="distance_credit">Sun and Moon distances · NASA/JPL Horizons</string>
     <string name="collapsed">Collapsed</string>
     <string name="expanded">Expanded</string>
     <string name="lunar_eclipses">Lunar eclipses</string>

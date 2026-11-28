@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.graphics.Typeface;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
@@ -12,6 +13,7 @@ import android.widget.ScrollView;
 import it.skynow.app.R;
 import it.skynow.app.astronomy.IssPasses;
 import it.skynow.app.astronomy.LunarPhases;
+import it.skynow.app.astronomy.HorizonsDistance;
 import it.skynow.app.astronomy.MoonPhaseView;
 import it.skynow.app.astronomy.OrbitalApsides;
 import it.skynow.app.astronomy.PlanetIcon;
@@ -69,6 +71,8 @@ public final class AstronomyTab {
 
     private TextView sunCoordinates;
     private TextView moonCoordinates;
+    private final LiveDistance sunDistance = new LiveDistance(HorizonsDistance.Body.SUN);
+    private final LiveDistance moonDistance = new LiveDistance(HorizonsDistance.Body.MOON);
     private LinearLayout sunTrackHeading, moonTrackHeading;
     private SkyPath sunPath, moonPath;
     private String astronomyTailKey;
@@ -141,6 +145,8 @@ public final class AstronomyTab {
         auroraSection.detach();
         sunCoordinates = null;
         moonCoordinates = null;
+        sunDistance.detach();
+        moonDistance.detach();
         sunTrackHeading = null;
         moonTrackHeading = null;
         sunPath = null;
@@ -166,6 +172,8 @@ public final class AstronomyTab {
     public void tick(Instant now) {
         if (sunCoordinates != null) setSkyCoordinates(sunCoordinates, now, false);
         if (moonCoordinates != null) setSkyCoordinates(moonCoordinates, now, true);
+        sunDistance.refresh();
+        moonDistance.refresh();
         if (!planetRows.isEmpty()) updatePlanets(now);
         auroraSection.tick(now);
     }
@@ -309,6 +317,7 @@ public final class AstronomyTab {
         addSunPathDetails(tile, daily, index, seconds);
         sunCoordinates = skyCoordinates(false);
         tile.addView(sunCoordinates);
+        addDistance(tile, sunDistance);
         ZoneId zone = ZoneId.of(data.optString("timezone", "UTC"));
         addOrbitalApsides(tile, zone, false);
         addUpcomingTimes(tile, daily, index, false, Double.NaN);
@@ -421,6 +430,7 @@ public final class AstronomyTab {
         views.addSpaced(tile, phaseDetails, 8);
         moonCoordinates = skyCoordinates(true);
         tile.addView(moonCoordinates);
+        addDistance(tile, moonDistance);
         DateTimeFormatter format = formats().shortDate(false);
         LinearLayout phases = views.row();
         phases.setGravity(Gravity.TOP);
@@ -439,6 +449,79 @@ public final class AstronomyTab {
         addOrbitalApsides(tile, zone, true);
         addUpcomingTimes(tile, daily, index, true, phase);
         views.addSpaced(page, tile, 9);
+    }
+
+    /** Adds the distance reading below the sky coordinates, in the same place on the Sun and Moon cards. */
+    private void addDistance(LinearLayout tile, LiveDistance distance) {
+        LinearLayout reading = distance.create();
+        reading.setPadding(0, views.dp(12), 0, 0);
+        tile.addView(reading);
+        distance.refresh();
+    }
+
+    /** A "distance from Earth" reading for the Sun or Moon card, kept current from NASA/JPL Horizons. */
+    private final class LiveDistance {
+        private final HorizonsDistance.Body body;
+        private TextView value;
+        private View column;
+        private long attempt;
+        private boolean loading;
+
+        LiveDistance(HorizonsDistance.Body body) {
+            this.body = body;
+        }
+
+        /** The reading's views, hidden until a distance is known. */
+        LinearLayout create() {
+            LinearLayout reading = views.column();
+            reading.setVisibility(View.GONE);
+            value = views.label("", 15, views.ink);
+            reading.addView(value);
+            TextView title = views.label(activity.getString(R.string.distance_from_earth), 13, views.muted);
+            title.setPadding(0, views.dp(6), 0, 0);
+            reading.addView(title);
+            column = reading;
+            return reading;
+        }
+
+        void detach() {
+            value = null;
+            column = null;
+        }
+
+        /** Shows the distance from the cached table, downloading a new one when it no longer covers now. */
+        void refresh() {
+            if (value == null) return;
+            Instant now = Instant.now();
+            HorizonsDistance table = HorizonsDistance.cached(body);
+            if (table != null && table.covers(now)) {
+                show(now);
+                return;
+            }
+            long elapsed = SystemClock.elapsedRealtime();
+            if (loading || (attempt != 0 && elapsed - attempt < 15 * 60 * 1000L)) return;
+            attempt = elapsed;
+            loading = true;
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    return HorizonsDistance.load(body, now);
+                } catch (Exception error) {
+                    android.util.Log.w("SkyHere", "JPL Horizons distance unavailable: " + body, error);
+                    return null;
+                }
+            }, Background.IO).thenAccept(result -> main.post(() -> {
+                loading = false;
+                if (!activity.isDestroyed()) show(Instant.now());
+            }));
+        }
+
+        private void show(Instant now) {
+            if (value == null) return;
+            HorizonsDistance table = HorizonsDistance.cached(body);
+            double km = table == null ? Double.NaN : table.kmAt(now);
+            column.setVisibility(Double.isFinite(km) ? View.VISIBLE : View.GONE);
+            if (Double.isFinite(km)) value.setText(String.format(formats().appLocale(), "%,d km", Math.round(km)));
+        }
     }
 
     private LocalDateTime nextLunarEvent(JSONObject daily, String field, int index, LocalDateTime after) {

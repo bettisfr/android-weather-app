@@ -110,6 +110,7 @@
     <string name="moonset">Tramonto lunare</string>
     <string name="unavailable">Non disponibile</string>
     <string name="tomorrow">Domani</string>
+    <string name="distance_from_earth">Distanza dalla Terra</string>
     <string name="next_full_moon">Prossima luna piena</string>
     <string name="next_new_moon">Prossima luna nuova</string>
     <string name="eclipses">Eclissi</string>
@@ -127,6 +128,7 @@
     <string name="next_perigee">Prossimo perigeo</string>
     <string name="next_apogee">Prossimo apogeo</string>
     <string name="orbital_apsides_credit">Apsidi orbitali · NASA/JPL DE440</string>
+    <string name="distance_credit">Distanze di Sole e Luna · NASA/JPL Horizons</string>
     <string name="collapsed">Chiuso</string>
     <string name="expanded">Aperto</string>
     <string name="lunar_eclipses">Eclissi lunari</string>
