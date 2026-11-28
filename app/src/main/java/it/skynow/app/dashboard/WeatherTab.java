@@ -4,7 +4,6 @@ import it.skynow.app.net.Background;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -24,6 +23,7 @@ import it.skynow.app.weather.MeteoAlarm;
 import it.skynow.app.weather.OpenMeteo;
 import it.skynow.app.weather.WarningTitles;
 import it.skynow.app.weather.WeatherCodes;
+import it.skynow.app.weather.views.AqiGauge;
 import it.skynow.app.weather.views.HourlyLineChart;
 import it.skynow.app.weather.views.HumidityGauge;
 import it.skynow.app.weather.views.PressureGauge;
@@ -45,6 +45,7 @@ import org.json.JSONObject;
 public final class WeatherTab {
     /** Days shown in the forecast list and the day picker. */
     public static final int MAX_DAYS = 10;
+    private static final int METRIC_GAP_DP = 10;
 
     /** State the tab reads from the activity. */
     public interface Host {
@@ -592,25 +593,31 @@ public final class WeatherTab {
     private void airQuality() {
         LinearLayout tile = views.card();
         LinearLayout heading = views.row();
-        heading.setGravity(Gravity.TOP);
-        LinearLayout summary = views.column();
-        summary.addView(views.label(activity.getString(R.string.air_quality), 14, views.muted));
-        TextView index = views.label(activity.getString(R.string.air_quality_loading), 19, views.ink);
-        LinearLayout.LayoutParams indexSize = new LinearLayout.LayoutParams(-2, -2);
-        indexSize.topMargin = views.dp(5);
-        summary.addView(index, indexSize);
-        heading.addView(summary, new LinearLayout.LayoutParams(0, -2, 1));
+        heading.addView(views.label(activity.getString(R.string.air_quality), 14, views.muted),
+                new LinearLayout.LayoutParams(0, -2, 1));
         airQualityMapButton = views.mapButton(R.string.aurora_map_short, () -> openItalianMap(RadarActivity.Layer.AIR_QUALITY));
         airQualityMapButton.setContentDescription(activity.getString(R.string.air_quality_map));
-        LinearLayout.LayoutParams mapSize = new LinearLayout.LayoutParams(-2, -2);
-        mapSize.setMarginStart(views.dp(8));
-        heading.addView(airQualityMapButton, mapSize);
+        heading.addView(airQualityMapButton, new LinearLayout.LayoutParams(-2, -2));
         tile.addView(heading);
+
+        // The same layout as the wind, humidity, UV and pressure tiles, as wide as one of them so the
+        // gauge lines up under the UV gauge: large reading, detail, gauge.
+        LinearLayout content = views.row();
+        LinearLayout text = views.column();
+        content.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView reading = views.label("—", 25, views.ink);
+        text.addView(reading);
+        TextView detail = views.label(activity.getString(R.string.air_quality_loading), 13, views.muted);
+        detail.setPadding(0, views.dp(3), 0, 0);
+        text.addView(detail);
+        AqiGauge gauge = new AqiGauge(activity, Double.NaN);
+        content.addView(gauge, new LinearLayout.LayoutParams(views.dp(38), views.dp(58)));
+        int contentWidth = views.stackedCards() ? -1 : gridTileWidth() - tile.getPaddingLeft() - tile.getPaddingRight();
+        tile.addView(content, new LinearLayout.LayoutParams(contentWidth, -2));
+
         LinearLayout pollutants = views.column();
         pollutants.setVisibility(View.GONE);
-        LinearLayout.LayoutParams pollutantSize = new LinearLayout.LayoutParams(-1, -2);
-        pollutantSize.topMargin = views.dp(10);
-        tile.addView(pollutants, pollutantSize);
+        tile.addView(pollutants, new LinearLayout.LayoutParams(-1, -2));
         views.addSpaced(page, tile, 9);
         double lat = latitude;
         double lon = longitude;
@@ -625,24 +632,27 @@ public final class WeatherTab {
             if (activity.isDestroyed() || !tile.isAttachedToWindow()) return;
             double aqi = result == null ? Double.NaN : result.optDouble("european_aqi");
             if (!Double.isFinite(aqi)) {
-                index.setText(R.string.air_quality_unavailable);
+                detail.setText(R.string.air_quality_unavailable);
                 return;
             }
-            AirQualityBand band = AirQualityBand.forIndex(Math.round(aqi));
-            index.setText(activity.getString(R.string.air_quality_index, Math.round(aqi), activity.getString(band.label)));
-            GradientDrawable marker = views.background(band.color, 6);
-            marker.setBounds(0, 0, views.dp(10), views.dp(10));
-            index.setCompoundDrawablesRelative(marker, null, null, null);
-            index.setCompoundDrawablePadding(views.dp(7));
-            index.setBackground(views.background(SignalColors.tint(band.color), 9));
-            index.setPaddingRelative(views.dp(9), views.dp(4), views.dp(9), views.dp(4));
+            long index = Math.round(aqi);
+            AirQualityBand band = AirQualityBand.forIndex(index);
+            reading.setText(String.valueOf(index));
+            detail.setText(band.label);
+            gauge.setIndex(aqi);
+            content.setContentDescription(activity.getString(R.string.air_quality_index, index, activity.getString(band.label)));
             addAirQualityPollutants(pollutants, result);
             pollutants.setVisibility(View.VISIBLE);
         }));
     }
 
-
     private void addAirQualityPollutants(LinearLayout grid, JSONObject result) {
+        View divider = new View(activity);
+        divider.setBackgroundColor(activity.getColor(R.color.sky_grid));
+        LinearLayout.LayoutParams dividerSize = new LinearLayout.LayoutParams(-1, Math.max(1, views.dp(1) / 2));
+        dividerSize.topMargin = views.dp(10);
+        dividerSize.bottomMargin = views.dp(10);
+        grid.addView(divider, dividerSize);
         String[] fields = {"pm2_5", "pm10", "ozone", "nitrogen_dioxide", "sulphur_dioxide"};
         String[] symbols = {activity.getString(R.string.air_quality_pm25), "PM10", "O₃", "NO₂", "SO₂"};
         int[] names = {R.string.air_quality_pm25, R.string.air_quality_pm10, R.string.air_quality_ozone,
@@ -655,34 +665,38 @@ public final class WeatherTab {
             int end = Math.min(start + columns, fields.length);
             for (int i = start; i < end; i++) {
                 LinearLayout cell = views.column();
-                cell.setGravity(Gravity.START);
                 cell.addView(views.label(symbols[i], 12, views.muted));
                 double concentration = result.optDouble(fields[i]);
                 String value = formats().number(concentration, "%.1f");
                 android.text.SpannableString valueWithUnit = new android.text.SpannableString(
                         Double.isFinite(concentration) ? value + "\u00a0" + unit : value);
-                valueWithUnit.setSpan(new android.text.style.StyleSpan(Typeface.BOLD), 0, value.length(),
-                        android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 if (valueWithUnit.length() > value.length()) {
                     valueWithUnit.setSpan(new android.text.style.RelativeSizeSpan(0.73f),
                             value.length(), valueWithUnit.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    valueWithUnit.setSpan(new android.text.style.ForegroundColorSpan(views.muted),
+                            value.length(), valueWithUnit.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 }
-                TextView reading = views.label("", 16, views.ink);
-                reading.setText(valueWithUnit);
+                LinearLayout readingRow = views.row();
                 AirQualityBand band = AirQualityBand.forConcentration(fields[i], concentration);
                 String description = lineReading(activity.getString(names[i]), concentration, unit);
                 if (band != null) {
-                    reading.setBackground(views.background(SignalColors.tint(band.color), 7));
-                    reading.setPaddingRelative(views.dp(6), views.dp(2), views.dp(6), views.dp(2));
+                    View dot = new View(activity);
+                    dot.setBackground(views.background(band.color, 4));
+                    LinearLayout.LayoutParams dotSize = new LinearLayout.LayoutParams(views.dp(8), views.dp(8));
+                    dotSize.setMarginEnd(views.dp(6));
+                    readingRow.addView(dot, dotSize);
                     description += " · " + activity.getString(band.label);
                 }
+                TextView reading = views.label("", 15, views.ink);
+                reading.setText(valueWithUnit);
+                readingRow.addView(reading);
                 LinearLayout.LayoutParams readingSize = new LinearLayout.LayoutParams(-2, -2);
                 readingSize.topMargin = views.dp(3);
-                cell.addView(reading, readingSize);
+                cell.addView(readingRow, readingSize);
                 cell.setContentDescription(description);
                 cell.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
                 for (int child = 0; child < cell.getChildCount(); child++) {
-                    cell.getChildAt(child).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                    cell.getChildAt(child).setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
                 }
                 LinearLayout.LayoutParams cellSize = new LinearLayout.LayoutParams(0, -2, 1);
                 if (i - start < columns - 1) cellSize.setMarginEnd(views.dp(4));
@@ -691,7 +705,9 @@ public final class WeatherTab {
             for (int i = end - start; i < columns; i++) {
                 line.addView(new View(activity), new LinearLayout.LayoutParams(0, 0, 1));
             }
-            views.addSpaced(grid, line, start == 0 ? 0 : 8);
+            LinearLayout.LayoutParams lineSize = new LinearLayout.LayoutParams(-1, -2);
+            if (start > 0) lineSize.topMargin = views.dp(10);
+            grid.addView(line, lineSize);
         }
     }
 
@@ -784,9 +800,7 @@ public final class WeatherTab {
 
     private void addMetricGrid(View first, View second, View third, View fourth) {
         View[] cards = {first, second, third, fourth};
-        boolean stacked = views.stackedCards();
-        int width = views.dp(activity.getResources().getConfiguration().screenWidthDp) - page.getPaddingLeft() - page.getPaddingRight();
-        int tileWidth = Math.max(1, stacked ? width : (width - views.dp(10)) / 2);
+        int tileWidth = gridTileWidth();
         int widthSpec = View.MeasureSpec.makeMeasureSpec(tileWidth, View.MeasureSpec.EXACTLY);
         int heightSpec = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED);
         int height = views.dp(100);
@@ -800,6 +814,13 @@ public final class WeatherTab {
     }
 
 
+    /** Width of a tile in the two-column conditions grid, or of the page when tiles are stacked. */
+    private int gridTileWidth() {
+        int width = views.dp(activity.getResources().getConfiguration().screenWidthDp)
+                - page.getPaddingLeft() - page.getPaddingRight();
+        return Math.max(1, views.stackedCards() ? width : (width - views.dp(METRIC_GAP_DP)) / 2);
+    }
+
     private void addMetricRow(View first, View second) {
         if (views.stackedCards()) {
             views.addSpaced(page, first, 9);
@@ -810,7 +831,7 @@ public final class WeatherTab {
         tiles.setGravity(Gravity.TOP);
         tiles.addView(first, new LinearLayout.LayoutParams(0, -1, 1));
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, -1, 1);
-        params.leftMargin = views.dp(10);
+        params.leftMargin = views.dp(METRIC_GAP_DP);
         tiles.addView(second, params);
         views.addSpaced(page, tiles, 9);
     }
