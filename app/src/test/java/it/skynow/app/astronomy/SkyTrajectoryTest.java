@@ -2,6 +2,7 @@ package it.skynow.app.astronomy;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -79,6 +80,52 @@ public class SkyTrajectoryTest {
         assertEquals(LocalDate.of(2024, 1, 11), localDate(moon.points.get(0).time));
         assertEquals(0, moon.now.elevation, 0);
         assertNonDecreasing(moon.points);
+    }
+
+    // Longyearbyen, Svalbard: in late November 2026 the Moon stays up from the 26th until it sets
+    // on the 30th at 14:20 UTC.
+    private static final double SVALBARD_LAT = 78.2232;
+    private static final double SVALBARD_LON = 15.6267;
+    private static final ZoneId SVALBARD = ZoneId.of("Arctic/Longyearbyen");
+
+    @Test public void circumpolarMoonIsDrawnForOneLunarDay() {
+        Instant now = Instant.parse("2026-11-28T12:00:00Z");
+        Instant set = Instant.parse("2026-11-30T14:20:00Z");
+        SkyTrajectory moon = SkyTrajectory.lunarPass(now, SVALBARD, SVALBARD_LAT, SVALBARD_LON, null, set);
+        List<SkyTrajectory.Point> points = moon.points;
+        long first = points.get(0).time;
+        long last = points.get(points.size() - 1).time;
+        assertEquals(SkyTrajectory.LUNAR_DAY_SECONDS, last - first);
+        assertTrue(first < now.getEpochSecond() && now.getEpochSecond() < last);
+        // Neither end of the window is a real rise or set.
+        assertNull(moon.rise);
+        assertNull(moon.set);
+        assertTrue("Circuits: " + circuits(points), circuits(points) <= 1.02);
+        assertNonDecreasing(points);
+        for (SkyTrajectory.Point point : points) assertTrue(point.elevation >= 0);
+    }
+
+    @Test public void longPassKeepsARealSetInsideTheWindow() {
+        // Up for nine days; at 05:00 the set at 11:20 falls inside the lunar-day window.
+        Instant rise = Instant.parse("2026-12-19T06:37:00Z");
+        Instant set = Instant.parse("2026-12-28T11:20:00Z");
+        Instant now = Instant.parse("2026-12-28T05:00:00Z");
+        SkyTrajectory moon = SkyTrajectory.lunarPass(now, SVALBARD, SVALBARD_LAT, SVALBARD_LON, rise, set);
+        assertNull(moon.rise);
+        assertNotNull(moon.set);
+        assertEquals(set.getEpochSecond(), moon.set.time);
+        assertSame(moon.set, moon.points.get(moon.points.size() - 1));
+        assertEquals(set.getEpochSecond() - SkyTrajectory.LUNAR_DAY_SECONDS, moon.points.get(0).time);
+    }
+
+    /** Net turns of azimuth along the track. */
+    private static double circuits(List<SkyTrajectory.Point> points) {
+        double sweep = 0;
+        for (int i = 1; i < points.size(); i++) {
+            double step = points.get(i).azimuth - points.get(i - 1).azimuth;
+            sweep += ((step + 540) % 360) - 180;
+        }
+        return Math.abs(sweep) / 360;
     }
 
     private static void assertNonDecreasing(List<SkyTrajectory.Point> points) {

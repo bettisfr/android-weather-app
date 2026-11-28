@@ -11,6 +11,8 @@ import java.util.function.Predicate;
 public final class SkyTrajectory {
     private static final int STEP_SECONDS = 120;
     private static final int HORIZON_SEARCH_STEPS = 26 * 60 * 60 / STEP_SECONDS;
+    /** The Moon returns to the same azimuth about every 24 h 50 min. */
+    static final long LUNAR_DAY_SECONDS = 89_400;
 
     public static class Point {
         public final long time;
@@ -118,13 +120,25 @@ public final class SkyTrajectory {
         LocalDate date = now.atZone(zone).toLocalDate();
         long start = rise == null ? date.atStartOfDay(zone).toEpochSecond() : rise.time;
         long end = set == null ? date.plusDays(1).atStartOfDay(zone).toEpochSecond() - 1 : set.time;
+        boolean bounded = rise != null && set != null;
+        if (end - start > LUNAR_DAY_SECONDS) {
+            // Near the poles the Moon can stay up for days. Draw one lunar day around now instead of
+            // every circuit until it sets, and do not label the cut ends as rise or set.
+            long windowStart = Math.max(start,
+                    Math.min(now.getEpochSecond() - LUNAR_DAY_SECONDS / 2, end - LUNAR_DAY_SECONDS));
+            long windowEnd = windowStart + LUNAR_DAY_SECONDS;
+            if (windowStart > start) rise = null;
+            if (windowEnd < end) set = null;
+            start = windowStart;
+            end = windowEnd;
+        }
         long step = Math.max(STEP_SECONDS, (end - start) / 480);
         List<Point> points = new ArrayList<>();
         Point peak = null;
         for (long time = start; ; time = Math.min(end, time + step)) {
             Point point = time == start && rise != null ? rise
                     : time == end && set != null ? set : sample.apply(time);
-            if (rise != null && set != null && point.elevation < 0) point = atHorizon(point);
+            if (bounded && point.elevation < 0) point = atHorizon(point);
             points.add(point);
             if (point.elevation >= 0 && (peak == null || point.elevation > peak.elevation)) peak = point;
             if (time == end) break;

@@ -817,8 +817,11 @@ public final class AstronomyTab {
         double lat = latitude;
         double lon = longitude;
         String period = date.format(formats().shortDate(true));
-        if (track.continuous && track.rise != null && track.set != null && track.rise.time <= track.set.time) {
-            period += " · " + skyTrack.skyTrackTime(track.rise, zone, date) + " – " + skyTrack.skyTrackTime(track.set, zone, date);
+        // A Moon that stays up for days is drawn over one lunar day; show where that window starts and ends.
+        SkyTrajectory.Point first = moon && track.rise == null ? track.points.get(0) : track.rise;
+        SkyTrajectory.Point last = moon && track.set == null ? track.points.get(track.points.size() - 1) : track.set;
+        if (track.continuous && first != null && last != null && first.time <= last.time) {
+            period += " · " + skyTrack.skyTrackTime(first, zone, date) + " – " + skyTrack.skyTrackTime(last, zone, date);
         }
         int fill = planet == null ? SignalColors.PURPLE : widgets.magnitudeColor(magnitude);
         skyTrack.showSkyTrack(activity.getString(R.string.daily_sky_track, name), period, magnitude, fill, panel -> {
